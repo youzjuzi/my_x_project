@@ -1,0 +1,71 @@
+# ===================================================================
+# General: Editor, OS, and Environment Files
+# These rules apply to the entire project repository.
+# ===================================================================
+
+# Editor/OS specific files (apply to root and all subdirectories)
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Environment variables - NEVER commit secrets!
+.env
+.env.*
+!.env.example
+
+
+# ===================================================================
+# Backend: Java (x-admin)
+# Rules specific to the 'x-admin' backend sub-project.
+# ===================================================================
+
+# Compiled output from Maven/Gradle
+x-admin/target/
+x-admin/build/
+
+# Spring Boot specific
+x-admin/HELP.md
+
+# Maven Wrapper - Do NOT ignore the wrapper jar
+!x-admin/.mvn/wrapper/maven-wrapper.jar
+
+# IDE specific files for Java projects
+x-admin/.apt_generated
+x-admin/.classpath
+x-admin/.factorypath
+x-admin/.project
+x-admin/.settings/
+x-admin/.springBeans
+x-admin/.sts4-cache
+x-admin/*.iws
+x-admin/*.iml
+x-admin/*.ipr
+
+# NetBeans specific
+x-admin/nbproject/private/
+x-admin/nbbuild/
+x-admin/dist/
+x-admin/nbdist/
+x-admin/.nb-gradle/
+
+
+# ===================================================================
+# Frontend: Vue (admin-web)
+# Rules specific to the 'admin-web' frontend sub-project.
+# ===================================================================
+
+# Dependencies
+admin-web/node_modules/
+
+# Build output
+admin-web/dist/
+
+# Logs
+admin-web/npm-debug.log*
+admin-web/yarn-debug.log*
+admin-web/yarn-error.log*
+
+# Test coverage reports
+admin-web/tests/**/coverage/
