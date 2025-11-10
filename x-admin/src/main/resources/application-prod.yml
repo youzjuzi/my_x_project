@@ -10,9 +10,10 @@ spring:
     url: jdbc:mysql://10.130.92.113/xdb?useSSL=false
     driver-class-name: com.mysql.cj.jdbc.Driver
 
-  redis:
-    port: 6379
-    host: localhost
+  data:
+    redis:
+      port: 6379
+      host: localhost
 
 logging:
   level:
