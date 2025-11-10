@@ -55,16 +55,16 @@ public class UserController {
     }
     @Operation(summary = "用户登录")
     @PostMapping("/login")
-    public Result<Map<String,Object>> login(@RequestBody User user,HttpServletRequest request){
+    public Result<Map<String,Object>> login(@RequestBody User user){
 
         //System.out.println("codeKey:" + user.getCodeKey());
         //System.out.println("code:" + user.getCaptcha());
         //判断验证码是否正确
-        if (!user.getCaptcha().toLowerCase().equals(CaptureConfig.CAPTURE_MAP.get(user.getCodeKey()))) {
-            //验证码错误
-            CaptureConfig.CAPTURE_MAP.clear();
-            return Result.fail(20004,"验证码错误");
-        }
+//        if (!user.getCaptcha().toLowerCase().equals(CaptureConfig.CAPTURE_MAP.get(user.getCodeKey()))) {
+//            //验证码错误
+//            CaptureConfig.CAPTURE_MAP.clear();
+//            return Result.fail(20004,"验证码错误");
+//        }
         Map<String,Object> data = userService.login(user);
         if (data != null){
             User loggedInUser = userService.getByUsername(user.getUsername());
