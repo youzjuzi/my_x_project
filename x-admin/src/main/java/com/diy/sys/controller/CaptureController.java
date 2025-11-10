@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /*
 * 验证码
@@ -31,6 +31,7 @@ public class CaptureController {
         CaptureConfig.CAPTURE_MAP.put(key, specCaptcha.text().toLowerCase());
         //System.out.println("key" + key);
         //输出图片
-        CaptchaUtil.out(specCaptcha, request, response);
+        response.setContentType("image/png");
+        specCaptcha.out(response.getOutputStream());
     }
 }
