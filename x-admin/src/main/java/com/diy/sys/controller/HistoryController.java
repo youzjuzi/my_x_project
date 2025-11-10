@@ -6,10 +6,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.diy.common.vo.Result;
 import com.diy.sys.entity.Detection;
 import com.diy.sys.entity.FormattedDetectionDTO;
-import com.diy.sys.entity.Role;
 import com.diy.sys.service.IHistoryService;
-import com.diy.sys.service.impl.HistoryServiceImpl;
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Api(tags = {"翻译历史接口"})
+@Tag(name = "翻译历史接口")
 @RestController
 @RequestMapping("/history")
 public class HistoryController {
