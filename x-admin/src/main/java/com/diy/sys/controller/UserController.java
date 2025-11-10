@@ -9,8 +9,8 @@ import com.diy.sys.entity.UserActivityTime;
 import com.diy.sys.service.IUserActivityTimeService;
 import com.diy.sys.service.IUserService;
 import com.wf.captcha.utils.CaptchaUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.repository.query.Param;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,7 +18,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.stereotype.Controller;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +31,7 @@ import java.util.Map;
  * @author youzi
  * @since 2023-09-02
  */
-@Api(tags = {"用户接口列表"})
+@Tag(name = "用户接口列表")
 @RestController
 @RequestMapping("/user")
 public class UserController {
@@ -53,7 +53,7 @@ public class UserController {
         List<User> list = userService.list();
         return Result.success(list, "查询成功");
     }
-    @ApiOperation("用户登录")
+    @Operation(summary = "用户登录")
     @PostMapping("/login")
     public Result<Map<String,Object>> login(@RequestBody User user,HttpServletRequest request){
 
@@ -62,7 +62,7 @@ public class UserController {
         //判断验证码是否正确
         if (!user.getCaptcha().toLowerCase().equals(CaptureConfig.CAPTURE_MAP.get(user.getCodeKey()))) {
             //验证码错误
-            CaptchaUtil.clear(request);
+            CaptureConfig.CAPTURE_MAP.clear();
             return Result.fail(20004,"验证码错误");
         }
         Map<String,Object> data = userService.login(user);
@@ -75,14 +75,15 @@ public class UserController {
         }
         return Result.fail(20002,"用户名或密码错误");
     }
-    @ApiOperation("用户注册")
+
+    @Operation(summary = "用户注册")
     @PostMapping("/register")
     public Result<?> register(@RequestBody User user,HttpServletRequest request){
         System.out.println("codeKey:" + user.getCodeKey());
         System.out.println("code:" + user.getCaptcha());
         if (!user.getCaptcha().toLowerCase().equals(CaptureConfig.CAPTURE_MAP.get(user.getCodeKey()))) {
             //验证码错误
-            CaptchaUtil.clear(request);
+            CaptureConfig.CAPTURE_MAP.clear();
             return Result.fail(20004,"验证码错误");
         }
         //检测用户名是否已经存在
@@ -95,8 +96,7 @@ public class UserController {
         return Result.fail(20001,"注册失败");
     }
 
-
-    @GetMapping("/info")
+    @Operation(summary = "info")
     public Result<Map<String,Object>> getUserInfo(@RequestParam("token") String token){
         //根据token获取用户信息，redis
         Map<String,Object> data = userService.getUserInfo(token);
