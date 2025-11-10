@@ -1,24 +1,18 @@
 package com.diy.sys.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.diy.sys.entity.Role;
 import com.diy.sys.entity.RoleMenu;
 import com.diy.sys.mapper.RoleMapper;
 import com.diy.sys.mapper.RoleMenuMapper;
 import com.diy.sys.service.IRoleService;
-import kotlin.jvm.internal.Lambda;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
+
 
 @Service
 public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements IRoleService {
