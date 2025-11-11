@@ -20,44 +20,51 @@ public class JwtUtil {
     // 有效期
     private static final long JWT_EXPIRE = 30*60*1000L;  //半小时
     // 令牌秘钥
-    private static final String JWT_KEY = "123456";
+    private static final String JWT_KEY = "YourSuperSecretKeyForHS256Algorithm123";
 
-    public  String createToken(Object data){
-        // 当前时间
+    // 将密钥字符串转换为SecretKey对象，并作为静态常量，确保全局唯一且只生成一次
+    private static final SecretKey SECRET_KEY = Keys.hmacShaKeyFor(JWT_KEY.getBytes(StandardCharsets.UTF_8));
+
+    /**
+     * 创建JWT Token
+     * @param data
+     * @return
+     */
+    public String createToken(Object data) {
         long currentTime = System.currentTimeMillis();
-        // 过期时间
-        long expTime = currentTime+JWT_EXPIRE;
-        // 构建jwt
+        long expTime = currentTime + JWT_EXPIRE;
+
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())
                 .subject(JSON.toJSONString(data))
                 .issuer("system")
                 .issuedAt(new Date(currentTime))
                 .expiration(new Date(expTime))
+                .signWith(SECRET_KEY, SignatureAlgorithm.HS256)
                 .compact();
     }
-
-//    private SecretKey encodeSecret(String key){
-//        byte[] encode = Base64.getEncoder().encode(key.getBytes());
-//        SecretKeySpec aes = new SecretKeySpec(encode, 0, encode.length, "AES");
-//        return  aes;
-//    }
-    private SecretKey generateKey() {
-        byte[] keyBytes = JWT_KEY.getBytes(StandardCharsets.UTF_8);
-        return Keys.hmacShaKeyFor(keyBytes);
-    }
-
+    /**
+     * 解析JWT Token
+     * @param token
+     * @return
+     */
     public  Claims parseToken(String token){
         return Jwts.parser()
-                .verifyWith(generateKey())
+                .verifyWith(SECRET_KEY)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
     }
 
+    /**
+     * 解析Token并转换为指定对象
+     * @param token
+     * @param clazz
+     * @param <T>
+     * @return
+     */
     public <T> T parseToken(String token,Class<T> clazz){
         Claims claims = parseToken(token);
         return JSON.parseObject(claims.getSubject(), clazz);
     }
-
 }
