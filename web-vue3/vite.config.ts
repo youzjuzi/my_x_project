@@ -80,7 +80,6 @@ export default defineConfig(({ command, mode }) => {
       // setupProdMockServer();`
       // })
     ],
-      // 解决终端 optimized dependencies changed. reloading 问题
     server: {
       host: 'localhost',
       port: 8001,

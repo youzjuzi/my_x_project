@@ -1,90 +1,97 @@
 <template>
   <div class="login-container">
-    <el-form ref="loginForm" :model="loginForm" :rules="loginRules" class="login-form" autocomplete="on"
-             label-position="left">
-
+    <div class="login-card">
+      <!-- 标题区域 -->
       <div class="title-container">
-        <h3 class="title">Login Form</h3>
+        <h3 class="title">欢迎登录 <span class="system-name">Element后台管理系统</span></h3>
       </div>
 
-      <el-form-item prop="username">
-        <span class="svg-container">
-          <svg-icon icon-class="user" />
-        </span>
-        <el-input ref="username" v-model="loginForm.username" placeholder="Username" name="username" type="text"
-                  tabindex="1" autocomplete="on" />
-      </el-form-item>
+      <!-- 登录表单 -->
+      <el-form ref="loginForm" :model="loginForm" :rules="loginRules" class="login-form" label-position="top">
 
-      <el-tooltip v-model="capsTooltip" content="Caps lock is On" placement="right" manual>
-        <el-form-item prop="password">
-          <span class="svg-container">
-            <svg-icon icon-class="password" />
-          </span>
-          <el-input :key="passwordType" ref="password" v-model="loginForm.password" :type="passwordType"
-                    placeholder="Password" name="password" tabindex="2" autocomplete="on" @keyup="checkCapslock"
-                    @blur="capsTooltip = false" @keyup.enter="handleLogin" />
-          <span class="show-pwd" @click="showPwd">
-            <svg-icon :icon-class="passwordType === 'password' ? 'eye' : 'eye-open'" />
-          </span>
+        <el-form-item prop="username" label="用户名">
+          <el-input
+            ref="username"
+            v-model="loginForm.username"
+            placeholder="请输入用户名"
+            name="username"
+            type="text"
+            tabindex="1"
+            autocomplete="on"
+          >
+            <template #prefix>
+              <span class="svg-container"><svg-icon icon-class="user" /></span>
+            </template>
+          </el-input>
         </el-form-item>
-      </el-tooltip>
 
-      <el-button :loading="loading" type="primary" style="width:100%;margin-bottom:30px;" @click.prevent="handleLogin">
-        Login</el-button>
-
-      <div style="position:relative">
-        <div class="tips">
-          <span>Username : admin</span>
-          <span>Password : any</span>
-        </div>
-        <div class="tips">
-          <span style="margin-right:18px;">Username : editor</span>
-          <span>Password : any</span>
-        </div>
-
-        <el-button class="thirdparty-button" type="primary" @click="showDialog = true">
-          Or connect with
+        <el-tooltip v-model="capsTooltip" content="大写锁定已开启" placement="right" manual>
+          <el-form-item prop="password" label="密码">
+            <el-input
+              :key="passwordType"
+              ref="password"
+              v-model="loginForm.password"
+              :type="passwordType"
+              placeholder="请输入密码"
+              name="password"
+              tabindex="2"
+              autocomplete="on"
+              @keyup="checkCapslock"
+              @blur="capsTooltip = false"
+              @keyup.enter="handleLogin"
+            >
+              <template #prefix>
+                <span class="svg-container"><svg-icon icon-class="password" /></span>
+              </template>
+              <template #suffix>
+                <span class="show-pwd" @click="showPwd">
+                  <svg-icon :icon-class="passwordType === 'password' ? 'eye' : 'eye-open'" />
+                </span>
+              </template>
+            </el-input>
+          </el-form-item>
+        </el-tooltip>
+        <el-button :loading="loading" type="primary" style="width:100%;" @click.prevent="handleLogin">
+          登 录
         </el-button>
-      </div>
-    </el-form>
-
-    <el-dialog title="Or connect with" v-model="showDialog">
-      Can not be simulated on local, so please combine you own business simulation! ! !
-      <br>
-      <br>
-      <br>
-      <social-sign />
-    </el-dialog>
+         <!-- 添加注册相关文字 -->
+        <div class="register-container">
+          <span>还没有账号？</span>
+          <el-button type="text" @click="handleRegister">立即注册</el-button>
+          <el-divider direction="vertical"></el-divider>
+          <el-button type="text" @click="handleForgetPassword">忘记密码</el-button>
+        </div>
+      </el-form>
+    </div>
   </div>
 </template>
 
 <script lang="ts">
+// script部分与您提供的代码逻辑相同，此处不再赘述
 import { validUsername } from '@/utils/validate';
 import { defineComponent } from 'vue';
-import SocialSign from './components/SocialSignin.vue';
 import type { FormItemRule } from 'element-plus';
 import type { IForm } from '@/types/element-plus';
 import store from '@/store';
+import { ElMessage } from 'element-plus';
 
 interface QueryType {
-  // 自定义key 任意字符串
   [propname:string]:string
 }
 
 export default defineComponent({
   name: 'Login',
-  components: { SocialSign },
   data() {
     const validateUsername: FormItemRule['validator'] = (_rule, value, callback) => {
       if (!validUsername(value)) {
-        callback(new Error('Please enter the correct user name'));
+        callback(new Error('请输入正确的用户名'));
       } else {
         callback();
       }
     };
     const validatePassword: FormItemRule['validator'] = (_rule, value, callback) => {
       if (value.length < 6) {
-        callback(new Error('The password can not be less than 6 digits'));
+        callback(new Error('密码不能少于6位'));
       } else {
         callback();
       }
@@ -92,16 +99,15 @@ export default defineComponent({
     return {
       loginForm: {
         username: 'admin',
-        password: '111111'
+        password: '123456'
       },
       loginRules: {
-        username: [{ required: true, trigger: 'blur', validator: validateUsername }],
+        username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
         password: [{ required: true, trigger: 'blur', validator: validatePassword }]
       },
       passwordType: 'password',
       capsTooltip: false,
       loading: false,
-      showDialog: false,
       redirect: undefined,
       otherQuery: {}
     };
@@ -118,18 +124,12 @@ export default defineComponent({
       immediate: true
     }
   },
-  created() {
-    // window.addEventListener('storage', this.afterQRScan)
-  },
   mounted() {
     if (this.loginForm.username === '') {
-      (this.$refs.username as HTMLElement).focus();
+      (this.$refs.username as any).focus();
     } else if (this.loginForm.password === '') {
-      (this.$refs.password as HTMLElement).focus();
+      (this.$refs.password as any).focus();
     }
-  },
-  unmounted() {
-    // window.removeEventListener('storage', this.afterQRScan)
   },
   methods: {
     checkCapslock(e) {
@@ -143,7 +143,7 @@ export default defineComponent({
         this.passwordType = 'password';
       }
       this.$nextTick(() => {
-        (this.$refs.password as HTMLElement).focus();
+        (this.$refs.password as any).focus();
       });
     },
     // 登录
@@ -169,6 +169,21 @@ export default defineComponent({
         });
       });
     },
+    handleRegister() {
+    ElMessage({
+      message: '注册功能正在开发中，敬请期待！',
+      type: 'info',
+      duration: 3000
+    });
+
+    },
+    handleForgetPassword() {
+    ElMessage({
+      message: '忘记密码正在开发中，敬请期待！',
+      type: 'info',
+      duration: 3000
+    });
+    },
     getOtherQuery(query:QueryType) {
       return Object.keys(query).reduce((acc:QueryType, cur) => {
         if (cur !== 'redirect') {
@@ -177,151 +192,163 @@ export default defineComponent({
         return acc;
       }, {});
     }
-    // afterQRScan() {
-    //   if (e.key === 'x-admin-oauth-code') {
-    //     const code = getQueryObject(e.newValue)
-    //     const codeMap = {
-    //       wechat: 'code',
-    //       tencent: 'code'
-    //     }
-    //     const type = codeMap[this.auth_type]
-    //     const codeName = code[type]
-    //     if (codeName) {
-    //       store.user().LoginByThirdparty(codeName).then(() => {
-    //         this.$router.push({ path: this.redirect || '/' })
-    //       })
-    //     } else {
-    //       alert('第三方登录失败')
-    //     }
-    //   }
-    // }
   }
 });
 </script>
 
-<style lang="scss">
-/* 修复input 背景不协调 和光标变色 */
-/* Detail see https://github.com/PanJiaChen/vue-element-admin/pull/927 */
-
-$bg: #283443;
-$light_gray: #fff;
-$cursor: #fff;
-
-@supports (-webkit-mask: none) and (not (cater-color: $cursor)) {
-  .login-container .el-input input {
-    color: $cursor;
-  }
-}
-
-/* reset element-plus css */
-.login-container {
-  .el-input {
-    height: 47px;
-    width: 85%;
-
-    .el-input__wrapper,
-    input {
-      background: transparent;
-      border: 0px;
-      -webkit-appearance: none;
-      border-radius: 0px;
-      box-shadow: none;
-    }
-
-    input {
-      padding: 12px 5px 12px 15px;
-      color: $light_gray;
-      height: 47px;
-      caret-color: $cursor;
-
-      &:-webkit-autofill {
-        box-shadow: 0 0 0px 1000px $bg inset !important;
-        -webkit-text-fill-color: $cursor  !important;
-      }
-    }
-  }
-
-  .el-form-item {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 5px;
-    color: #454545;
-  }
-}
-</style>
-
 <style lang="scss" scoped>
-$bg: #2d3a4b;
-$dark_gray: #889aa4;
-$light_gray: #eee;
-
+// 登录容器 - 页面整体布局
 .login-container {
-  min-height: 100%;
-  width: 100%;
-  background-color: $bg;
-  overflow: hidden;
+  display: flex;
+  justify-content: center;     // 水平居中
+  align-items: center;        // 垂直居中
+  width: 100%;                // 占满整个视窗宽度
+  min-height: 100vh;          // 最小高度为视窗高度
+  background: linear-gradient(135deg, #cbecff 0%, #00f2fe 100%);  // 渐变背景色
+  overflow: hidden;           // 隐藏溢出内容
+}
 
-  .login-form {
-    position: relative;
-    width: 520px;
-    max-width: 100%;
-    padding: 160px 35px 0;
-    margin: 0 auto;
-    overflow: hidden;
+// 注册相关文字 - 登录表单下方的注册提示区域
+.register-container {
+  display: flex;
+  justify-content: center;    // 水平居中内容
+  align-items: center;        // 垂直居中内容
+  margin-top: 20px;           // 上边距20px
+  font-size: 14px;            // 字体大小14px
+  color: #666;                // 字体颜色灰色
+
+  // 确保文本垂直居中对齐
+  span {
+    display: inline-flex;
+    align-items: center;
   }
 
-  .tips {
-    font-size: 14px;
-    color: #fff;
-    margin-bottom: 10px;
+  // 文本按钮样式
+  .el-button--text {
+    padding: 0;               // 无内边距
+    margin: 0 5px;            // 左右外边距5px
+    font-size: 14px;          // 字体大小14px
+    color: var(--el-color-primary);  // 主题色
 
-    span {
-      &:first-of-type {
-        margin-right: 16px;
+    &:hover {
+      color: var(--el-color-primary-light-3);  // 悬停时的颜色
+    }
+  }
+
+  // 分割线样式
+  .el-divider--vertical {
+    margin: 0 2px;            // 左右外边距2px
+  }
+}
+
+// 登录卡片 - 表单容器
+.login-card {
+  width: 520px;               // 固定宽度520px
+  background-color: #ffffff;  // 白色背景
+  border-radius: 16px;        // 圆角16px
+  padding: 60px 50px 50px;    // 内边距：上60px，左右50px，下50px
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);  // 阴影效果
+}
+
+// 标题容器
+.title-container {
+  text-align: center;         // 文本居中
+  margin-bottom: 40px;        // 下边距40px
+
+  .title {
+    font-size: 32px;          // 标题字体大小32px
+    font-weight: 600;         // 字体粗细600
+    color: #333;              // 深灰色字体
+    margin: 0;                // 无外边距
+  }
+
+  .system-name {
+    font-weight: normal;      // 正常字体粗细
+    font-size: 20px;          // 副标题字体大小20px
+    color: #555;              // 灰色字体
+  }
+}
+
+// SVG图标容器
+.svg-container {
+  padding: 0 5px 0 10px;      // 内边距设置
+  color: #889aa4;             // 图标颜色
+  vertical-align: middle;     // 垂直居中
+  display: inline-block;      // 行内块元素
+}
+
+// 显示密码图标
+.show-pwd {
+  font-size: 16px;            // 字体大小16px
+  color: #889aa4;             // 图标颜色
+  cursor: pointer;            // 鼠标指针样式
+  user-select: none;          // 禁止文本选择
+  // 使用flex布局让图标垂直居中
+  display: flex;
+  align-items: center;
+  height: 100%;               // 占满父元素高度
+  padding-right: 10px;        // 右内边距10px
+}
+
+// 使用 :deep() 修改 Element Plus 组件内部样式
+:deep() {
+  .login-form {
+    .el-form-item {
+      margin-bottom: 25px;      // 表单项下边距25px
+    }
+
+    .el-form-item__label {
+      padding: 0;               // 无内边距
+      line-height: 1.2px;         // 行高1.5倍
+      padding-bottom: 8px;      // 下内边距8px
+      color: #333;              // 深灰色字体
+      font-weight: 500;         // 字体粗细500
+      font-size: 18px;
+    }
+
+    .el-input__wrapper {
+      height: 52px;             // 输入框高度52px
+      border-radius: 20px;       // 圆角8px
+      padding-left: 0;          // 无左内边距
+      padding-right: 0;         // 无右内边距
+      border: 1px solid #dcdfe6; // 边框样式
+      box-shadow: none !important; // 无阴影
+      transition: border-color 0.2s; // 边框颜色过渡动画
+
+      &:hover {
+        border-color: #c0c4cc;  // 悬停时边框颜色
+      }
+
+      &.is-focus {
+        border-color: var(--el-color-primary);  // 聚焦时边框颜色
       }
     }
-  }
 
-  .svg-container {
-    padding: 6px 5px 6px 15px;
-    color: $dark_gray;
-    vertical-align: middle;
-    width: 30px;
-    display: inline-block;
-  }
-
-  .title-container {
-    position: relative;
-
-    .title {
-      font-size: 26px;
-      color: $light_gray;
-      margin: 0px auto 40px auto;
-      text-align: center;
-      font-weight: bold;
+    // 登录按钮样式
+    .el-button {
+      margin-top: 5px;          // 上外边距5px
+      height: 50px;             // 按钮高度50px
+      border-radius: 40px;      // 大圆角40px
+      font-size: 18px;          // 字体大小18px
+      font-weight: 100;         // 极细字体
+      letter-spacing: 3px;      // 字母间距3px
     }
   }
+}
 
-  .show-pwd {
-    position: absolute;
-    right: 10px;
-    top: 7px;
-    font-size: 16px;
-    color: $dark_gray;
-    cursor: pointer;
-    user-select: none;
+// 响应式设计 - 移动端适配
+@media (max-width: 500px) {
+  .login-card {
+    width: 90%;                 // 宽度占90%
+    padding: 40px 25px 30px;    // 调整内边距适应小屏幕
   }
 
-  .thirdparty-button {
-    position: absolute;
-    right: 0;
-    bottom: 6px;
+  .title-container .title {
+    font-size: 24px;            // 调小标题字体
   }
 
-  @media only screen and (max-width: 470px) {
-    .thirdparty-button {
-      display: none;
-    }
+  .system-name {
+    font-size: 16px;            // 调小副标题字体
   }
 }
 </style>
