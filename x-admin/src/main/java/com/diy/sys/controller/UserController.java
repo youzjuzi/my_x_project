@@ -56,9 +56,6 @@ public class UserController {
     @Operation(summary = "用户登录")
     @PostMapping("/login")
     public Result<Map<String,Object>> login(@RequestBody User user){
-
-//        System.out.println("codeKey:" + user.getCodeKey());
-//        System.out.println("code:" + user.getCaptcha());
         // 判断验证码是否正确
         if (!user.getCaptcha().toLowerCase().equals(CaptureConfig.CAPTURE_MAP.get(user.getCodeKey()))) {
             //验证码错误
@@ -78,9 +75,7 @@ public class UserController {
 
     @Operation(summary = "用户注册")
     @PostMapping("/register")
-    public Result<?> register(@RequestBody User user,HttpServletRequest request){
-        System.out.println("codeKey:" + user.getCodeKey());
-        System.out.println("code:" + user.getCaptcha());
+    public Result<?> register(@RequestBody User user){
         if (!user.getCaptcha().toLowerCase().equals(CaptureConfig.CAPTURE_MAP.get(user.getCodeKey()))) {
             //验证码错误
             CaptureConfig.CAPTURE_MAP.clear();

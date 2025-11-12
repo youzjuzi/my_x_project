@@ -101,29 +101,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         return null;
     }
 
-//    @Override
-//    public Map<String, Object> login(User user) {
-//        //根据用户名与密码取查询
-//        LambdaQueryWrapper<User> Wrapper = new LambdaQueryWrapper();
-//        Wrapper.eq(User::getUsername,user.getUsername());
-//        Wrapper.eq(User::getPassword,user.getPassword());
-//        User loginUser = this.baseMapper.selectOne(Wrapper);
-//        //结果不为空，则需要生成token，并且用户信息存入redis
-//        if (loginUser != null){
-//            // 暂时用UUID, 终极方案是jwt
-//            String key = "user:" + UUID.randomUUID();
-//
-//            // 存入redis
-//            loginUser.setPassword(null);
-//            redisTemplate.opsForValue().set(key,loginUser,30, TimeUnit.MINUTES);
-//
-//            // 返回数据
-//            Map<String, Object> data = new HashMap<>();
-//            data.put("token",key);
-//            return data;
-//        }
-//        return null;
-//    }
 
     //根据token获取用户信息
     @Override
