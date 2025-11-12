@@ -146,6 +146,7 @@ export default defineComponent({
         (this.$refs.password as HTMLElement).focus();
       });
     },
+    // 登录
     handleLogin() {
       (this.$refs.loginForm as IForm).validate(valid => {
         return new Promise((resolve, reject) => {

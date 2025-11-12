@@ -80,13 +80,15 @@ export default defineConfig(({ command, mode }) => {
       // setupProdMockServer();`
       // })
     ],
+      // 解决终端 optimized dependencies changed. reloading 问题
     server: {
       host: 'localhost',
       port: 8001,
       proxy: {
         '/user': {
-          target: 'https://localhost:9999',
+          target: 'http://localhost:9999',
           changeOrigin: true,
+          secure: false,
           //rewrite: (path) => path.replace(/^\/api-test/, ''),
         }
       }
