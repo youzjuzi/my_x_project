@@ -11,9 +11,9 @@
 .DS_Store
 
 # Environment variables - NEVER commit secrets!
-.env
-.env.*
-!.env.example
+#.env
+#.env.*
+#!.env.example
 
 
 # ===================================================================
@@ -54,18 +54,55 @@ x-admin/.nb-gradle/
 # ===================================================================
 # Frontend: Vue (admin-web)
 # Rules specific to the 'admin-web' frontend sub-project.
+# gitignore for admin-web frontend
 # ===================================================================
 
+admin-web/
+
 # Dependencies
-admin-web/node_modules/
+#admin-web/node_modules/
+#
+## Build output
+#admin-web/dist/
+#
+## Logs
+#admin-web/npm-debug.log*
+#admin-web/yarn-debug.log*
+#admin-web/yarn-error.log*
+#
+## Test coverage reports
+#admin-web/tests/**/coverage/
 
-# Build output
-admin-web/dist/
-
+# ===================================================================
+# Frontend: Vue (web-vue3)
+# Rules specific to the 'web-vue3' frontend sub-project.
+# ===================================================================
 # Logs
-admin-web/npm-debug.log*
-admin-web/yarn-debug.log*
-admin-web/yarn-error.log*
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Test coverage reports
-admin-web/tests/**/coverage/
+node_modules
+dist
+dist-ssr
+coverage
+*.local
+
+/cypress/videos/
+/cypress/screenshots/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+*.tsbuildinfo
