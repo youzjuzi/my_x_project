@@ -1,25 +1,36 @@
 import request from '@/utils/request';
 
+
+// 登录
 export function login(data) {
   return request({
-    url: '/vue-element-admin/user/login',
+    url: '/user/login',
     method: 'post',
     data
   });
 }
 
+//  注册
+export function register(data) {
+  return request({
+    url: '/user/register',
+    method: 'post',
+    data
+  });
+}
+
+
 export function getInfo(token) {
   return request({
-    url: '/vue-element-admin/user/info',
+    url: '/user/info',
     method: 'get',
     params: { token }
   });
 }
 
-export function logout(token) {
+export function logout() {
   return request({
-    url: '/vue-element-admin/user/logout',
+    url: '/user/logout',
     method: 'post',
-    params: { token }
   });
 }

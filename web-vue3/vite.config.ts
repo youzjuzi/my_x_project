@@ -67,30 +67,27 @@ export default defineConfig(({ command, mode }) => {
         inject: 'body-last' // 'body-prepend' | 'body-append' | false
       }),
       // https://openbase.com/js/vite-plugin-mock
-      viteMockServe({
-        ignore: /^_/,
-        mockPath: './mock/',
-        supportTs: true,
-        watchFiles: true,
-        localEnabled: command === 'serve',
-        prodEnabled: command !== 'serve' && prodMock,
-        // configPath: './mock/index.js',
-        logger: false,
-        injectCode: `import { setupProdMockServer } from '../mock/_createProductionServer.js';
-      setupProdMockServer();`
-      })
+      // viteMockServe({
+      //   ignore: /^_/,
+      //   mockPath: './mock/',
+      //   supportTs: true,
+      //   watchFiles: true,
+      //   localEnabled: command === 'serve',
+      //   prodEnabled: command !== 'serve' && prodMock,
+      //   // configPath: './mock/index.js',
+      //   logger: false,
+      //   injectCode: `import { setupProdMockServer } from '../mock/_createProductionServer.js';
+      // setupProdMockServer();`
+      // })
     ],
     server: {
       host: 'localhost',
       port: 8001,
       proxy: {
-        '/api-test': {
-          target: 'https://api.midfar.com/dspt_test/api',
+        '/user': {
+          target: 'https://localhost:9999',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api-test/, ''),
-          headers: {
-            Cookie: env.VITE_COOKIE
-          }
+          //rewrite: (path) => path.replace(/^\/api-test/, ''),
         }
       }
     }
