@@ -39,4 +39,12 @@ export default {
             method: 'get'
         })
     },
+    // 修改用户
+    updateUser(user) {
+        return request({
+            url: '/user',
+            method: 'put',
+            data: user
+        })
+    }
 }

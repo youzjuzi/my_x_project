@@ -70,8 +70,16 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="email" label="邮箱" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="phone" label="电话" min-width="140" />
+        <el-table-column prop="email" label="邮箱" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.email || '—' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="phone" label="电话" min-width="140">
+          <template #default="{ row }">
+            {{ row.phone || '—' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="roleTitles" label="角色" min-width="180">
           <template #default="{ row }">
             <template v-if="row.roleTitles.length">
@@ -106,12 +114,13 @@
                   @click="handleView(row)"
                 />
               </el-tooltip>
-              <el-tooltip content="编辑" effect="dark" placement="top">
+              <el-tooltip :content="row.id === 1 ? '超级管理员不可修改' : '编辑'" effect="dark" placement="top">
                 <el-button
                   circle
                   class="action-icon"
                   type="warning"
                   :icon="Edit"
+                  :disabled="row.id === 1"
                   @click="handleEdit(row)"
                 />
               </el-tooltip>
@@ -203,6 +212,73 @@
   </el-dialog>
 
   <el-dialog
+    v-model="editDialogVisible"
+    title="修改用户"
+    width="520px"
+    destroy-on-close
+    @closed="resetEditForm"
+  >
+    <el-form ref="editFormRef" :model="editForm" :rules="editRules" label-width="90px">
+      <el-form-item label="用户名" prop="username">
+        <el-input v-model="editForm.username" placeholder="请输入用户名" />
+      </el-form-item>
+      <el-form-item label="密码">
+        <el-input
+          v-model="editForm.password"
+          placeholder="如需修改密码请输入新密码"
+          type="password"
+          show-password
+        />
+      </el-form-item>
+      <el-form-item label="确认密码" prop="confirmPassword">
+        <el-input
+          v-model="editForm.confirmPassword"
+          placeholder="请再次输入新密码"
+          type="password"
+          show-password
+        />
+      </el-form-item>
+      <el-form-item label="邮箱" prop="email">
+        <el-input v-model="editForm.email" placeholder="请输入邮箱" />
+      </el-form-item>
+      <el-form-item label="电话" prop="phone">
+        <el-input v-model="editForm.phone" placeholder="请输入联系电话" />
+      </el-form-item>
+      <el-form-item label="状态">
+        <el-switch
+          v-model="editForm.status"
+          active-text="启用"
+          inactive-text="停用"
+        />
+      </el-form-item>
+      <el-form-item label="分配角色">
+        <el-select
+          v-model="editForm.roleIds"
+          multiple
+          filterable
+          placeholder="请选择角色"
+          class="full-width"
+        >
+          <el-option
+            v-for="role in roleOptions"
+            :key="role.roleId"
+            :label="role.roleDesc || role.roleName"
+            :value="role.roleId"
+          />
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="editDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="editSubmitting" @click="handleEditSubmit">
+          保存
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+  <el-dialog
     v-model="viewDialogVisible"
     title="用户详情"
     width="520px"
@@ -229,14 +305,14 @@
         <span v-else>—</span>
       </el-descriptions-item>
       <el-descriptions-item label="状态">
-        <el-tag :type="Number(viewDetail.status) === 1 ? 'success' : 'danger'">
-          {{ Number(viewDetail.status) === 1 ? '启用' : '停用' }}
+        <el-tag :type="viewDetail.statusNumber === 1 ? 'success' : 'danger'">
+          {{ viewDetail.statusNumber === 1 ? '启用' : '停用' }}
         </el-tag>
       </el-descriptions-item>
       <el-descriptions-item label="角色">
-        <template v-if="viewDetail.roleNames?.length">
+        <template v-if="viewDetail.roleTitles?.length">
           <el-tag
-            v-for="role in viewDetail.roleNames"
+            v-for="role in viewDetail.roleTitles"
             :key="role"
             type="info"
             class="role-tag"
@@ -287,7 +363,9 @@ interface User {
   email: string
   phone: string
   status: 'enabled' | 'disabled'
+  statusNumber: number
   roleTitles: string[]
+  roleIds: number[]
   createdAt: string
   avatar?: string
 }
@@ -369,19 +447,103 @@ const createRules: FormRules = {
 }
 const createSubmitting = ref(false)
 
+// 编辑用户弹窗状态 & 表单
+const editDialogVisible = ref(false)
+const editFormRef = ref<FormInstance>()
+const editFormDefault = {
+  id: 0,
+  username: '',
+  password: '',
+  confirmPassword: '',
+  email: '',
+  phone: '',
+  status: true,
+  roleIds: [] as number[],
+  avatar: '',
+}
+const editForm = reactive({ ...editFormDefault })
+const editOriginalUsername = ref('')
+const emailPattern = /^[\w.+-]+@[\w-]+(\.[\w-]+)+$/
+const phonePattern = /^\d{5,20}$/
+
+const validateUsernameForEdit = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  const username = value?.trim()
+  if (!username) {
+    callback(new Error('请输入用户名'))
+    return
+  }
+  if (username === editOriginalUsername.value) {
+    callback()
+    return
+  }
+  userManageApi.checkUsername(username)
+    .then((res) => {
+      const { message } = (res as { message?: string })
+      if (message === '0') {
+        callback(new Error('用户名已存在'))
+      } else {
+        callback()
+      }
+    })
+    .catch(error => {
+      console.error('校验用户名失败', error)
+      callback(new Error('校验失败，请稍后重试'))
+    })
+}
+const validateEditPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  if (value && value.length < 6) {
+    callback(new Error('密码至少 6 位'))
+    return
+  }
+  callback()
+}
+const validateConfirmPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  if (editForm.password && !value) {
+    callback(new Error('请再次输入新密码'))
+    return
+  }
+  if (value && value !== editForm.password) {
+    callback(new Error('两次输入的密码不一致'))
+    return
+  }
+  callback()
+}
+const validateOptionalEmail = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  if (value && !emailPattern.test(value)) {
+    callback(new Error('邮箱格式不正确'))
+    return
+  }
+  callback()
+}
+const validateOptionalPhone = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  if (value && !phonePattern.test(value)) {
+    callback(new Error('电话格式不正确'))
+    return
+  }
+  callback()
+}
+const editRules: FormRules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { validator: validateUsernameForEdit, trigger: 'blur' }
+  ],
+  password: [{ validator: validateEditPassword, trigger: 'blur' }],
+  confirmPassword: [{ validator: validateConfirmPassword, trigger: 'blur' }],
+  email: [{ validator: validateOptionalEmail, trigger: 'blur' }],
+  phone: [{ validator: validateOptionalPhone, trigger: 'blur' }]
+}
+const editSubmitting = ref(false)
+
 const viewDialogVisible = ref(false)
-const viewDetail = ref<User & { roleNames?: string[], raw?: RawUserItem } | null>(null)
+const viewDetail = ref<User & { raw?: RawUserItem } | null>(null)
 const viewLoading = ref(false)
 
 // 后端已实现分页+筛选，因此直接使用接口返回的数据
 const pagedTableData = computed(() => tableData.value)
 
-const filteredTotal = computed(() => pagedTableData.value.length)
-
 const loadRoleDict = async () => {
   try {
     const res = await roleManageApi.getAllRoleList()
-    console.log('roleDict', res)
     const list: RoleItem[] = res.data || []
     roleDict.value = list.reduce((acc, role) => {
       acc[role.roleId] = role
@@ -395,22 +557,24 @@ const loadRoleDict = async () => {
 
 // 映射用户记录
 const mapUserRecord = (record: RawUserItem): User => {
-  const status = record.status === 1 ? 'enabled' : 'disabled'
-  const roleNames = Array.isArray(record.roleIdList)
-    ? record.roleIdList
-        .map((roleId) => roleDict.value[roleId]?.roleDesc || roleDict.value[roleId]?.roleName)
-        .filter(Boolean) as string[]
-    : []
+  const statusNumber = Number(record.status ?? 0)
+  const status = statusNumber === 1 ? 'enabled' : 'disabled'
+  const roleIds = Array.isArray(record.roleIdList) ? record.roleIdList : []
+  const roleNames = roleIds
+    .map((roleId) => roleDict.value[roleId]?.roleDesc || roleDict.value[roleId]?.roleName)
+    .filter(Boolean) as string[]
 
   return {
     id: record.id,
-    username: record.username || '--',
-    nickname: record.username || '--',
-    email: record.email || '--',
-    phone: record.phone || '--',
+    username: record.username || '',
+    nickname: record.username || '',
+    email: record.email || '',
+    phone: record.phone || '',
     status,
-    roleTitles: roleNames.length > 0 ? roleNames : ['未分配'],
-    createdAt: (record as Record<string, string>).createTime || '--',
+    statusNumber,
+    roleTitles: roleNames,
+    roleIds,
+    createdAt: (record as Record<string, string>).createTime || '',
     avatar: record.avatar || 'https://avatars.githubusercontent.com/u/9919?s=200&v=4',
   }
 }
@@ -495,33 +659,63 @@ const resetCreateForm = () => {
   createFormRef.value?.clearValidate()
 }
 
-// 查看用户
-const handleView = async (row: User) => {
-  viewDialogVisible.value = true
-  viewLoading.value = true
-  try {
-    const res = await userManageApi.getUserById(row.id)
-    const detail = res.data as RawUserItem
-    viewDetail.value = {
-      ...mapUserRecord(detail),
-      roleNames: mapUserRecord(detail).roleTitles,
-      raw: detail
-    }
-  } catch (error) {
-    console.error('获取用户详情失败', error)
-    ElMessage.error('获取用户详情失败，请稍后重试')
-    viewDialogVisible.value = false
-  } finally {
-    viewLoading.value = false
-  }
-}
-
-// 编辑用户
+// 编辑用户（打开弹窗）
 const handleEdit = (row: User) => {
-  console.log('edit user', row)
+  if (row.id === 1) {
+    ElMessage.warning('超级管理员不可修改')
+    return
+  }
+  Object.assign(editForm, { ...editFormDefault, roleIds: [] })
+  editOriginalUsername.value = row.username
+  Object.assign(editForm, {
+    id: row.id,
+    username: row.username,
+    password: '',
+    confirmPassword: '',
+    email: row.email,
+    phone: row.phone,
+    status: row.status === 'enabled',
+    roleIds: [...row.roleIds],
+    avatar: row.avatar || '',
+  })
+  editFormRef.value?.clearValidate()
+  editDialogVisible.value = true
+}
+// 编辑用户提交
+const handleEditSubmit = () => {
+  if (!editFormRef.value) return
+  editFormRef.value.validate((valid) => {
+    if (!valid) return
+    editSubmitting.value = true
+    const payload: Record<string, unknown> = {
+      id: editForm.id,
+      username: editForm.username.trim(),
+      email: editForm.email?.trim() || '',
+      phone: editForm.phone?.trim() || '',
+      status: editForm.status ? 1 : 0,
+      avatar: editForm.avatar || '',
+      roleIdList: editForm.roleIds
+    }
+    if (editForm.password) {
+      payload['password'] = editForm.password
+    }
+
+    userManageApi.updateUser(payload)
+      .then(() => {
+        ElMessage.success('修改用户成功')
+        editDialogVisible.value = false
+        fetchUserList()
+      })
+      .catch(error => {
+        console.error('修改用户失败', error)
+        ElMessage.error('修改用户失败，请稍后重试')
+      })
+      .finally(() => {
+        editSubmitting.value = false
+      })
+  })
 }
 
-// 
 // 删除用户
 const handleDelete = (row: User) => {
   console.log('delete user', row)
@@ -550,6 +744,32 @@ onMounted(async () => {
   await loadRoleDict()
   fetchUserList()
 })
+// 
+const resetEditForm = () => {
+  Object.assign(editForm, { ...editFormDefault, roleIds: [] })
+  editOriginalUsername.value = ''
+  editFormRef.value?.clearValidate()
+}
+
+const handleView = async (row: User) => {
+  viewDialogVisible.value = true
+  viewLoading.value = true
+  try {
+    const res = await userManageApi.getUserById(row.id)
+    const detail = res.data as RawUserItem
+    const mapped = mapUserRecord(detail)
+    viewDetail.value = {
+      ...mapped,
+      raw: detail
+    }
+  } catch (error) {
+    console.error('获取用户详情失败', error)
+    ElMessage.error('获取用户详情失败，请稍后重试')
+    viewDialogVisible.value = false
+  } finally {
+    viewLoading.value = false
+  }
+}
 </script>
 
 <style scoped>

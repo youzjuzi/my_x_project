@@ -192,6 +192,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         return user;
     }
 
+    // 修改用户
     @Override
     @Transactional
     public void updateUser(User user) {
@@ -200,6 +201,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // 删除原有角色
         LambdaQueryWrapper<UserRole> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserRole::getUserId,user.getId());
+
         userRoleMapper.delete(wrapper);
         // 设置新的角色
         List<Integer> roleIdList = user.getRoleIdList();

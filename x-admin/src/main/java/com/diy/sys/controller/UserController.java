@@ -159,13 +159,13 @@ public class UserController {
     public Result<?> addUser(@RequestBody User user){
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         userService.addUser(user);
-        System.out.println(user);
+//        System.out.println(user);
         return Result.success("新增用户成功");
     }
     @Operation(summary = "修改用户")
     @PutMapping
     public Result<?> updateUser(@RequestBody User user){
-        user.setPassword(null);
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         userService.updateUser(user);
         return Result.success("修改用户成功");
     }
