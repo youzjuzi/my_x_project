@@ -69,8 +69,6 @@ public class UserController {
         if (data != null){
             User loggedInUser = userService.getByUsername(user.getUsername());
             data.put("userId", loggedInUser.getId());
-            //登录成功，清除验证码
-            CaptureConfig.CAPTURE_MAP.remove(user.getCodeKey());
             return Result.success(data,"登录成功");
         }
         return Result.fail(20002,"用户名或密码错误");
@@ -79,18 +77,16 @@ public class UserController {
     @Operation(summary = "用户注册")
     @PostMapping("/register")
     public Result<?> register(@RequestBody User user,HttpServletRequest request){
-        System.out.println("codeKey:" + user.getCodeKey());
-        System.out.println("code:" + user.getCaptcha());
-        if (!user.getCaptcha().toLowerCase().equals(CaptureConfig.CAPTURE_MAP.get(user.getCodeKey()))) {
-            //验证码错误
-            CaptureConfig.CAPTURE_MAP.clear();
-            return Result.fail(20004,"验证码错误");
-        }
+//        if (!user.getCaptcha().toLowerCase().equals(CaptureConfig.CAPTURE_MAP.get(user.getCodeKey()))) {
+//            //验证码错误
+//            CaptureConfig.CAPTURE_MAP.clear();
+//            return Result.fail(20004,"验证码错误");
+//        }
         //检测用户名是否已经存在
         Map<String,Object> data = userService.register(user);
         if (data != null){
-            //成功，清除验证码
-            CaptureConfig.CAPTURE_MAP.clear();
+//            //成功，清除验证码
+//            CaptureConfig.CAPTURE_MAP.clear();
             return Result.success(data,"注册成功");
         }
         return Result.fail(20001,"注册失败");

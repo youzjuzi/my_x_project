@@ -5,7 +5,7 @@ spring:
     #默认
     username: root
     password: 123456
-    url: jdbc:mysql://localhost/xdb?useSSL=false
+    url: jdbc:mysql://localhost/xdb?useSSL=false&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   data:

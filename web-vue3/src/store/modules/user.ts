@@ -1,28 +1,31 @@
 import { defineStore } from 'pinia';
-import { login as apiLogin, logout as apiLogout, getInfo as apiGetInfo } from '@/api/user';
+import { login as apiLogin, logout as apiLogout, getInfo as apiGetInfo ,register as apiRister} from '@/api/user';
 import { getToken, setToken, removeToken } from '@/utils/auth';
 import router, { resetRouter } from '@/router';
 import tagsViewStore from './tagsView';
 import permissionStore from './permission';
 
 export interface IUserState {
-  token: string;
-  userId: string,
-  name: string;
-  avatar: string;
-  introduction: string;
-  roles: string[];
+  token: string,
+  name: '',
+  avatar: '',
+  menuList: [],
+  userId: null // 添加 userId
+  email: '',
+  phone: ''
 }
 
 export default defineStore({
   id: 'user',
   state: ():IUserState => ({
     token: getToken(),
-    userId: '',
     name: '',
     avatar: '',
-    introduction: '',
-    roles: []
+    menuList: [],
+    userId: null,
+    email: '',
+    phone: ''
+
   }),
   getters: {},
   actions: {
@@ -33,6 +36,7 @@ export default defineStore({
         apiLogin({ username: username.trim(), password: password }).then(response => {
           const { data } = response;
           this.token = data.token;
+          this.userId = data.userId;
           setToken(data.token);
           resolve();
         }).catch(error => {
@@ -40,6 +44,29 @@ export default defineStore({
         });
       });
     },
+    // register
+    register(userInfo):Promise<void> {
+      const { username, password, email, phone} = userInfo
+        return new Promise((resolve, reject) => {
+        apiRister({
+            username: username.trim(),
+            password: password,
+            email: email,
+            phone: phone
+        }).then(response => {
+            const { data } = response;
+            this.token = data.token;
+            this.userId = data.userId;
+            this.email = data.email;
+            this.phone = data.phone;
+            setToken(data.token);
+            resolve();
+          }).catch(error => {
+            reject(error);
+          });
+        });
+    },
+
 
     // get user info
     getInfo() {
@@ -51,17 +78,12 @@ export default defineStore({
             reject('Verification failed, please Login again.');
           }
 
-          const { roles, name, avatar, introduction } = data;
+          const { name, avatar, menuList, userId } = data;
 
-          // roles must be a non-empty array
-          if (!roles || roles.length <= 0) {
-            reject('getInfo: roles must be a non-null array!');
-          }
-
-          this.roles = roles;
           this.name = name;
           this.avatar = avatar;
-          this.introduction = introduction;
+          this.menuList = menuList;
+          this.userId = userId;
           resolve(data);
         }).catch(error => {
           reject(error);
@@ -74,7 +96,6 @@ export default defineStore({
       return new Promise((resolve, reject) => {
         apiLogout(this.token).then(() => {
           this.token = '';
-          this.roles = [];
           removeToken();
           resetRouter();
 
@@ -92,7 +113,6 @@ export default defineStore({
     // remove token
     resetToken() {
       this.token = '';
-      this.roles = [];
       removeToken();
     },
 

@@ -35,9 +35,5 @@ public class User implements Serializable {
     private String avatar;
     private Integer deleted;
     @TableField(exist = false)
-    private String captcha;
-    @TableField(exist = false)
-    private String codeKey;
-    @TableField(exist = false)
     private List<Integer> roleIdList;
 }

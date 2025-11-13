@@ -37,6 +37,11 @@ export const constantRoutes:RouteRecordRaw[] = [
     meta: { hidden: true }
   },
   {
+    path: '/register',
+    component: () => import('@/views/login/index.vue'), // 假设注册页面组件位置
+    meta: { hidden: true }
+  },
+  {
     path: '/auth-redirect',
     component: () => import('@/views/login/auth-redirect.vue'),
     meta: { hidden: true }

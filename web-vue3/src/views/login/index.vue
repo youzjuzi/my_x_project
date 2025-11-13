@@ -3,11 +3,17 @@
     <div class="login-card">
       <!-- 标题区域 -->
       <div class="title-container">
-        <h3 class="title">欢迎登录 <span class="system-name">Element后台管理系统</span></h3>
+        <h3 class="title">{{ isRegister ? '欢迎注册' : '欢迎登录' }} <span class="system-name">Element后台管理系统</span></h3>
       </div>
 
       <!-- 登录表单 -->
-      <el-form ref="loginForm" :model="loginForm" :rules="loginRules" class="login-form" label-position="top">
+      <el-form
+          v-if="!isRegister"
+          ref="loginForm"
+          :model="loginForm"
+          :rules="loginRules"
+          class="login-form"
+          label-position="top">
 
         <el-form-item prop="username" label="用户名">
           <el-input
@@ -54,12 +60,99 @@
         <el-button :loading="loading" type="primary" style="width:100%;" @click.prevent="handleLogin">
           登 录
         </el-button>
-         <!-- 添加注册相关文字 -->
+         <!-- 注册链接 -->
         <div class="register-container">
           <span>还没有账号？</span>
-          <el-button type="text" @click="handleRegister">立即注册</el-button>
+          <el-button type="text" @click="switchToRegister">立即注册</el-button>
           <el-divider direction="vertical"></el-divider>
           <el-button type="text" @click="handleForgetPassword">忘记密码</el-button>
+        </div>
+      </el-form>
+
+      <!-- 注册表单 -->
+      <el-form
+        v-else
+        ref="registerForm"
+        :model="registerForm"
+        :rules="registerRules"
+        class="login-form"
+        label-position="top"
+      >
+        <el-form-item prop="username" label="用户名">
+          <el-input
+            ref="regUsername"
+            v-model="registerForm.username"
+            placeholder="请输入用户名"
+            name="regUsername"
+            type="text"
+            tabindex="1"
+          >
+            <template #prefix>
+              <span class="svg-container"><svg-icon icon-class="user" /></span>
+            </template>
+          </el-input>
+        </el-form-item>
+
+        <el-form-item prop="password" label="密码">
+          <el-input
+            :key="regPasswordType"
+            ref="regPassword"
+            v-model="registerForm.password"
+            :type="regPasswordType"
+            placeholder="请输入密码"
+            name="regPassword"
+            tabindex="2"
+            @keyup.enter="handleRegisterSubmit"
+          >
+            <template #prefix>
+              <span class="svg-container"><svg-icon icon-class="password" /></span>
+            </template>
+            <template #suffix>
+              <span class="show-pwd" @click="showRegPwd">
+                <svg-icon :icon-class="regPasswordType === 'password' ? 'eye' : 'eye-open'" />
+              </span>
+            </template>
+          </el-input>
+        </el-form-item>
+
+        <el-form-item prop="email" label="邮箱（可选）">
+          <el-input
+            ref="email"
+            v-model="registerForm.email"
+            placeholder="请输入邮箱地址"
+            name="email"
+            type="text"
+            tabindex="3"
+          >
+            <template #prefix>
+              <span class="svg-container"><svg-icon icon-class="email" /></span>
+            </template>
+          </el-input>
+        </el-form-item>
+
+        <el-form-item prop="phone" label="手机号（可选）">
+          <el-input
+            ref="phone"
+            v-model="registerForm.phone"
+            placeholder="请输入手机号"
+            name="phone"
+            type="text"
+            tabindex="4"
+          >
+            <template #prefix>
+              <span class="svg-container"><svg-icon icon-class="phone" /></span>
+            </template>
+          </el-input>
+        </el-form-item>
+
+        <el-button :loading="loading" type="primary" style="width:100%;" @click.prevent="handleRegisterSubmit">
+          注 册
+        </el-button>
+
+        <!-- 注册页的返回登录链接 -->
+        <div class="register-container">
+          <span>已有账号？</span>
+          <el-button type="text" @click="switchToLogin">立即登录</el-button>
         </div>
       </el-form>
     </div>
@@ -67,13 +160,14 @@
 </template>
 
 <script lang="ts">
-// script部分与您提供的代码逻辑相同，此处不再赘述
 import { validUsername } from '@/utils/validate';
 import { defineComponent } from 'vue';
 import type { FormItemRule } from 'element-plus';
 import type { IForm } from '@/types/element-plus';
 import store from '@/store';
 import { ElMessage } from 'element-plus';
+import { ElForm } from 'element-plus';
+
 
 interface QueryType {
   [propname:string]:string
@@ -97,15 +191,30 @@ export default defineComponent({
       }
     };
     return {
+      isRegister: false, // 是否注册
       loginForm: {
         username: 'admin',
         password: '123456'
+      },
+      // 注册表单验证
+      registerForm: {
+        username: '',
+        password: '',
+        email: '',
+        phone: ''
       },
       loginRules: {
         username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
         password: [{ required: true, trigger: 'blur', validator: validatePassword }]
       },
+      registerRules: {
+        username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+        password: [{ required: true, trigger: 'blur', validator: validatePassword }],
+        email: [{ required: false, message: '请输入正确的邮箱地址', trigger: 'blur', type: 'email' }],
+        phone: [{ required: false, message: '请输入正确的手机号', trigger: 'blur', pattern: /^1[3-9]\d{9}$/ }]
+      },
       passwordType: 'password',
+      regPasswordType: 'password',
       capsTooltip: false,
       loading: false,
       redirect: undefined,
@@ -132,9 +241,32 @@ export default defineComponent({
     }
   },
   methods: {
-    checkCapslock(e) {
-      const { key } = e;
-      this.capsTooltip = key && key.length === 1 && (key >= 'A' && key <= 'Z');
+    switchToRegister() {
+      this.isRegister = true;
+    },
+    switchToLogin() {
+      this.isRegister = false;
+      // 清空注册表单数据
+      this.registerForm = {
+        username: '',
+        password: '',
+        email: '',
+        phone: ''
+      };
+    },
+    showRegPwd() {
+      if (this.regPasswordType === 'password') {
+        this.regPasswordType = '';
+      } else {
+        this.regPasswordType = 'password';
+      }
+      this.$nextTick(() => {
+        (this.$refs.regPassword as any).focus();
+      });
+    },
+
+    checkCapslock(e: KeyboardEvent) {
+      this.capsTooltip = e.getModifierState('CapsLock');
     },
     showPwd() {
       if (this.passwordType === 'password') {
@@ -169,13 +301,25 @@ export default defineComponent({
         });
       });
     },
-    handleRegister() {
-    ElMessage({
-      message: '注册功能正在开发中，敬请期待！',
-      type: 'info',
-      duration: 3000
-    });
-
+    // 注册提交
+    handleRegisterSubmit() {
+      (this.$refs.registerForm as IForm).validate(async (valid) => {
+        if (valid) {
+          this.loading = true;
+          try {
+            await store.user().register(this.registerForm);
+            ElMessage.success('注册成功！');
+            // 注册成功后自动切换到登录界面，并填充用户名和密码
+            this.loginForm.username = this.registerForm.username;
+            this.loginForm.password = this.registerForm.password;
+            this.switchToLogin();
+          } catch (error) {
+            ElMessage.error('注册失败，请重试！');
+          } finally {
+            this.loading = false;
+          }
+        }
+      });
     },
     handleForgetPassword() {
     ElMessage({
