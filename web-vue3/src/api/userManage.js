@@ -15,5 +15,13 @@ export default {
                 phone: searchModel.phone,
             }
         })
+    },
+    // 新增用户
+    addUser(user) {
+        return request({
+            url: '/user',
+            method: 'post',
+            data: user
+        })
     }
 }

@@ -146,6 +146,7 @@ public class UserController {
 }
 
 
+    @Operation(summary = "新增用户")
     @PostMapping
     public Result<?> addUser(@RequestBody User user){
         user.setPassword(passwordEncoder.encode(user.getPassword()));

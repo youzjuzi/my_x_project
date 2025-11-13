@@ -37,7 +37,7 @@
           </el-form-item>
         </el-form>
         <div class="actions">
-          <el-button type="primary" :icon="Plus" @click="handleCreate">
+          <el-button type="primary" :icon="Plus" @click="openCreateDialog">
             新增用户
           </el-button>
         </div>
@@ -145,11 +145,68 @@
       </div>
     </el-card>
   </div>
+
+  <el-dialog
+    v-model="createDialogVisible"
+    title="新增用户"
+    width="520px"
+    destroy-on-close
+    @closed="resetCreateForm"
+  >
+    <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="90px">
+      <el-form-item label="用户名" prop="username">
+        <el-input v-model="createForm.username" placeholder="请输入用户名" />
+      </el-form-item>
+      <el-form-item label="密码" prop="password">
+        <el-input
+          v-model="createForm.password"
+          placeholder="请输入登录密码"
+          type="password"
+          show-password
+        />
+      </el-form-item>
+      <el-form-item label="邮箱">
+        <el-input v-model="createForm.email" placeholder="请输入邮箱" />
+      </el-form-item>
+      <el-form-item label="电话">
+        <el-input v-model="createForm.phone" placeholder="请输入联系电话" />
+      </el-form-item>
+      <el-form-item label="状态">
+        <el-switch
+          v-model="createForm.status"
+          active-text="启用"
+          inactive-text="停用"
+        />
+      </el-form-item>
+      <el-form-item label="分配角色">
+        <el-select
+          v-model="createForm.roleIds"
+          multiple
+          filterable
+          placeholder="请选择角色"
+          class="full-width"
+        >
+          <el-option
+            v-for="role in roleOptions"
+            :key="role.roleId"
+            :label="role.roleDesc || role.roleName"
+            :value="role.roleId"
+          />
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="createDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="createSubmitting" @click="handleCreateSubmit">提交</el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <script lang="ts" setup>
 import { Edit, Delete, Plus, RefreshRight, Search, View } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { computed, reactive, ref, onMounted } from 'vue'
 import userManageApi from '@/api/userManage'
 import roleManageApi from '@/api/roleManage'
@@ -209,6 +266,30 @@ const statusMap = {
 
 // 角色字典：用于根据 roleId 映射到角色名称
 const roleDict = ref<Record<number, RoleItem>>({})
+
+const roleOptions = computed(() => Object.values(roleDict.value))
+
+// 新增用户弹窗状态 & 表单
+const createDialogVisible = ref(false)
+const createFormRef = ref<FormInstance>()
+const createFormDefault = {
+  username: '',
+  password: '',
+  email: '',
+  phone: '',
+  status: true,
+  roleIds: [] as number[],
+  avatar: '',
+}
+const createForm = reactive({ ...createFormDefault })
+const createRules: FormRules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码至少 6 位', trigger: 'blur' }
+  ]
+}
+const createSubmitting = ref(false)
 
 // 后端已实现分页+筛选，因此直接使用接口返回的数据
 const pagedTableData = computed(() => tableData.value)
@@ -275,11 +356,13 @@ const fetchUserList = async () => {
   }
 }
 
+// 搜索
 const handleSearch = () => {
   currentPage.value = 1
   fetchUserList()
 }
 
+// 重置
 const handleReset = () => {
   searchForm.username = ''
   searchForm.email = ''
@@ -288,37 +371,83 @@ const handleReset = () => {
   fetchUserList()
 }
 
-const handleCreate = () => {
-  console.log('create user')
+// 新增用户（打开弹窗）
+const openCreateDialog = () => {
+  createDialogVisible.value = true
 }
 
+// 新增用户提交（当前仅模拟提示）
+const handleCreateSubmit = () => {
+  if (!createFormRef.value) return
+  createFormRef.value.validate((valid) => {
+    if (valid) {
+      createSubmitting.value = true
+      // 调用后端新增接口
+      userManageApi.addUser({
+        id: 0,
+        username: createForm.username.trim(),
+        password: createForm.password,
+        email: createForm.email || '',
+        phone: createForm.phone || '',
+        status: createForm.status ? 1 : 0,
+        avatar: createForm.avatar || '',
+        deleted: 0,
+        roleIdList: createForm.roleIds
+      }).then(() => {
+        ElMessage.success('新增用户成功')
+        createDialogVisible.value = false
+        fetchUserList()
+      }).catch((error) => {
+        console.error('新增用户失败', error)
+        ElMessage.error('新增用户失败，请稍后重试')
+      }).finally(() => {
+        createSubmitting.value = false
+      })
+    }
+  })
+}
+
+// 重置新增弹窗表单
+const resetCreateForm = () => {
+  Object.assign(createForm, { ...createFormDefault, roleIds: [] })
+  createFormRef.value?.clearValidate()
+}
+
+// 查看用户
 const handleView = (row: User) => {
   console.log('view user', row)
 }
 
+// 编辑用户
 const handleEdit = (row: User) => {
   console.log('edit user', row)
 }
 
+// 
+// 删除用户
 const handleDelete = (row: User) => {
   console.log('delete user', row)
 }
 
+// 刷新
 const handleRefresh = () => {
   fetchUserList()
 }
 
+// 分页大小改变
 const handleSizeChange = (val: number) => {
   pageSize.value = val
   currentPage.value = 1
   fetchUserList()
 }
 
+// 当前页改变
 const handleCurrentChange = (val: number) => {
   currentPage.value = val
   fetchUserList()
 }
 
+// 挂载
 onMounted(async () => {
   await loadRoleDict()
   fetchUserList()
@@ -425,6 +554,16 @@ onMounted(async () => {
 
 .text-muted {
   color: var(--el-text-color-secondary);
+}
+
+.full-width {
+  width: 100%;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
 .pagination-wrapper {
