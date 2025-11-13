@@ -162,17 +162,20 @@ public class UserController {
         System.out.println(user);
         return Result.success("新增用户成功");
     }
+    @Operation(summary = "修改用户")
     @PutMapping
     public Result<?> updateUser(@RequestBody User user){
         user.setPassword(null);
         userService.updateUser(user);
         return Result.success("修改用户成功");
     }
+    @Operation(summary = "获取用户")
     @GetMapping("/{id}")
     public Result<User> getUserById(@PathVariable("id") Integer id){
         User user = userService.getUserById(id);
         return Result.success(user);
     }
+    @Operation(summary = "删除用户")
     @DeleteMapping ("/{id}")
     public Result<User> deleteUserById(@PathVariable("id") Integer id){
         userService.deleteUserById(id);

@@ -31,5 +31,12 @@ export default {
             method: 'get',
             params: { username }
         })
-    }
+    },
+    // 根据id查询用户
+    getUserById(id) {
+        return request({
+            url: `/user/${id}`,
+            method: 'get'
+        })
+    },
 }

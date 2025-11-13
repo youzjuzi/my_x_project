@@ -94,7 +94,6 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" min-width="180" />
         <el-table-column label="操作" width="200" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
@@ -199,6 +198,61 @@
       <span class="dialog-footer">
         <el-button @click="createDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="createSubmitting" @click="handleCreateSubmit">提交</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+  <el-dialog
+    v-model="viewDialogVisible"
+    title="用户详情"
+    width="520px"
+    destroy-on-close
+    v-loading="viewLoading"
+  >
+    <el-skeleton v-if="viewLoading" rows="6" animated />
+    <el-descriptions
+      v-else-if="viewDetail"
+      :column="1"
+      border
+      label-width="90px"
+      class="detail-descriptions"
+    >
+      <el-descriptions-item label="用户名">{{ viewDetail.username }}</el-descriptions-item>
+      <el-descriptions-item label="邮箱">
+        {{ viewDetail.email || '—' }}
+      </el-descriptions-item>
+      <el-descriptions-item label="电话">
+        {{ viewDetail.phone || '—' }}
+      </el-descriptions-item>
+      <el-descriptions-item label="头像">
+        <el-avatar v-if="viewDetail.avatar" :src="viewDetail.avatar" size="large" />
+        <span v-else>—</span>
+      </el-descriptions-item>
+      <el-descriptions-item label="状态">
+        <el-tag :type="Number(viewDetail.status) === 1 ? 'success' : 'danger'">
+          {{ Number(viewDetail.status) === 1 ? '启用' : '停用' }}
+        </el-tag>
+      </el-descriptions-item>
+      <el-descriptions-item label="角色">
+        <template v-if="viewDetail.roleNames?.length">
+          <el-tag
+            v-for="role in viewDetail.roleNames"
+            :key="role"
+            type="info"
+            class="role-tag"
+          >
+            {{ role }}
+          </el-tag>
+        </template>
+        <span v-else>未分配</span>
+      </el-descriptions-item>
+      <el-descriptions-item label="创建时间">
+        {{ viewDetail.createdAt || '—' }}
+      </el-descriptions-item>
+    </el-descriptions>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button type="primary" @click="viewDialogVisible = false">关闭</el-button>
       </span>
     </template>
   </el-dialog>
@@ -314,6 +368,10 @@ const createRules: FormRules = {
   ]
 }
 const createSubmitting = ref(false)
+
+const viewDialogVisible = ref(false)
+const viewDetail = ref<User & { roleNames?: string[], raw?: RawUserItem } | null>(null)
+const viewLoading = ref(false)
 
 // 后端已实现分页+筛选，因此直接使用接口返回的数据
 const pagedTableData = computed(() => tableData.value)
@@ -438,8 +496,24 @@ const resetCreateForm = () => {
 }
 
 // 查看用户
-const handleView = (row: User) => {
-  console.log('view user', row)
+const handleView = async (row: User) => {
+  viewDialogVisible.value = true
+  viewLoading.value = true
+  try {
+    const res = await userManageApi.getUserById(row.id)
+    const detail = res.data as RawUserItem
+    viewDetail.value = {
+      ...mapUserRecord(detail),
+      roleNames: mapUserRecord(detail).roleTitles,
+      raw: detail
+    }
+  } catch (error) {
+    console.error('获取用户详情失败', error)
+    ElMessage.error('获取用户详情失败，请稍后重试')
+    viewDialogVisible.value = false
+  } finally {
+    viewLoading.value = false
+  }
 }
 
 // 编辑用户
@@ -582,6 +656,10 @@ onMounted(async () => {
 
 .full-width {
   width: 100%;
+}
+
+.detail-descriptions {
+  margin-bottom: 12px;
 }
 
 .dialog-footer {
