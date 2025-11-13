@@ -124,12 +124,29 @@
                   @click="handleEdit(row)"
                 />
               </el-tooltip>
-              <el-popconfirm title="确认要删除该用户吗？" @confirm="handleDelete(row)">
+              <template v-if="row.id === 1">
+                <el-button
+                  circle
+                  class="action-icon danger"
+                  type="danger"
+                  :icon="Delete"
+                  @click="notifyAdminDelete()"
+                />
+              </template>
+              <el-popconfirm
+                v-else
+                title="确认要删除该用户吗？"
+                :confirm-button-text="'删除'"
+                :cancel-button-text="'取消'"
+                :teleported="false"
+                @confirm="handleDelete(row)"
+              >
                 <template #reference>
                   <el-button
                     circle
                     class="action-icon danger"
                     type="danger"
+                    :loading="deleteLoadingId === row.id"
                     :icon="Delete"
                   />
                 </template>
@@ -716,9 +733,31 @@ const handleEditSubmit = () => {
   })
 }
 
+const deleteLoadingId = ref<number | null>(null)
+const notifyAdminDelete = () => {
+  ElMessage.warning('超级管理员不可删除')
+}
+
 // 删除用户
 const handleDelete = (row: User) => {
-  console.log('delete user', row)
+  if (row.id === 1) {
+    ElMessage.warning('超级管理员不可删除')
+    return
+  }
+  console.log('删除用户确认', row)
+  deleteLoadingId.value = row.id
+  userManageApi.deleteUser(row.id)
+    .then(() => {
+      ElMessage.success('删除用户成功')
+      fetchUserList()
+    })
+    .catch(error => {
+      console.error('删除用户失败', error)
+      ElMessage.error('删除用户失败，请稍后重试')
+    })
+    .finally(() => {
+      deleteLoadingId.value = null
+    })
 }
 
 // 刷新

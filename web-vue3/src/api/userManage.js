@@ -46,5 +46,12 @@ export default {
             method: 'put',
             data: user
         })
+    },
+    // 删除用户
+    deleteUser(id) {
+        return request({
+            url: `/user/${id}`,
+            method: 'delete'
+        })
     }
 }
