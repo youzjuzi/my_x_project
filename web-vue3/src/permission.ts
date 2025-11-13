@@ -6,6 +6,7 @@ import 'nprogress/nprogress.css'; // progress bar style
 import { getToken } from '@/utils/auth'; // get token from cookie
 import getPageTitle from '@/utils/get-page-title';
 import { ElMessage } from 'element-plus';
+import type { RouteRecordRaw } from 'vue-router';
 
 NProgress.configure({ showSpinner: false }); // NProgress Configuration
 
@@ -36,24 +37,27 @@ router.beforeEach(async (to, from, next) => {
       } else {
         try {
           // get user info
-          // note: roles must be a object array! such as: ['admin'] or ,['developer','editor']
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const infoRes = await userStore().getInfo() as any;
-          let roles = [];
-          if (infoRes.roles) {
-            roles = infoRes.roles;
+          
+          // 优先使用 menuList 生成动态路由
+          let accessRoutes: RouteRecordRaw[] = [];
+          if (infoRes.menuList && infoRes.menuList.length > 0) {
+            // 根据菜单列表生成路由
+            accessRoutes = permissionStore().generateRoutesFromMenu(infoRes.menuList);
+          } else {
+            // 如果没有 menuList，则使用角色生成路由（兼容旧逻辑）
+            let roles: string[] = [];
+            if (infoRes.roles) {
+              roles = infoRes.roles;
+            }
+            accessRoutes = await permissionStore().generateRoutes(roles);
           }
 
-          // generate accessible routes map based on roles
-          const accessRoutes = await permissionStore().generateRoutes(roles);
-          // console.log('accessRoutes=', accessRoutes)
-
           // dynamically add accessible routes
-          // router.addRoutes(accessRoutes);
           accessRoutes.forEach(item => {
             router.addRoute(item);
           });
-          // console.log('next=', accessRoutes);
 
           // hack method to ensure that addRoutes is complete
           // set the replace: true, so the navigation will not leave a history record

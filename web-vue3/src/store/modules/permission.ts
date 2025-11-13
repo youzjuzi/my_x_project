@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { asyncRoutes, constantRoutes } from '@/router';
 import type { RouteRecordRaw } from 'vue-router';
+import { menuListToRoutes, type MenuItem } from '@/utils/menu-to-routes';
 
 interface IPermissionState {
   routes: Array<RouteRecordRaw>;
@@ -54,6 +55,19 @@ export default defineStore({
       this.addRoutes = routes;
       this.routes = constantRoutes.concat(routes);
     },
+    /**
+     * 根据菜单列表生成路由
+     * @param menuList 菜单列表
+     */
+    generateRoutesFromMenu(menuList: MenuItem[]): RouteRecordRaw[] {
+      const routes = menuListToRoutes(menuList);
+      this.setRoutes(routes);
+      return routes;
+    },
+    /**
+     * 根据角色生成路由（保留原有功能，用于兼容）
+     * @param roles 角色列表
+     */
     generateRoutes(roles: string[]) {
       let accessedRoutes;
       if (roles.includes('admin')) {
