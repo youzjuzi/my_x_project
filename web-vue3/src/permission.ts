@@ -1,4 +1,4 @@
-import router from './router';
+import router, { resetRouter } from './router';
 import userStore from './store/modules/user';
 import permissionStore from './store/modules/permission';
 import NProgress from 'nprogress'; // progress bar
@@ -53,6 +53,9 @@ router.beforeEach(async (to, from, next) => {
             }
             accessRoutes = await permissionStore().generateRoutes(roles);
           }
+
+          // 先重置路由，避免保留上次登录的动态菜单
+          resetRouter();
 
           // dynamically add accessible routes
           accessRoutes.forEach(item => {

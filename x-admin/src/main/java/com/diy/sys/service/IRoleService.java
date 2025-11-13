@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.diy.sys.entity.Role;
 import com.diy.sys.entity.User;
 
+import java.util.Map;
+
 public interface IRoleService extends IService<Role> {
     void addRole(Role role);
 
@@ -12,4 +14,6 @@ public interface IRoleService extends IService<Role> {
     void updateRole(Role role);
 
     void deleteRoleById(Integer id);
+
+    Map<String, Object> getRoleList(String roleName, Long pageNo, Long pageSize);
 }

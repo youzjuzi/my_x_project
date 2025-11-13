@@ -165,7 +165,6 @@ public class UserController {
     @Operation(summary = "修改用户")
     @PutMapping
     public Result<?> updateUser(@RequestBody User user){
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
         userService.updateUser(user);
         return Result.success("修改用户成功");
     }

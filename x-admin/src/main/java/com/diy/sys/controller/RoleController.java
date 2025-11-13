@@ -71,17 +71,7 @@ public class RoleController {
     public Result<Map<String,Object>> getUserList(@RequestParam(value = "roleName",required = false) String roleName,
                                                   @RequestParam(value = "pageNo") Long pageNo,
                                                   @RequestParam(value = "pageSize") Long pageSize){
-        LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(StringUtils.hasLength(roleName),Role::getRoleName,roleName);
-        wrapper.orderByDesc(Role::getRoleId);
-
-        Page<Role> page = new Page<>(pageNo,pageSize);
-        roleService.page(page, wrapper);
-
-        Map<String,Object> data = new HashMap<>();
-        data.put("total",page.getTotal());
-        data.put("rows",page.getRecords());
-
+        Map<String,Object> data = roleService.getRoleList(roleName, pageNo, pageSize);
         return Result.success(data);
 
     }

@@ -52,8 +52,12 @@ export default defineStore({
   getters: {},
   actions: {
     setRoutes(routes: RouteRecordRaw[]) {
-      this.addRoutes = routes;
+      this.addRoutes = routes.slice();
       this.routes = constantRoutes.concat(routes);
+    },
+    clearRoutes() {
+      this.addRoutes = [];
+      this.routes = constantRoutes.slice();
     },
     /**
      * 根据菜单列表生成路由

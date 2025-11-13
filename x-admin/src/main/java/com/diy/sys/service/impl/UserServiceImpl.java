@@ -1,6 +1,7 @@
 package com.diy.sys.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.diy.common.utils.JwtUtil;
 import com.diy.common.vo.Result;
@@ -196,8 +197,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     @Transactional
     public void updateUser(User user) {
-        // 更新用户表
-        this.baseMapper.updateById(user);
+        if(user.getPassword() == null) {
+            // 使用update(wrapper)方法排除密码字段
+            UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.eq("id", user.getId());
+            updateWrapper.set("username", user.getUsername());
+            updateWrapper.set("email", user.getEmail());
+            updateWrapper.set("phone", user.getPhone());
+            updateWrapper.set("status", user.getStatus());
+            updateWrapper.set("avatar", user.getAvatar());
+            // 不设置password字段
+            this.update(updateWrapper);
+        } else {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+            // 更新用户表
+            this.baseMapper.updateById(user);
+        }
         // 删除原有角色
         LambdaQueryWrapper<UserRole> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserRole::getUserId,user.getId());

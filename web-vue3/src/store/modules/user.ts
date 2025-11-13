@@ -96,12 +96,19 @@ export default defineStore({
       return new Promise((resolve, reject) => {
         apiLogout(this.token).then(() => {
           this.token = '';
+          this.name = '';
+          this.avatar = '';
+          this.menuList = [];
+          this.userId = null;
+          this.email = '';
+          this.phone = '';
           removeToken();
           resetRouter();
 
           // reset visited views and cached views
           // to fixed https://github.com/PanJiaChen/vue-element-admin/issues/2485
           tagsViewStore().delAllViews();
+          permissionStore().clearRoutes();
 
           resolve();
         }).catch(error => {
@@ -113,7 +120,14 @@ export default defineStore({
     // remove token
     resetToken() {
       this.token = '';
+      this.name = '';
+      this.avatar = '';
+      this.menuList = [];
+      this.userId = null;
+      this.email = '';
+      this.phone = '';
       removeToken();
+      permissionStore().clearRoutes();
     },
 
     // dynamically modify permissions

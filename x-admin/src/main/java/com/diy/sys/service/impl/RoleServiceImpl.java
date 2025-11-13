@@ -1,6 +1,7 @@
 package com.diy.sys.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.diy.sys.entity.Role;
 import com.diy.sys.entity.RoleMenu;
@@ -10,8 +11,11 @@ import com.diy.sys.service.IRoleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 @Service
@@ -69,5 +73,21 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements IR
         LambdaQueryWrapper<RoleMenu> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(RoleMenu::getRoleId,id);
         roleMenuMapper.delete(wrapper);
+    }
+
+    @Override
+    public Map<String, Object> getRoleList(String roleName, Long pageNo, Long pageSize) {
+         LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
+         wrapper.like(StringUtils.hasLength(roleName), Role::getRoleName, roleName);
+         wrapper.orderByDesc(Role::getRoleId);
+
+         Page<Role> page = new Page<>(pageNo, pageSize);
+         this.page(page, wrapper);
+
+         Map<String, Object> data = new HashMap<>();
+         data.put("total", page.getTotal());
+         data.put("rows", page.getRecords());
+
+         return data;
     }
 }
