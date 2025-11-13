@@ -10,6 +10,9 @@ export default {
             params: {
                 pageNo: searchModel.pageNo,
                 pageSize: searchModel.pageSize,
+                username: searchModel.username,
+                email: searchModel.email,
+                phone: searchModel.phone,
             }
         })
     }

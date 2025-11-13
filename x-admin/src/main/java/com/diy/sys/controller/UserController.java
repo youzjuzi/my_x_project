@@ -133,12 +133,15 @@ public class UserController {
 //        return Result.success(data);
 //    }
 
+    @Operation(summary = "用户列表")
     @GetMapping("/list")
-    public Result<Map<String ,Object>> getUserList(@RequestParam(value = "username",required = false) String username,
-                                           @RequestParam(value = "phone",required = false) String phone,
-                                           @RequestParam("pageNo") Long pageNo,
-                                           @RequestParam("pageSize") Long pageSize){
-        Map<String ,Object> data = userService.getUserList(username, phone, pageNo, pageSize);
+    public Result<Map<String ,Object>> getUserList(
+            @RequestParam(value = "username",required = false) String username,
+            @RequestParam(value = "phone",required = false) String phone,
+            @RequestParam(value = "email",required = false) String email,
+            @RequestParam("pageNo") Long pageNo,
+            @RequestParam("pageSize") Long pageSize){
+        Map<String ,Object> data = userService.getUserList(username, phone, email ,pageNo, pageSize);
         return Result.success(data);
 }
 

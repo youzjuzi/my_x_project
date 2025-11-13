@@ -226,11 +226,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         return this.getOne(wrapper);
     }
 
+
+    // 获取用户列表，包括角色和权限
     @Override
-    public Map<String, Object> getUserList(String username, String phone, Long pageNo, Long pageSize) {
+    public Map<String, Object> getUserList(String username, String phone, String email, Long pageNo, Long pageSize) {
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(StringUtils.hasLength(username), User::getUsername, username);
-        wrapper.eq(StringUtils.hasLength(phone), User::getPhone, phone);
+        wrapper.like(StringUtils.hasLength(username), User::getUsername, username);
+        wrapper.like(StringUtils.hasLength(phone), User::getPhone, phone);
+        wrapper.like(StringUtils.hasLength(email), User::getEmail, email);
         wrapper.orderByAsc(User::getId);
         Page<User> page = new Page<>(pageNo, pageSize);
         this.page(page, wrapper);
@@ -254,7 +257,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 user.setRoleIdList(roleIdList);
             });
         }
-
         Map<String, Object> data = new HashMap<>();
         data.put("total", page.getTotal());
         data.put("row", records);

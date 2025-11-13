@@ -3,23 +3,29 @@
     <el-card class="search-card" shadow="hover">
       <div class="search-bar">
         <el-form :inline="true" :model="searchForm" class="search-form">
-          <el-form-item label="关键词">
+          <el-form-item label="用户名">
             <el-input
-              v-model="searchForm.keyword"
-              placeholder="用户名 / 邮箱 / 电话"
+              v-model="searchForm.username"
+              placeholder="输入用户名"
               clearable
               @keyup.enter="handleSearch"
             />
           </el-form-item>
-          <el-form-item label="状态">
-            <el-select v-model="searchForm.status" placeholder="全部状态" clearable>
-              <el-option
-                v-for="item in statusOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
+          <el-form-item label="邮箱">
+            <el-input
+              v-model="searchForm.email"
+              placeholder="输入邮箱"
+              clearable
+              @keyup.enter="handleSearch"
+            />
+          </el-form-item>
+          <el-form-item label="电话">
+            <el-input
+              v-model="searchForm.phone"
+              placeholder="输入电话"
+              clearable
+              @keyup.enter="handleSearch"
+            />
           </el-form-item>
           <el-form-item>
             <el-button type="primary" :icon="Search" @click="handleSearch">
@@ -42,7 +48,9 @@
       <div class="table-toolbar">
         <div>
           <div class="table-title">用户列表</div>
-          <div class="table-subtitle">共 {{ total }} 位用户</div>
+          <div class="table-subtitle">
+            共 {{ serverTotal }} 位用户，当前页显示 {{ pagedTableData.length }} 位
+          </div>
         </div>
         <el-space>
           <el-button text :icon="RefreshRight" @click="handleRefresh">刷新</el-button>
@@ -128,7 +136,7 @@
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :page-sizes="[5, 10, 20, 50]"
-          :total="total"
+          :total="serverTotal"
           layout="total, sizes, prev, pager, next, jumper"
           background
           @size-change="handleSizeChange"
@@ -146,6 +154,7 @@ import { computed, reactive, ref, onMounted } from 'vue'
 import userManageApi from '@/api/userManage'
 import roleManageApi from '@/api/roleManage'
 
+// 用户信息接口返回的数据结构
 interface RawUserItem {
   id: number
   username: string
@@ -159,6 +168,7 @@ interface RawUserItem {
   [key: string]: unknown
 }
 
+// 用户信息
 interface User {
   id: number
   username: string
@@ -171,11 +181,7 @@ interface User {
   avatar?: string
 }
 
-interface StatusItem {
-  label: string
-  value: 'all' | 'enabled' | 'disabled'
-}
-
+// 角色信息
 interface RoleItem {
   roleId: number
   roleName: string
@@ -184,21 +190,18 @@ interface RoleItem {
 
 const loading = ref(false)
 const tableData = ref<User[]>([])
-const total = ref(0)
+const serverTotal = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 
+// 搜索表单：支持用户名 / 邮箱 / 电话 任意组合
 const searchForm = reactive({
-  keyword: '',
-  status: 'all' as StatusItem['value'],
+  username: '',
+  email: '',
+  phone: '',
 })
 
-const statusOptions: StatusItem[] = [
-  { label: '全部状态', value: 'all' },
-  { label: '启用', value: 'enabled' },
-  { label: '停用', value: 'disabled' },
-]
-
+// 后端状态 -> 前端状态映射
 const statusMap = {
   enabled: { text: '启用', type: 'success' as const },
   disabled: { text: '停用', type: 'danger' as const },
@@ -207,7 +210,10 @@ const statusMap = {
 // 角色字典：用于根据 roleId 映射到角色名称
 const roleDict = ref<Record<number, RoleItem>>({})
 
+// 后端已实现分页+筛选，因此直接使用接口返回的数据
 const pagedTableData = computed(() => tableData.value)
+
+const filteredTotal = computed(() => pagedTableData.value.length)
 
 const loadRoleDict = async () => {
   try {
@@ -224,6 +230,7 @@ const loadRoleDict = async () => {
   }
 }
 
+// 映射用户记录
 const mapUserRecord = (record: RawUserItem): User => {
   const status = record.status === 1 ? 'enabled' : 'disabled'
   const roleNames = Array.isArray(record.roleIdList)
@@ -245,16 +252,21 @@ const mapUserRecord = (record: RawUserItem): User => {
   }
 }
 
+// 获取用户列表
 const fetchUserList = async () => {
   loading.value = true
   try {
+    // 调用后端分页接口，传入分页信息 + 搜索条件
     const res = await userManageApi.getUserList({
       pageNo: currentPage.value,
       pageSize: pageSize.value,
+      username: searchForm.username.trim(),
+      email: searchForm.email.trim(),
+      phone: searchForm.phone.trim(),
     })
     const data = res.data || { total: 0, row: [] }
     tableData.value = Array.isArray(data.row) ? data.row.map(mapUserRecord) : []
-    total.value = Number(data.total) || 0
+    serverTotal.value = Number(data.total) || 0
   } catch (error) {
     console.error('获取用户列表失败', error)
     ElMessage.error('获取用户列表失败，请稍后重试')
@@ -264,12 +276,14 @@ const fetchUserList = async () => {
 }
 
 const handleSearch = () => {
-  ElMessage.info('搜索功能开发中，敬请期待')
+  currentPage.value = 1
+  fetchUserList()
 }
 
 const handleReset = () => {
-  searchForm.keyword = ''
-  searchForm.status = 'all'
+  searchForm.username = ''
+  searchForm.email = ''
+  searchForm.phone = ''
   currentPage.value = 1
   fetchUserList()
 }
