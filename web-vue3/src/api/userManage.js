@@ -23,5 +23,13 @@ export default {
             method: 'post',
             data: user
         })
+    },
+    // 检测账号是否已经存在
+    checkUsername(username) {
+        return request({
+            url: '/user/checkUsername',
+            method: 'get',
+            params: { username }
+        })
     }
 }

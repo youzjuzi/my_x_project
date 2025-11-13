@@ -262,4 +262,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         data.put("row", records);
         return data;
     }
+
+    // 检测用户名
+    @Override
+    public String check(String username) {
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getUsername, username);
+        return this.count(wrapper) > 0 ? "0" : "1";
+    }
 }

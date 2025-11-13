@@ -146,6 +146,14 @@ public class UserController {
 }
 
 
+
+    // 检测账号是否已经存在
+    @Operation(summary = "检测账号是否已经存在")
+    @GetMapping("/checkUsername")
+    public Result<Boolean> check(@RequestParam("username") String username){
+        return Result.success(userService.check(username));
+    }
+
     @Operation(summary = "新增用户")
     @PostMapping
     public Result<?> addUser(@RequestBody User user){

@@ -35,4 +35,6 @@ public interface IUserService extends IService<User> {
     User getByUsername(String username);
 
     Map<String, Object> getUserList(String username, String phone, String email, Long pageNo, Long pageSize);
+
+    String check(String username);
 }

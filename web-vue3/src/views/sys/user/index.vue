@@ -282,8 +282,32 @@ const createFormDefault = {
   avatar: '',
 }
 const createForm = reactive({ ...createFormDefault })
+// 用户名唯一性校验（后端 message: '0' 表示存在，'1' 表示可用）
+const validateUsernameUnique = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  const username = value?.trim()
+  if (!username) {
+    callback(new Error('请输入用户名'))
+    return
+  }
+  userManageApi.checkUsername(username)
+    .then((res) => {
+      const { message } = (res as { message?: string })
+      if (message === '0') {
+        callback(new Error('用户名已存在'))
+      } else {
+        callback()
+      }
+    })
+    .catch(error => {
+      console.error('校验用户名失败', error)
+      callback(new Error('校验失败，请稍后重试'))
+    })
+}
 const createRules: FormRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { validator: validateUsernameUnique, trigger: 'blur' }
+  ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码至少 6 位', trigger: 'blur' }
