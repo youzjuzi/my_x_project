@@ -169,8 +169,7 @@
         />
       </div>
     </el-card>
-  </div>
-
+  
   <el-dialog
     v-model="createDialogVisible"
     title="新增用户"
@@ -349,6 +348,7 @@
       </span>
     </template>
   </el-dialog>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -639,7 +639,7 @@ const openCreateDialog = () => {
   createDialogVisible.value = true
 }
 
-// 新增用户提交（当前仅模拟提示）
+// 新增用户提交
 const handleCreateSubmit = () => {
   if (!createFormRef.value) return
   createFormRef.value.validate((valid) => {
