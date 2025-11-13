@@ -1,8 +1,9 @@
 package com.diy.sys.service.impl;
 
-import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.diy.common.utils.JwtUtil;
+import com.diy.common.vo.Result;
 import com.diy.sys.entity.Menu;
 import com.diy.sys.entity.User;
 import com.diy.sys.entity.UserActivityTime;
@@ -18,13 +19,12 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -186,9 +186,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         wrapper.eq(UserRole::getUserId,id);
         List<UserRole> userRoleList = userRoleMapper.selectList(wrapper);
 
-        List<Integer> roleIdList = userRoleList.stream().map(UserRole -> {
-            return UserRole.getRoleId();
-        }).collect(Collectors.toList());
+        List<Integer> roleIdList = userRoleList.stream().map(UserRole::getRoleId).collect(Collectors.toList());
 
         user.setRoleIdList(roleIdList);
         return user;
@@ -226,5 +224,40 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getUsername, username);
         return this.getOne(wrapper);
+    }
+
+    @Override
+    public Map<String, Object> getUserList(String username, String phone, Long pageNo, Long pageSize) {
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(StringUtils.hasLength(username), User::getUsername, username);
+        wrapper.eq(StringUtils.hasLength(phone), User::getPhone, phone);
+        wrapper.orderByAsc(User::getId);
+        Page<User> page = new Page<>(pageNo, pageSize);
+        this.page(page, wrapper);
+
+        List<User> records = page.getRecords();
+        if (records != null && !records.isEmpty()) {
+            List<Integer> userIds = records.stream()
+                    .map(User::getId)
+                    .collect(Collectors.toList());
+
+            LambdaQueryWrapper<UserRole> roleWrapper = new LambdaQueryWrapper<>();
+            roleWrapper.in(UserRole::getUserId, userIds);
+            List<UserRole> userRoles = userRoleMapper.selectList(roleWrapper);
+
+            Map<Integer, List<Integer>> userRoleMap = userRoles.stream()
+                    .collect(Collectors.groupingBy(UserRole::getUserId,
+                            Collectors.mapping(UserRole::getRoleId, Collectors.toList())));
+
+            records.forEach(user -> {
+                List<Integer> roleIdList = userRoleMap.get(user.getId());
+                user.setRoleIdList(roleIdList);
+            });
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("total", page.getTotal());
+        data.put("row", records);
+        return data;
     }
 }

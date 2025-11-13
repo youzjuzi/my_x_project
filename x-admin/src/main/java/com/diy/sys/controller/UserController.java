@@ -111,25 +111,37 @@ public class UserController {
         return Result.success("注销成功");
     }
 
+//    @GetMapping("/list")
+//    public Result<Map<String ,Object>> getUserList(@RequestParam(value = "username",required = false) String username,
+//                                               @RequestParam(value = "phone",required = false) String phone,
+//                                               @RequestParam("pageNo") Long pageNo,
+//                                               @RequestParam("pageSize") Long pageSize){
+//        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+//        wrapper.eq(StringUtils.hasLength(username),User::getUsername,username);
+//        wrapper.eq(StringUtils.hasLength(phone),User::getPhone,phone);
+//        // 排序
+//        wrapper.orderByAsc(User::getId);
+//
+//        Page<User> page = new Page<>(pageNo,pageSize);
+//        userService.page(page,wrapper);
+//
+//        // 封装数据
+//        Map<String ,Object> data = new HashMap<>();
+//        data.put("total",page.getTotal());
+//        data.put("row",page.getRecords());
+//
+//        return Result.success(data);
+//    }
+
     @GetMapping("/list")
     public Result<Map<String ,Object>> getUserList(@RequestParam(value = "username",required = false) String username,
-                                               @RequestParam(value = "phone",required = false) String phone,
-                                               @RequestParam("pageNo") Long pageNo,
-                                               @RequestParam("pageSize") Long pageSize){
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(StringUtils.hasLength(username),User::getUsername,username);
-        wrapper.eq(StringUtils.hasLength(phone),User::getPhone,phone);
-        wrapper.orderByAsc(User::getId);
-
-        Page<User> page = new Page<>(pageNo,pageSize);
-        userService.page(page,wrapper);
-
-        Map<String ,Object> data = new HashMap<>();
-        data.put("total",page.getTotal());
-        data.put("row",page.getRecords());
-
+                                           @RequestParam(value = "phone",required = false) String phone,
+                                           @RequestParam("pageNo") Long pageNo,
+                                           @RequestParam("pageSize") Long pageSize){
+        Map<String ,Object> data = userService.getUserList(username, phone, pageNo, pageSize);
         return Result.success(data);
-    }
+}
+
 
     @PostMapping
     public Result<?> addUser(@RequestBody User user){

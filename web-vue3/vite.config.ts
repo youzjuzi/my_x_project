@@ -89,6 +89,11 @@ export default defineConfig(({ command, mode }) => {
           changeOrigin: true,
           secure: false,
           //rewrite: (path) => path.replace(/^\/api-test/, ''),
+        },
+        '/role': {
+          target: 'http://localhost:9999',
+          changeOrigin: true,
+          secure: false,
         }
       }
     }

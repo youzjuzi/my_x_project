@@ -64,9 +64,19 @@
         </el-table-column>
         <el-table-column prop="email" label="邮箱" min-width="200" show-overflow-tooltip />
         <el-table-column prop="phone" label="电话" min-width="140" />
-        <el-table-column prop="role" label="角色" min-width="120">
+        <el-table-column prop="roleTitles" label="角色" min-width="180">
           <template #default="{ row }">
-            <el-tag type="info">{{ row.role }}</el-tag>
+            <template v-if="row.roleTitles.length">
+              <el-tag
+                v-for="role in row.roleTitles"
+                :key="role"
+                type="info"
+                class="role-tag"
+              >
+                {{ role }}
+              </el-tag>
+            </template>
+            <span v-else class="text-muted">未分配</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="110" align="center">
@@ -100,14 +110,12 @@
               </el-tooltip>
               <el-popconfirm title="确认要删除该用户吗？" @confirm="handleDelete(row)">
                 <template #reference>
-                  <el-tooltip content="删除" effect="dark" placement="top">
-                    <el-button
-                      circle
-                      class="action-icon danger"
-                      type="danger"
-                      :icon="Delete"
-                    />
-                  </el-tooltip>
+                  <el-button
+                    circle
+                    class="action-icon danger"
+                    type="danger"
+                    :icon="Delete"
+                  />
                 </template>
               </el-popconfirm>
             </div>
@@ -136,6 +144,7 @@ import { Edit, Delete, Plus, RefreshRight, Search, View } from '@element-plus/ic
 import { ElMessage } from 'element-plus'
 import { computed, reactive, ref, onMounted } from 'vue'
 import userManageApi from '@/api/userManage'
+import roleManageApi from '@/api/roleManage'
 
 interface RawUserItem {
   id: number
@@ -157,7 +166,7 @@ interface User {
   email: string
   phone: string
   status: 'enabled' | 'disabled'
-  role: string
+  roleTitles: string[]
   createdAt: string
   avatar?: string
 }
@@ -165,6 +174,12 @@ interface User {
 interface StatusItem {
   label: string
   value: 'all' | 'enabled' | 'disabled'
+}
+
+interface RoleItem {
+  roleId: number
+  roleName: string
+  roleDesc?: string
 }
 
 const loading = ref(false)
@@ -189,10 +204,34 @@ const statusMap = {
   disabled: { text: '停用', type: 'danger' as const },
 }
 
+// 角色字典：用于根据 roleId 映射到角色名称
+const roleDict = ref<Record<number, RoleItem>>({})
+
 const pagedTableData = computed(() => tableData.value)
+
+const loadRoleDict = async () => {
+  try {
+    const res = await roleManageApi.getAllRoleList()
+    console.log('roleDict', res)
+    const list: RoleItem[] = res.data || []
+    roleDict.value = list.reduce((acc, role) => {
+      acc[role.roleId] = role
+      return acc
+    }, {} as Record<number, RoleItem>)
+  } catch (error) {
+    console.error('获取角色列表失败', error)
+    ElMessage.warning('角色信息获取失败，显示的角色名称可能不完整')
+  }
+}
 
 const mapUserRecord = (record: RawUserItem): User => {
   const status = record.status === 1 ? 'enabled' : 'disabled'
+  const roleNames = Array.isArray(record.roleIdList)
+    ? record.roleIdList
+        .map((roleId) => roleDict.value[roleId]?.roleDesc || roleDict.value[roleId]?.roleName)
+        .filter(Boolean) as string[]
+    : []
+
   return {
     id: record.id,
     username: record.username || '--',
@@ -200,7 +239,7 @@ const mapUserRecord = (record: RawUserItem): User => {
     email: record.email || '--',
     phone: record.phone || '--',
     status,
-    role: Array.isArray(record.roleIdList) && record.roleIdList.length > 0 ? `角色 ${record.roleIdList.join(',')}` : '未分配',
+    roleTitles: roleNames.length > 0 ? roleNames : ['未分配'],
     createdAt: (record as Record<string, string>).createTime || '--',
     avatar: record.avatar || 'https://avatars.githubusercontent.com/u/9919?s=200&v=4',
   }
@@ -266,7 +305,8 @@ const handleCurrentChange = (val: number) => {
   fetchUserList()
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await loadRoleDict()
   fetchUserList()
 })
 </script>
@@ -362,6 +402,15 @@ onMounted(() => {
 
 .action-icon:deep(.el-icon) {
   font-size: 20px;
+}
+
+.role-tag {
+  margin-right: 6px;
+  margin-bottom: 4px;
+}
+
+.text-muted {
+  color: var(--el-text-color-secondary);
 }
 
 .pagination-wrapper {

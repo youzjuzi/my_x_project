@@ -33,4 +33,6 @@ public interface IUserService extends IService<User> {
     void deleteUserById(Integer id);
 
     User getByUsername(String username);
+
+    Map<String, Object> getUserList(String username, String phone, Long pageNo, Long pageSize);
 }
