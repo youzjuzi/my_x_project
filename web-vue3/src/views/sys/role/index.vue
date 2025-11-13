@@ -50,20 +50,22 @@
                   size="small"
                   type="primary"
                   :icon="Edit"
+                  :disabled="row.roleId === 1"
                   @click="handleEdit(row)"
                 />
               </el-tooltip>
               <el-popconfirm
                 title="确认要删除该角色吗？"
+                :disabled="row.roleId === 1"
                 :confirm-button-text="'删除'"
                 :cancel-button-text="'取消'"
-                :teleported="false"
                 @confirm="handleDelete(row)"
               >
                 <template #reference>
                   <el-button
                     size="small"
                     type="danger"
+                    :disabled="row.roleId === 1"
                     :loading="deleteLoadingId === row.roleId"
                     :icon="Delete"
                   />
@@ -347,6 +349,10 @@ const handleCreateSubmit = async () => {
 }
 
 const handleEdit = async (row: RoleItem) => {
+  if (row.roleId === 1) {
+    ElMessage.warning('超级管理员不可修改')
+    return
+  }
   await loadMenuTree()
   try {
     const res = await roleManageApi.getRoleById(row.roleId)
@@ -404,6 +410,10 @@ const handleEditSubmit = async () => {
 }
 
 const handleDelete = async (row: RoleItem) => {
+  if (row.roleId === 1) {
+    ElMessage.warning('超级管理员不可删除')
+    return
+  }
   deleteLoadingId.value = row.roleId
   try {
     await roleManageApi.deleteRole(row.roleId)

@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IUserService {
+
+    private static final Integer DEFAULT_ROLE_ID = 3;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -66,6 +69,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         //密码加密
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         this.baseMapper.insert(user);
+        // 默认分配普通用户角色
+        userRoleMapper.insert(new UserRole(null, user.getId(), DEFAULT_ROLE_ID));
         Map<String,Object> data = new HashMap<>();
         data.put("name", user.getUsername());
         return data;
@@ -80,11 +85,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         User loginUser = this.baseMapper.selectOne(Wrapper);
         //结果不为空并且密码和传入密码匹配，则需要生成token，并且用户信息存入redis
         if (loginUser != null && passwordEncoder.matches(user.getPassword(),loginUser.getPassword())){
-            // 暂时用UUID, 终极方案是jwt
-            //String key = "user:" + UUID.randomUUID();
-            // 存入redis
             loginUser.setPassword(null);
-            //redisTemplate.opsForValue().set(key,loginUser,30, TimeUnit.MINUTES);
             //创建jwt
             String token = jwtUtil.createToken(loginUser);
             // 记录登录时间
@@ -92,6 +93,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             userActivityTime.setUserId(loginUser.getId());
             userActivityTime.setActivityTime(LocalDateTime.now());
             userActivityMapper.insert(userActivityTime);
+
             System.out.println(userActivityTime);
             // 返回数据
             Map<String, Object> data = new HashMap<>();
@@ -101,30 +103,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         }
         return null;
     }
-
-//    @Override
-//    public Map<String, Object> login(User user) {
-//        //根据用户名与密码取查询
-//        LambdaQueryWrapper<User> Wrapper = new LambdaQueryWrapper();
-//        Wrapper.eq(User::getUsername,user.getUsername());
-//        Wrapper.eq(User::getPassword,user.getPassword());
-//        User loginUser = this.baseMapper.selectOne(Wrapper);
-//        //结果不为空，则需要生成token，并且用户信息存入redis
-//        if (loginUser != null){
-//            // 暂时用UUID, 终极方案是jwt
-//            String key = "user:" + UUID.randomUUID();
-//
-//            // 存入redis
-//            loginUser.setPassword(null);
-//            redisTemplate.opsForValue().set(key,loginUser,30, TimeUnit.MINUTES);
-//
-//            // 返回数据
-//            Map<String, Object> data = new HashMap<>();
-//            data.put("token",key);
-//            return data;
-//        }
-//        return null;
-//    }
 
     //根据token获取用户信息
     @Override
@@ -172,10 +150,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         this.baseMapper.insert(user);
         // 写入用户角色表
         List<Integer> roleIdList = user.getRoleIdList();
-        if (roleIdList != null){
-            for (Integer roleId : roleIdList) {
-                userRoleMapper.insert(new UserRole(null,user.getId(),roleId));
-            }
+        if (roleIdList == null || roleIdList.isEmpty()) {
+            roleIdList = new ArrayList<>();
+            roleIdList.add(DEFAULT_ROLE_ID);
+        }
+        for (Integer roleId : roleIdList) {
+            userRoleMapper.insert(new UserRole(null, user.getId(), roleId));
         }
     }
 
@@ -220,10 +200,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         userRoleMapper.delete(wrapper);
         // 设置新的角色
         List<Integer> roleIdList = user.getRoleIdList();
-        if (roleIdList != null){
-            for (Integer roleId : roleIdList) {
-                userRoleMapper.insert(new UserRole(null,user.getId(),roleId));
-            }
+        if (roleIdList == null || roleIdList.isEmpty()) {
+            roleIdList = new ArrayList<>();
+            roleIdList.add(DEFAULT_ROLE_ID);
+        }
+        for (Integer roleId : roleIdList) {
+            userRoleMapper.insert(new UserRole(null,user.getId(),roleId));
         }
     }
 

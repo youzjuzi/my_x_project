@@ -56,15 +56,6 @@ public class UserController {
     @Operation(summary = "用户登录")
     @PostMapping("/login")
     public Result<Map<String,Object>> login(@RequestBody User user){
-
-//        System.out.println("codeKey:" + user.getCodeKey());
-//        System.out.println("code:" + user.getCaptcha());
-//        // 判断验证码是否正确
-//        if (!user.getCaptcha().toLowerCase().equals(CaptureConfig.CAPTURE_MAP.get(user.getCodeKey()))) {
-//            //验证码错误
-//            CaptureConfig.CAPTURE_MAP.clear();
-//            return Result.fail(20004,"验证码错误");
-//        }
         Map<String,Object> data = userService.login(user);
         if (data != null){
             User loggedInUser = userService.getByUsername(user.getUsername());
@@ -77,11 +68,6 @@ public class UserController {
     @Operation(summary = "用户注册")
     @PostMapping("/register")
     public Result<?> register(@RequestBody User user,HttpServletRequest request){
-//        if (!user.getCaptcha().toLowerCase().equals(CaptureConfig.CAPTURE_MAP.get(user.getCodeKey()))) {
-//            //验证码错误
-//            CaptureConfig.CAPTURE_MAP.clear();
-//            return Result.fail(20004,"验证码错误");
-//        }
         //检测用户名是否已经存在
         Map<String,Object> data = userService.register(user);
         if (data != null){
@@ -111,28 +97,6 @@ public class UserController {
         return Result.success("注销成功");
     }
 
-//    @GetMapping("/list")
-//    public Result<Map<String ,Object>> getUserList(@RequestParam(value = "username",required = false) String username,
-//                                               @RequestParam(value = "phone",required = false) String phone,
-//                                               @RequestParam("pageNo") Long pageNo,
-//                                               @RequestParam("pageSize") Long pageSize){
-//        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-//        wrapper.eq(StringUtils.hasLength(username),User::getUsername,username);
-//        wrapper.eq(StringUtils.hasLength(phone),User::getPhone,phone);
-//        // 排序
-//        wrapper.orderByAsc(User::getId);
-//
-//        Page<User> page = new Page<>(pageNo,pageSize);
-//        userService.page(page,wrapper);
-//
-//        // 封装数据
-//        Map<String ,Object> data = new HashMap<>();
-//        data.put("total",page.getTotal());
-//        data.put("row",page.getRecords());
-//
-//        return Result.success(data);
-//    }
-
     @Operation(summary = "用户列表")
     @GetMapping("/list")
     public Result<Map<String ,Object>> getUserList(
@@ -143,7 +107,7 @@ public class UserController {
             @RequestParam("pageSize") Long pageSize){
         Map<String ,Object> data = userService.getUserList(username, phone, email ,pageNo, pageSize);
         return Result.success(data);
-}
+    }
 
 
 
