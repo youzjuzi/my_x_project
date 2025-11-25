@@ -50,13 +50,13 @@
                   size="small"
                   type="primary"
                   :icon="Edit"
-                  :disabled="row.roleId === 1"
+                  :disabled="isProtectedRole(row)"
                   @click="handleEdit(row)"
                 />
               </el-tooltip>
               <el-popconfirm
                 title="确认要删除该角色吗？"
-                :disabled="row.roleId === 1"
+                :disabled="isProtectedRole(row)"
                 :confirm-button-text="'删除'"
                 :cancel-button-text="'取消'"
                 @confirm="handleDelete(row)"
@@ -65,7 +65,7 @@
                   <el-button
                     size="small"
                     type="danger"
-                    :disabled="row.roleId === 1"
+                    :disabled="isProtectedRole(row)"
                     :loading="deleteLoadingId === row.roleId"
                     :icon="Delete"
                   />
@@ -349,8 +349,8 @@ const handleCreateSubmit = async () => {
 }
 
 const handleEdit = async (row: RoleItem) => {
-  if (row.roleId === 1) {
-    ElMessage.warning('超级管理员不可修改')
+  if (isProtectedRole(row)) {
+    ElMessage.warning('系统默认角色不可修改')
     return
   }
   await loadMenuTree()
@@ -410,8 +410,8 @@ const handleEditSubmit = async () => {
 }
 
 const handleDelete = async (row: RoleItem) => {
-  if (row.roleId === 1) {
-    ElMessage.warning('超级管理员不可删除')
+  if (isProtectedRole(row)) {
+    ElMessage.warning('系统默认角色不可删除')
     return
   }
   deleteLoadingId.value = row.roleId
@@ -425,6 +425,10 @@ const handleDelete = async (row: RoleItem) => {
   } finally {
     deleteLoadingId.value = null
   }
+}
+
+const isProtectedRole = (row: RoleItem) => {
+  return row.roleId === 1 || row.roleName === 'user'
 }
 
 onMounted(() => {

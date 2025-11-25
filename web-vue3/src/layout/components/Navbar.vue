@@ -9,6 +9,12 @@
       <template v-if="device !== 'mobile'">
         <search id="header-search" class="right-menu-item" />
 
+        <el-tooltip content="手语交互终端" effect="dark" placement="bottom">
+          <div class="right-menu-item hover-effect" @click="goToRecognition">
+            <svg-icon icon-class="link" class="nav-icon" />
+          </div>
+        </el-tooltip>
+
         <error-log class="errLog-container right-menu-item hover-effect" />
 
         <screenfull id="screenfull" class="right-menu-item hover-effect" />
@@ -59,6 +65,7 @@ import ErrorLog from '@/components/ErrorLog';
 import Screenfull from '@/components/Screenfull';
 import SizeSelect from '@/components/SizeSelect';
 import Search from '@/components/HeaderSearch';
+import SvgIcon from '@/components/SvgIcon';
 import { defineComponent } from 'vue';
 import { CaretBottom } from '@element-plus/icons-vue';
 
@@ -70,6 +77,7 @@ export default defineComponent({
     Screenfull,
     SizeSelect,
     Search,
+    SvgIcon,
     CaretBottom
   },
   computed: {
@@ -84,6 +92,9 @@ export default defineComponent({
   methods: {
     toggleSidebar() {
       store.app().toggleSidebar();
+    },
+    goToRecognition() {
+      this.$router.push('/recognition');
     },
     async logout() {
       await store.user().logout();
@@ -140,6 +151,10 @@ export default defineComponent({
       font-size: 18px;
       color: #5a5e66;
       vertical-align: text-bottom;
+
+      .nav-icon {
+        font-size: 18px;
+      }
 
       &.hover-effect {
         cursor: pointer;

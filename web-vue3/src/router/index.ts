@@ -19,7 +19,25 @@ const Layout = ():RouteComponent => import('@/layout/index.vue');
  *
  * 注意：hidden、alwaysShow 属性配置移动到了meta中！！！
  */
+
+
+
+
+
+
+
 export const constantRoutes:RouteRecordRaw[] = [
+    // 在 constantRoutes 数组中添加（注意：不要放在 path: '/' 的 children 里）
+     {
+      path: '/recognition',
+      name: 'Recognition',
+      component: () => import('@/views/recognition/index.vue'),
+      meta: {
+        title: '手语交互终端',
+        hidden: true // 关键：设为 true，这样它就不会出现在后台侧边栏菜单里
+      }
+    },
+
   {
     path: '/redirect',
     component: Layout,
