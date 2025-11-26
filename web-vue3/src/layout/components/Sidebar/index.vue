@@ -28,9 +28,9 @@ export default defineComponent({
   data() {
     return {
       variables: {
-        menuBg: '#304156',
-        menuText: '#fff',
-        menuActiveText: '#409EFF'
+        menuBg: 'transparent',
+        menuText: '#1f2937', // 深灰黑色，在白色背景上更突出
+        menuActiveText: '#5340E8' // 选中项为品牌主色
       }
     };
   },
@@ -63,3 +63,13 @@ export default defineComponent({
   }
 });
 </script>
+
+<style lang="scss" scoped>
+:deep(.el-scrollbar) {
+  background: #ffffff;
+}
+
+:deep(.el-menu) {
+  background: transparent !important;
+}
+</style>

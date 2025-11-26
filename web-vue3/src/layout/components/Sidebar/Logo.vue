@@ -48,9 +48,10 @@ export default defineComponent({
   width: 100%;
   height: 50px;
   line-height: 50px;
-  background: #2b2f3a;
+  background: #ffffff;
   text-align: center;
   overflow: hidden;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 
   & .sidebar-logo-link {
     height: 100%;
@@ -66,7 +67,7 @@ export default defineComponent({
     & .sidebar-title {
       display: inline-block;
       margin: 0;
-      color: #fff;
+      color: #1f2937; // 深色文字
       font-weight: 600;
       line-height: 50px;
       font-size: 14px;

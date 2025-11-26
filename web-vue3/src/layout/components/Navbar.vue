@@ -99,7 +99,7 @@ export default defineComponent({
   overflow: hidden;
   position: relative;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, .08);
+  box-shadow: 0 1px 4px rgba(0, 21, 41, .04);
 
   .hamburger-container {
     line-height: 46px;
@@ -140,34 +140,67 @@ export default defineComponent({
       font-size: 18px;
       color: #5a5e66;
       vertical-align: text-bottom;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
       .nav-icon {
         font-size: 18px;
+        transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       &.hover-effect {
         cursor: pointer;
-        transition: background .3s;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
         &:hover {
-          background: rgba(0, 0, 0, .025)
+          background: rgba(99, 102, 241, 0.08);
+          color: #5340E8;
+          
+          // 所有类型的图标都变为主题紫色
+          :deep(.el-icon),
+          :deep(svg),
+          :deep(.svg-icon),
+          :deep(.search-icon),
+          :deep(.size-icon),
+          :deep(.el-button) {
+            color: #5340E8 !important;
+            fill: #5340E8 !important;
+          }
+          
+          // SVG 图标特殊处理
+          :deep(svg.svg-icon) {
+            fill: #5340E8 !important;
+          }
+        }
+      }
+    }
+    
+    // 搜索组件特殊处理
+    #header-search {
+      &.hover-effect:hover {
+        :deep(.search-icon),
+        :deep(.svg-icon) {
+          color: #5340E8 !important;
+          fill: #5340E8 !important;
         }
       }
     }
 
     .avatar-container {
       margin-right: 30px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
       .avatar-wrapper {
         margin-top: 5px;
         position: relative;
         height: 45px;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
         .user-avatar {
           cursor: pointer;
           width: 40px;
           height: 40px;
           border-radius: 10px;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .el-icon-caret-bottom {
@@ -176,6 +209,19 @@ export default defineComponent({
           right: -20px;
           top: 25px;
           font-size: 12px;
+          transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+      }
+      
+      &:hover {
+        .avatar-wrapper {
+          .user-avatar {
+            box-shadow: 0 0 0 2px rgba(83, 64, 232, 0.2);
+          }
+          
+          .el-icon-caret-bottom {
+            color: #5340E8;
+          }
         }
       }
     }

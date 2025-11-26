@@ -10,7 +10,7 @@
   .sidebar-container {
     transition: width 0.28s;
     width: var(--side-bar-width) !important;
-    background-color: var(--menu-bg);
+    background: #ffffff;
     height: 100%;
     position: fixed;
     font-size: 0px;
@@ -19,6 +19,7 @@
     left: 0;
     z-index: 1001;
     overflow: hidden;
+    box-shadow: 2px 0 8px 0 rgba(29, 35, 41, 0.05);
 
     // reset element-ui css
     .horizontal-collapse-transition {
@@ -72,27 +73,104 @@
       border: none;
       height: 100%;
       width: 100% !important;
+      padding: 8px 0;
+    }
+
+    // 菜单项基础样式
+    .el-menu-item,
+    .submenu-title-noDropdown {
+      margin: 4px 10px !important;
+      border-radius: 12px !important;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      color: #1f2937 !important; // 深灰黑色，在白色背景上更突出
+      
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.04) !important;
+        color: #000000 !important; // 悬停时文字变黑
+        
+        .text,
+        .svg-icon,
+        .el-svg-icon {
+          color: #000000 !important;
+        }
+      }
+    }
+
+    // 选中状态 - 悬浮胶囊风格（展开时显示，带动画）
+    .el-menu-item.is-active {
+      background: #EEF2FF !important; // 极淡的品牌紫
+      color: #5340E8 !important; // 品牌主色
+      margin: 4px 10px !important;
+      border-radius: 12px !important;
+      animation: capsuleFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; // 展开时的动画
+      
+      .text,
+      .svg-icon,
+      .el-svg-icon {
+        color: #5340E8 !important; // 选中图标色同文字色
+        transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      }
+    }
+    
+    // 胶囊展开动画
+    @keyframes capsuleFadeIn {
+      from {
+        background: transparent;
+        margin: 0;
+        border-radius: 0;
+      }
+      to {
+        background: #EEF2FF;
+        margin: 4px 10px;
+        border-radius: 12px;
+      }
     }
 
     // menu hover
     .submenu-title-noDropdown,
     .el-sub-menu__title {
+      color: #1f2937 !important; // 深灰黑色，在白色背景上更突出
+      margin: 4px 10px !important;
+      border-radius: 12px !important;
+      
       &:hover {
-        background-color: var(--menu-hover) !important;
+        background-color: rgba(0, 0, 0, 0.04) !important;
+        color: #000000 !important; // 悬停时文字变黑
       }
     }
 
     .is-active>.el-sub-menu__title {
-      color: var(--sub-menu-active-text) !important;
+      color: #1f2937 !important;
     }
 
     & .nest-menu .el-sub-menu>.el-sub-menu__title,
     & .el-sub-menu .el-menu-item {
-      min-width: var(--side-bar-width) !important;
-      background-color: var(--sub-menu-bg) !important;
+      min-width: calc(var(--side-bar-width) - 20px) !important;
+      background-color: transparent !important;
+      margin: 4px 10px !important;
+      border-radius: 12px !important;
+      color: #1f2937 !important; // 深灰黑色，在白色背景上更突出
 
       &:hover {
-        background-color: var(--sub-menu-hover) !important;
+        background-color: rgba(0, 0, 0, 0.04) !important;
+        color: #000000 !important; // 悬停时文字变黑
+        
+        .text {
+          color: #000000 !important;
+        }
+      }
+      
+      &.is-active {
+        background: #EEF2FF !important; // 极淡的品牌紫
+        color: #5340E8 !important; // 品牌主色
+        animation: capsuleFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; // 展开时的动画
+        
+        .text,
+        .svg-icon,
+        .el-svg-icon {
+          color: #5340E8 !important; // 选中图标色同文字色
+          transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
       }
     }
   }
@@ -106,9 +184,42 @@
       margin-left: 54px;
     }
 
+    // 折叠状态下的菜单项样式 - 收起时不显示胶囊样式
+    .el-menu-item,
     .submenu-title-noDropdown {
-      padding: 0 !important;
+      margin: 0 !important; // 折叠时移除边距
+      border-radius: 0 !important; // 折叠时移除圆角
+      padding: 0 20px !important; // 保持左右 padding 确保图标居中
+      height: 50px !important; // 固定高度确保垂直对齐
+      line-height: 50px !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      width: 100% !important;
+      color: #1f2937 !important; // 深灰黑色，在白色背景上更突出
+      
+      // 折叠时选中项只改变颜色，不显示胶囊背景
+      &.is-active {
+        background: transparent !important; // 折叠时无背景
+        color: #5340E8 !important; // 保持品牌紫色文字
+        margin: 0 !important;
+        border-radius: 0 !important;
+        width: 100% !important;
+        padding: 0 20px !important; // 保持一致的 padding
+        
+        .svg-icon,
+        .el-svg-icon {
+          color: #5340E8 !important;
+        }
+      }
+    }
+
+    .submenu-title-noDropdown {
       position: relative;
+      padding: 0 20px !important; // 保持左右 padding
+      height: 50px !important; // 固定高度
+      line-height: 50px !important;
+      
       .text-one-added {
         display: none;
       }
@@ -118,11 +229,13 @@
       }
 
       .svg-icon {
-        margin-left: 20px;
+        margin-left: 0 !important; // 折叠时图标居中
+        margin-right: 0 !important;
       }
 
       .sub-el-icon {
-        margin-left: 19px;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
       }
     }
 
@@ -130,14 +243,24 @@
       overflow: hidden;
 
       &>.el-sub-menu__title {
-        padding: 0 !important;
+        padding: 0 20px !important; // 保持左右 padding 确保图标居中
+        margin: 0 !important; // 折叠时移除边距
+        border-radius: 0 !important; // 折叠时移除圆角
+        height: 50px !important; // 固定高度确保垂直对齐
+        line-height: 50px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
 
         .svg-icon {
-          margin-left: 20px;
+          margin-left: 0 !important; // 折叠时图标居中
+          margin-right: 0 !important;
         }
 
         .sub-el-icon {
-          margin-left: 19px;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
         }
 
         .el-sub-menu__icon-arrow {
@@ -149,6 +272,16 @@
     .el-menu--collapse {
       .el-sub-menu {
         &>.el-sub-menu__title {
+          margin: 0 !important; // 折叠时移除边距
+          border-radius: 0 !important; // 折叠时移除圆角
+          padding: 0 20px !important; // 保持左右 padding
+          height: 50px !important; // 固定高度
+          line-height: 50px !important;
+          width: 100% !important;
+          display: flex !important;
+          justify-content: center !important;
+          align-items: center !important;
+          
           &>span {
             height: 0;
             width: 0;
@@ -157,6 +290,18 @@
             display: inline-block;
           }
         }
+      }
+      
+      // 折叠状态下的选中菜单项 - 不显示胶囊样式
+      .el-menu-item.is-active {
+        margin: 0 !important;
+        border-radius: 0 !important;
+        width: 100% !important;
+        padding: 0 20px !important; // 保持一致的 padding
+        height: 50px !important; // 固定高度
+        line-height: 50px !important;
+        background: transparent !important; // 折叠时无背景
+        color: #5340E8 !important; // 只改变文字颜色
       }
     }
   }
@@ -206,16 +351,46 @@
       margin-left: -2px;
     }
   }
+  
+  // 确保所有菜单项都有正确的文字颜色
+  .el-menu-item {
+    color: #1f2937 !important; // 深灰黑色，在白色背景上更突出
+    
+    &:hover {
+      color: #000000 !important; // 悬停时文字变黑
+    }
+    
+    &.is-active {
+      color: #5340E8 !important; // 选中项为品牌主色
+    }
+  }
 
   .nest-menu .el-sub-menu>.el-sub-menu__title,
   .el-menu-item {
     .text {
       overflow: hidden;
       text-overflow: ellipsis;
+      color: #1f2937; // 深灰黑色，在白色背景上更突出
     }
+    
     &:hover {
-      // you can use var(--sub-menu-hover)
-      background-color: var(--menu-hover) !important;
+      background-color: rgba(0, 0, 0, 0.04) !important;
+      .text {
+        color: #000000 !important; // 悬停时文字变黑
+      }
+    }
+    
+    &.is-active {
+      background: #EEF2FF !important; // 极淡的品牌紫
+      color: #5340E8 !important; // 品牌主色
+      animation: capsuleFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; // 展开时的动画
+      
+      .text,
+      .svg-icon,
+      .el-svg-icon {
+        color: #5340E8 !important; // 选中图标色同文字色
+        transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      }
     }
   }
 
@@ -223,6 +398,75 @@
   >.el-menu--popup {
     max-height: 100vh;
     overflow-y: auto;
+    padding: 8px 0 !important; // 添加内边距
+    background: #ffffff !important; // 确保背景是白色
+    
+    // 弹出菜单中的菜单项保持胶囊样式
+    .el-menu-item {
+      margin: 4px 10px !important;
+      border-radius: 12px !important;
+      color: #1f2937 !important;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      background-color: transparent !important;
+      padding-left: 20px !important;
+      padding-right: 20px !important;
+      min-height: 40px !important;
+      line-height: 40px !important;
+      
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.04) !important;
+        color: #000000 !important;
+        margin: 4px 10px !important;
+        border-radius: 12px !important;
+        background: rgba(0, 0, 0, 0.04) !important; // 确保背景色不被覆盖
+      }
+      
+      &.is-active {
+        background: #EEF2FF !important; // 极淡的品牌紫
+        color: #5340E8 !important; // 品牌主色
+        margin: 4px 10px !important;
+        border-radius: 12px !important;
+        background-color: #EEF2FF !important; // 确保背景色不被覆盖
+        background: #EEF2FF !important; // 双重保险
+        
+        .text,
+        .svg-icon,
+        .el-svg-icon {
+          color: #5340E8 !important;
+        }
+      }
+    }
+    
+    // 确保子菜单标题也有正确的样式
+    .el-sub-menu__title {
+      margin: 4px 10px !important;
+      border-radius: 12px !important;
+      color: #1f2937 !important;
+      padding-left: 20px !important;
+      padding-right: 20px !important;
+      
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.04) !important;
+        color: #000000 !important;
+        margin: 4px 10px !important;
+        border-radius: 12px !important;
+      }
+    }
+    
+    // 嵌套子菜单也保持胶囊样式
+    .el-sub-menu {
+      .el-menu-item {
+        margin: 4px 10px !important;
+        border-radius: 12px !important;
+        
+        &.is-active {
+          background: #EEF2FF !important;
+          color: #5340E8 !important;
+          margin: 4px 10px !important;
+          border-radius: 12px !important;
+        }
+      }
+    }
 
     &::-webkit-scrollbar-track-piece {
       background: #d3dce6;

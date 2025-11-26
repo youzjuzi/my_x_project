@@ -201,8 +201,8 @@ export default defineComponent({
   height: 34px;
   width: 100%;
   background: #fff;
-  border-bottom: 1px solid #d8dce5;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, .12), 0 0 3px 0 rgba(0, 0, 0, .04);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, .08), 0 0 3px 0 rgba(0, 0, 0, .04);
 
   .tags-view-wrapper {
     .tags-view-item {
@@ -212,13 +212,16 @@ export default defineComponent({
       cursor: pointer;
       height: 26px;
       line-height: 26px;
-      border: 1px solid #d8dce5;
-      color: #495060;
-      background: #fff;
-      padding: 0 8px;
+      border: none; // 移除所有边框
+      color: #6b7280; // 灰色文字（未选中）
+      background: #f5f7fa; // 淡灰色背景（未选中）
+      padding: 0 12px;
       font-size: 12px;
-      margin-left: 5px;
+      font-weight: 400;
+      border-radius: 8px; // 添加圆角
+      margin-left: 6px;
       margin-top: 4px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
       &:first-of-type {
         margin-left: 15px;
@@ -228,20 +231,22 @@ export default defineComponent({
         margin-right: 15px;
       }
 
-      &.router-link-exact-active {
-        background-color: #42b983;
-        color: #fff;
-        border-color: #42b983;
+      &:hover {
+        background: #e5e7eb;
+        color: #4b5563;
+      }
 
+      // 选中状态 - 极简卡片风格
+      &.router-link-active,
+      &.router-link-exact-active {
+        background: #eef2ff; // 极淡紫色背景
+        color: #5340E8; // 深紫色文字
+        font-weight: 600; // 加粗字体
+        border: none; // 确保没有边框
+
+        // 移除实心小圆点
         &::before {
-          content: '';
-          background: #fff;
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          position: relative;
-          margin-right: 2px;
+          display: none;
         }
       }
     }
@@ -284,11 +289,13 @@ export default defineComponent({
       width: 16px;
       height: 16px;
       padding: 4px;
+      margin-left: 6px;
       margin-bottom: -4px;
       border-radius: 50%;
       text-align: center;
-      transition: all .3s cubic-bezier(.645, .045, .355, 1);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       transform-origin: 100% 50%;
+      opacity: 0.6;
 
       &:before {
         transform: scale(.6);
@@ -297,8 +304,22 @@ export default defineComponent({
       }
 
       &:hover {
-        background-color: #b4bccc;
-        color: #fff;
+        background-color: rgba(107, 114, 128, 0.2);
+        color: #374151;
+        opacity: 1;
+      }
+    }
+    
+    // 选中状态下的关闭按钮样式
+    &.router-link-active .el-icon-close,
+    &.router-link-exact-active .el-icon-close {
+      color: #5340E8;
+      opacity: 0.7;
+      
+      &:hover {
+        background-color: rgba(83, 64, 232, 0.2);
+        color: #5340E8;
+        opacity: 1;
       }
     }
   }
