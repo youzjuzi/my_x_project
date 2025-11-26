@@ -1,8 +1,14 @@
 <template>
   <div class="profile-form">
+    <div class="form-header">
+      <h3>基本资料</h3>
+      <el-button v-if="!isEditing" type="primary" link @click="startEdit">
+        修改资料
+      </el-button>
+    </div>
     <el-form :model="form" label-width="100px" style="max-width: 500px;">
       <el-form-item label="用户名">
-        <el-input v-model="form.name" placeholder="请输入用户名" />
+        <el-input v-model="form.name" placeholder="请输入用户名" :disabled="!isEditing" />
       </el-form-item>
       
       <el-form-item label="邮箱">
@@ -26,11 +32,13 @@
           :rows="4"
           placeholder="请输入个人简介"
           maxlength="200"
-          show-word-limit />
+          show-word-limit
+          :disabled="!isEditing" />
       </el-form-item>
       
-      <el-form-item>
-        <el-button type="primary" @click="handleSubmit">保存修改</el-button>
+      <el-form-item v-if="isEditing">
+        <el-button type="primary" :disabled="!hasChanges" @click="handleSubmit">保存修改</el-button>
+        <el-button @click="cancelEdit">取消</el-button>
       </el-form-item>
     </el-form>
   </div>
@@ -60,8 +68,18 @@ export default defineComponent({
       form: {
         name: '',
         bio: ''
+      },
+      isEditing: false,
+      originalForm: {
+        name: '',
+        bio: ''
       }
     };
+  },
+  computed: {
+    hasChanges() {
+      return this.form.name !== this.originalForm.name || this.form.bio !== this.originalForm.bio;
+    }
   },
   watch: {
     user: {
@@ -71,6 +89,8 @@ export default defineComponent({
             name: newVal.name || '',
             bio: newVal.bio || ''
           };
+          this.originalForm = { ...this.form };
+          this.isEditing = false;
         }
       },
       immediate: true,
@@ -78,7 +98,19 @@ export default defineComponent({
     }
   },
   methods: {
+    startEdit() {
+      this.isEditing = true;
+      this.originalForm = { ...this.form };
+    },
+    cancelEdit() {
+      this.form = { ...this.originalForm };
+      this.isEditing = false;
+    },
     handleSubmit() {
+      if (!this.isEditing) {
+        ElMessage.info('请先点击“修改资料”进入编辑状态');
+        return;
+      }
       // TODO: 后续调用API保存用户信息
       this.$emit('update', {
         name: this.form.name,
@@ -91,6 +123,8 @@ export default defineComponent({
       }
       
       ElMessage.success('用户信息更新成功');
+      this.isEditing = false;
+      this.originalForm = { ...this.form };
     },
     goToSecurity() {
       this.$emit('switch-tab', 'security');
@@ -102,6 +136,20 @@ export default defineComponent({
 <style lang="scss" scoped>
 .profile-form {
   padding: 20px;
+  
+  .form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+
+    h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #303133;
+    }
+  }
   
   .readonly-text {
     color: #606266;

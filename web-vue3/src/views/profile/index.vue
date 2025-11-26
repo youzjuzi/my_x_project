@@ -68,6 +68,7 @@ import { defineComponent } from 'vue';
 import { Camera } from '@element-plus/icons-vue';
 import store from '@/store';
 import { ElMessage } from 'element-plus';
+import { getProfileInfo } from '@/api/profile';
 
 export default defineComponent({
   name: 'Profile',
@@ -80,14 +81,16 @@ export default defineComponent({
     return {
       user: {},
       activeTab: 'profile',
-      defaultAvatar: 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif'
+      defaultAvatar: 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif',
+      loading: false
     };
   },
   computed: {
     ...mapState(store.user, [
       'name',
       'avatar',
-      'roles'
+      'roles',
+      'token'
     ])
   },
   watch: {
@@ -101,16 +104,37 @@ export default defineComponent({
     this.getUser();
   },
   methods: {
-    getUser() {
-      this.user = {
-        name: this.name || '未设置',
-        role: this.roles && this.roles.length > 0 ? this.roles[0] : '普通用户',
-        email: 'admin@test.com', // 这里后续可以从API获取
-        phone: '', // 这里后续可以从API获取
-        avatar: this.avatar || this.defaultAvatar,
-        createTime: '2024-01-01 10:00:00', // 这里后续可以从API获取
-        lastLoginTime: '2024-12-20 15:30:00' // 这里后续可以从API获取
-      };
+    // 获取用户信息
+    async getUser() {
+      this.loading = true;
+      try {
+        const response = await getProfileInfo(this.token);
+        const data = response?.data || {};
+        this.user = {
+          id: data.id || null,
+          name: data.name || '未设置',
+          role: data.role || (Array.isArray(data.roles) && data.roles.length ? data.roles[0] : '普通用户'),
+          roles: data.roles || [],
+          email: data.email || '',
+          phone: data.phone || '',
+          avatar: data.avatar || this.avatar || this.defaultAvatar,
+          createTime: data.createTime || '',
+          lastLoginTime: data.lastLoginTime || '',
+          bio: data.bio || ''
+        };
+
+        if (data.name) {
+          store.user().name = data.name;
+        }
+        if (data.avatar) {
+          store.user().avatar = data.avatar;
+        }
+      } catch (error) {
+        console.error('获取用户信息失败', error);
+        ElMessage.error('获取用户信息失败，请稍后重试');
+      } finally {
+        this.loading = false;
+      }
     },
     handleUserUpdate(updatedUser) {
       this.user = { ...this.user, ...updatedUser };

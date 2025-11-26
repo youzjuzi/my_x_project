@@ -99,6 +99,11 @@ export default defineConfig(({ command, mode }) => {
           target: 'http://localhost:9999',
           changeOrigin: true,
           secure: false,
+        },
+        '/profile': {
+           target: 'http://localhost:9999',
+           changeOrigin: true,
+           secure: false,
         }
       }
     }
