@@ -108,7 +108,7 @@ export default defineComponent({
     async getUser() {
       this.loading = true;
       try {
-        const response = await getProfileInfo(this.token);
+        const response = await getProfileInfo();
         const data = response?.data || {};
         this.user = {
           id: data.id || null,
@@ -144,6 +144,12 @@ export default defineComponent({
       }
       if (updatedUser.avatar) {
         store.user().avatar = updatedUser.avatar;
+      }
+      if (updatedUser.phone) {
+        store.user().phone = updatedUser.phone;
+      }
+      if (updatedUser.email) {
+        store.user().email = updatedUser.email;
       }
     },
     handleSwitchTab(tabName) {

@@ -97,6 +97,57 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 手机号绑定/修改弹窗 -->
+    <el-dialog
+      v-model="showPhoneDialog"
+      :title="userInfo.phone ? '修改手机号' : '绑定手机号'"
+      width="500px"
+      @close="resetPhoneForm">
+      <el-form
+        :model="phoneForm"
+        :rules="phoneRules"
+        ref="phoneFormRef"
+        label-width="100px">
+        <el-form-item label="手机号" prop="phone">
+          <el-input
+            v-model="phoneForm.phone"
+            placeholder="请输入11位手机号"
+            maxlength="11" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showPhoneDialog = false">取消</el-button>
+          <el-button type="primary" @click="handleUpdatePhone">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- 邮箱绑定/修改弹窗 -->
+    <el-dialog
+      v-model="showEmailDialog"
+      :title="userInfo.email ? '修改邮箱' : '绑定邮箱'"
+      width="500px"
+      @close="resetEmailForm">
+      <el-form
+        :model="emailForm"
+        :rules="emailRules"
+        ref="emailFormRef"
+        label-width="100px">
+        <el-form-item label="邮箱" prop="email">
+          <el-input
+            v-model="emailForm.email"
+            placeholder="请输入邮箱地址" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showEmailDialog = false">取消</el-button>
+          <el-button type="primary" @click="handleUpdateEmail">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -104,6 +155,8 @@
 import { defineComponent } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Lock, Iphone, Message } from '@element-plus/icons-vue';
+import { changePassword, updatePhone, updateEmail } from '@/api/profile';
+import store from '@/store';
 
 export default defineComponent({
   name: 'SecuritySettings',
@@ -138,8 +191,42 @@ export default defineComponent({
   },
   data() {
     const validateConfirmPassword = (rule, value, callback) => {
-      if (value !== this.passwordForm.newPassword) {
+      if (value === '') {
+        callback(new Error('请再次输入新密码'));
+      } else if (value !== this.passwordForm.newPassword) {
         callback(new Error('两次输入的密码不一致'));
+      } else {
+        callback();
+      }
+    };
+
+    const validateNewPassword = (rule, value, callback) => {
+      if (value === '') {
+        callback(new Error('请输入新密码'));
+      } else if (value.length < 6) {
+        callback(new Error('密码长度至少6位'));
+      } else if (value === this.passwordForm.oldPassword) {
+        callback(new Error('新密码不能与旧密码相同'));
+      } else {
+        callback();
+      }
+    };
+
+    const validatePhone = (rule, value, callback) => {
+      if (value === '') {
+        callback(new Error('请输入手机号'));
+      } else if (!/^1[3-9]\d{9}$/.test(value)) {
+        callback(new Error('请输入正确的11位手机号'));
+      } else {
+        callback();
+      }
+    };
+
+    const validateEmail = (rule, value, callback) => {
+      if (value === '') {
+        callback(new Error('请输入邮箱地址'));
+      } else if (!/^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(value)) {
+        callback(new Error('请输入正确的邮箱地址'));
       } else {
         callback();
       }
@@ -147,10 +234,18 @@ export default defineComponent({
 
     return {
       showPasswordDialog: false,
+      showPhoneDialog: false,
+      showEmailDialog: false,
       passwordForm: {
         oldPassword: '',
         newPassword: '',
         confirmPassword: ''
+      },
+      phoneForm: {
+        phone: ''
+      },
+      emailForm: {
+        email: ''
       },
       passwordRules: {
         oldPassword: [
@@ -158,11 +253,23 @@ export default defineComponent({
         ],
         newPassword: [
           { required: true, message: '请输入新密码', trigger: 'blur' },
-          { min: 6, message: '密码长度至少6位', trigger: 'blur' }
+          { validator: validateNewPassword, trigger: 'blur' }
         ],
         confirmPassword: [
           { required: true, message: '请再次输入新密码', trigger: 'blur' },
           { validator: validateConfirmPassword, trigger: 'blur' }
+        ]
+      },
+      phoneRules: {
+        phone: [
+          { required: true, message: '请输入手机号', trigger: 'blur' },
+          { validator: validatePhone, trigger: 'blur' }
+        ]
+      },
+      emailRules: {
+        email: [
+          { required: true, message: '请输入邮箱地址', trigger: 'blur' },
+          { validator: validateEmail, trigger: 'blur' }
         ]
       },
       userInfo: {
@@ -172,13 +279,31 @@ export default defineComponent({
     };
   },
   methods: {
-    handleChangePassword() {
-      this.$refs.passwordFormRef.validate((valid) => {
+    async handleChangePassword() {
+      this.$refs.passwordFormRef.validate(async (valid) => {
         if (valid) {
-          // TODO: 后续调用API修改密码
-          ElMessage.success('密码修改成功');
-          this.showPasswordDialog = false;
-          this.resetPasswordForm();
+          try {
+            // 调用API修改密码（token 会自动从请求头获取）
+            await changePassword(
+              this.passwordForm.oldPassword,
+              this.passwordForm.newPassword
+            );
+
+            ElMessage.success('密码修改成功，请重新登录');
+            this.showPasswordDialog = false;
+            this.resetPasswordForm();
+            
+            // 延迟跳转到登录页，让用户看到成功提示
+            setTimeout(() => {
+              store.user().logout();
+              this.$router.push('/login');
+            }, 1500);
+          } catch (error) {
+            console.error('修改密码失败:', error);
+            // 根据后端返回的错误信息显示提示
+            const errorMessage = error.response?.data?.message || error.message || '修改密码失败，请稍后重试';
+            ElMessage.error(errorMessage);
+          }
         }
       });
     },
@@ -191,12 +316,62 @@ export default defineComponent({
       this.$refs.passwordFormRef?.resetFields();
     },
     handleBindPhone() {
-      // TODO: 后续实现手机号绑定/修改功能
-      ElMessage.info('手机号绑定/修改功能开发中...');
+      this.phoneForm.phone = this.userInfo.phone || '';
+      this.showPhoneDialog = true;
+    },
+    async handleUpdatePhone() {
+      this.$refs.phoneFormRef.validate(async (valid) => {
+        if (valid) {
+          try {
+            await updatePhone(this.phoneForm.phone);
+            ElMessage.success('手机号更新成功');
+            this.showPhoneDialog = false;
+            this.userInfo.phone = this.phoneForm.phone;
+            // 通知父组件更新用户信息
+            this.$emit('update', { phone: this.phoneForm.phone });
+            this.resetPhoneForm();
+          } catch (error) {
+            console.error('更新手机号失败:', error);
+            const errorMessage = error.response?.data?.message || error.message || '更新手机号失败，请稍后重试';
+            ElMessage.error(errorMessage);
+          }
+        }
+      });
+    },
+    resetPhoneForm() {
+      this.phoneForm = {
+        phone: ''
+      };
+      this.$refs.phoneFormRef?.resetFields();
     },
     handleBindEmail() {
-      // TODO: 后续实现邮箱绑定/修改功能
-      ElMessage.info('邮箱绑定/修改功能开发中...');
+      this.emailForm.email = this.userInfo.email || '';
+      this.showEmailDialog = true;
+    },
+    async handleUpdateEmail() {
+      this.$refs.emailFormRef.validate(async (valid) => {
+        if (valid) {
+          try {
+            await updateEmail(this.emailForm.email);
+            ElMessage.success('邮箱更新成功');
+            this.showEmailDialog = false;
+            this.userInfo.email = this.emailForm.email;
+            // 通知父组件更新用户信息
+            this.$emit('update', { email: this.emailForm.email });
+            this.resetEmailForm();
+          } catch (error) {
+            console.error('更新邮箱失败:', error);
+            const errorMessage = error.response?.data?.message || error.message || '更新邮箱失败，请稍后重试';
+            ElMessage.error(errorMessage);
+          }
+        }
+      });
+    },
+    resetEmailForm() {
+      this.emailForm = {
+        email: ''
+      };
+      this.$refs.emailFormRef?.resetFields();
     },
     formatPhone(phone) {
       if (!phone) return '';

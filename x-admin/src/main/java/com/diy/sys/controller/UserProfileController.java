@@ -29,8 +29,7 @@ public class UserProfileController {
      */
     @Operation(summary = "获取用户个人信息")
     @GetMapping("/getInfo")
-    public Result<Map<String,Object>> getUserInfo(@RequestParam("token") String token){
-        // 如果请求头没有token，尝试从参数获取（兼容旧版本）
+    public Result<Map<String,Object>> getUserInfo(@RequestHeader("X-Token") String token){
         if (token == null || token.isEmpty()) {
             return Result.fail(20003, "缺少认证token");
         }
@@ -47,6 +46,72 @@ public class UserProfileController {
     @GetMapping("/checkUsername")
     public Result<Boolean> check(@RequestParam("username") String username){
         return Result.success(userService.check(username));
+    }
+
+    @Operation(summary = "更改密码")
+    @PostMapping("/changePassword")
+    public Result<Boolean> changePassword(
+            @RequestHeader("X-Token") String token,
+            @RequestBody Map<String,String> password){
+        try {
+            // 将 token 添加到 password Map 中
+            password.put("token", token);
+            Boolean success = userService.changePassword(password);
+            if (success) {
+                return Result.success(true, "密码修改成功");
+            } else {
+                return Result.fail(20004, "密码修改失败");
+            }
+        } catch (RuntimeException e) {
+            // 捕获业务异常，返回错误信息
+            return Result.fail(20004, e.getMessage());
+        } catch (Exception e) {
+            // 捕获其他异常
+            e.printStackTrace();
+            return Result.fail(20004, "密码修改失败，请稍后重试");
+        }
+    }
+
+    @Operation(summary = "更新手机号")
+    @PostMapping("/updatePhone")
+    public Result<Boolean> updatePhone(
+            @RequestHeader("X-Token") String token,
+            @RequestBody Map<String,String> phoneMap){
+        try {
+            phoneMap.put("token", token);
+            Boolean success = userService.updatePhone(phoneMap);
+            if (success) {
+                return Result.success(true, "手机号更新成功");
+            } else {
+                return Result.fail(20005, "手机号更新失败");
+            }
+        } catch (RuntimeException e) {
+            return Result.fail(20005, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail(20005, "手机号更新失败，请稍后重试");
+        }
+    }
+
+    @Operation(summary = "更新邮箱")
+    @PostMapping("/updateEmail")
+    public Result<Boolean> updateEmail(
+            @RequestHeader("X-Token") String token,
+            @RequestBody Map<String,String> emailMap){
+        try {
+            emailMap.put("token", token);
+            Boolean success = userService.updateEmail(emailMap);
+            if (success) {
+                return Result.success(true, "邮箱更新成功");
+            } else {
+                return Result.fail(20006, "邮箱更新失败");
+            }
+        } catch (RuntimeException e) {
+            return Result.fail(20006, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail(20006, "邮箱更新失败，请稍后重试");
+        }
     }
 
 }

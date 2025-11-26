@@ -269,4 +269,136 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         wrapper.eq(User::getUsername, username);
         return this.count(wrapper) > 0 ? "0" : "1";
     }
+
+    /**
+     * 修改密码
+     * @param passwordMap 包含 token、oldPassword、newPassword 的 Map
+     * @return 是否修改成功
+     */
+    @Override
+    @Transactional
+    public Boolean changePassword(Map<String, String> passwordMap) {
+        String token = passwordMap.get("token");
+        String oldPassword = passwordMap.get("oldPassword");
+        String newPassword = passwordMap.get("newPassword");
+
+        if (token == null || oldPassword == null || newPassword == null) {
+            throw new RuntimeException("参数不完整");
+        }
+
+        // 1. 根据 token 解析用户信息
+        User loginUser = null;
+        try {
+            loginUser = jwtUtil.parseToken(token, User.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Token 无效，请重新登录");
+        }
+
+        if (loginUser == null || loginUser.getId() == null) {
+            throw new RuntimeException("用户信息无效");
+        }
+
+        // 2. 从数据库获取用户信息
+        User dbUser = this.getById(loginUser.getId());
+        if (dbUser == null) {
+            throw new RuntimeException("用户不存在");
+        }
+
+        // 3. 验证旧密码是否正确
+        if (!passwordEncoder.matches(oldPassword, dbUser.getPassword())) {
+            throw new RuntimeException("旧密码错误");
+        }
+
+        // 4. 验证新密码不能与旧密码相同
+        if (passwordEncoder.matches(newPassword, dbUser.getPassword())) {
+            throw new RuntimeException("新密码不能与旧密码相同");
+        }
+
+        // 5. 加密新密码并更新
+        String encodedNewPassword = passwordEncoder.encode(newPassword);
+        UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("id", dbUser.getId());
+        updateWrapper.set("password", encodedNewPassword);
+        boolean success = this.update(updateWrapper);
+
+        return success;
+    }
+
+    /**
+     * 更新手机号
+     * @param phoneMap 包含 token、phone 的 Map
+     * @return 是否更新成功
+     */
+    @Override
+    @Transactional
+    public Boolean updatePhone(Map<String, String> phoneMap) {
+        String token = phoneMap.get("token");
+        String phone = phoneMap.get("phone");
+
+        if (token == null || phone == null || phone.trim().isEmpty()) {
+            throw new RuntimeException("参数不完整");
+        }
+
+        // 1. 根据 token 解析用户信息
+        User loginUser = null;
+        try {
+            loginUser = jwtUtil.parseToken(token, User.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Token 无效，请重新登录");
+        }
+
+        if (loginUser == null || loginUser.getId() == null) {
+            throw new RuntimeException("用户信息无效");
+        }
+
+        // 2. 验证手机号格式（简单验证：11位数字）
+        if (!phone.matches("^1[3-9]\\d{9}$")) {
+            throw new RuntimeException("手机号格式不正确");
+        }
+
+        // 3. 更新手机号
+        UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("id", loginUser.getId());
+        updateWrapper.set("phone", phone);
+        return this.update(updateWrapper);
+    }
+
+    /**
+     * 更新邮箱
+     * @param emailMap 包含 token、email 的 Map
+     * @return 是否更新成功
+     */
+    @Override
+    @Transactional
+    public Boolean updateEmail(Map<String, String> emailMap) {
+        String token = emailMap.get("token");
+        String email = emailMap.get("email");
+
+        if (token == null || email == null || email.trim().isEmpty()) {
+            throw new RuntimeException("参数不完整");
+        }
+
+        // 1. 根据 token 解析用户信息
+        User loginUser = null;
+        try {
+            loginUser = jwtUtil.parseToken(token, User.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Token 无效，请重新登录");
+        }
+
+        if (loginUser == null || loginUser.getId() == null) {
+            throw new RuntimeException("用户信息无效");
+        }
+
+        // 2. 验证邮箱格式
+        if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+            throw new RuntimeException("邮箱格式不正确");
+        }
+
+        // 3. 更新邮箱
+        UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("id", loginUser.getId());
+        updateWrapper.set("email", email);
+        return this.update(updateWrapper);
+    }
 }

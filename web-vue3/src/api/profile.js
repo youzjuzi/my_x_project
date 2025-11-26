@@ -3,11 +3,10 @@ import request from '@/utils/request';
 
 
 // 获取用户信息
-export function getProfileInfo(token) {
+export function getProfileInfo() {
   return request({
     url: '/profile/getInfo',
-    method: 'get',
-    params: { token }
+    method: 'get'
   });
 }
 
@@ -23,12 +22,30 @@ export function checkUsername(username) {
 }
 
 //更改密码
-export function changePassword(password) {
+export function changePassword(oldPassword, newPassword) {
   return request({
       url: '/profile/changePassword',
       method: 'post',
-      data: { password }
+      data: {
+        oldPassword,
+        newPassword
+      }
+  })
+}
+// 手机号码更改/绑定
+export function updatePhone(phone) {
+  return request({
+    url: '/profile/updatePhone',
+    method: 'post',
+    data: { phone }
   })
 }
 
-
+// 邮箱更改/绑定
+export function updateEmail(email) {
+  return request({
+    url: '/profile/updateEmail',
+    method: 'post',
+    data: { email }
+  })
+}
