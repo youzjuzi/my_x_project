@@ -7,12 +7,12 @@
       <div class="mesh-background"></div>
       <div class="recognition-content">
         <div class="recognition-left">
-          <h2 class="recognition-title">欢迎使用 ASL 实时手语交互系统</h2>
+          <h2 class="recognition-title">欢迎使用<br>ASL 实时手语交互系统</h2>
           <p class="recognition-desc">开启您的手语识别之旅，体验智能交互的无限可能</p>
         </div>
         <div class="recognition-right">
           <button class="glass-button" @click="goToRecognition">
-            <el-icon><VideoCamera /></el-icon>
+            <el-icon><VideoCamera/></el-icon>
             <span>开始识别</span>
           </button>
           <div class="hand-illustration">
