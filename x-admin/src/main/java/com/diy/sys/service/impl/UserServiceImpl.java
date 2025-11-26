@@ -16,7 +16,6 @@ import com.diy.sys.service.IMenuService;
 import com.diy.sys.service.IUserService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,8 +43,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Autowired
     private JwtUtil jwtUtil;
-    @Autowired
-    private RedisTemplate redisTemplate;
     @Autowired
     private PasswordEncoder passwordEncoder;
     @Autowired
@@ -83,7 +80,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         LambdaQueryWrapper<User> Wrapper = new LambdaQueryWrapper();
         Wrapper.eq(User::getUsername,user.getUsername());
         User loginUser = this.baseMapper.selectOne(Wrapper);
-        //结果不为空并且密码和传入密码匹配，则需要生成token，并且用户信息存入redis
+        //结果不为空并且密码和传入密码匹配，则需要生成token
         if (loginUser != null && passwordEncoder.matches(user.getPassword(),loginUser.getPassword())){
             loginUser.setPassword(null);
             //创建jwt
@@ -107,8 +104,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     //根据token获取用户信息
     @Override
     public Map<String, Object> getUserInfo(String token) {
-        //根据token获取用户信息，redis
-        //Object obj = redisTemplate.opsForValue().get(token);
         User loginUser = null;
         try {
             loginUser = jwtUtil.parseToken(token, User.class);
@@ -118,7 +113,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         }
 
         if (loginUser != null){
-            //User loginUser = JSON.parseObject(JSON.toJSONString(obj),User.class);
             Map<String, Object> data = new HashMap<>();
             data.put("name",loginUser.getUsername());
             data.put("avatar",loginUser.getAvatar());
@@ -140,7 +134,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Override
     public void logout(String token) {
-        //redisTemplate.delete(token);
+        // JWT token 无需在服务端删除，客户端删除即可
     }
 
     @Override

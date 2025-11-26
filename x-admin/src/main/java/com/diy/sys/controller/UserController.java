@@ -81,7 +81,7 @@ public class UserController {
     @Operation(summary = "info")
     @GetMapping("/info")
     public Result<Map<String,Object>> getUserInfo(@RequestParam("token") String token){
-        //根据token获取用户信息，redis
+        //根据token获取用户信息
         Map<String,Object> data = userService.getUserInfo(token);
         if (data != null){
             User user = userService.getByUsername((String) data.get("name"));

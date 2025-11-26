@@ -33,6 +33,3 @@ cloudflare:
     endpoint: "https://4b9f4af50152c4c4b85005817e83e269.r2.cloudflarestorage.com"
     bucket-name: "avatar-bucket"
     domain: "https://avatar.youzilite.us.kg" # 你绑定的访问域名
-
-
-user.filepath: D:/images/
