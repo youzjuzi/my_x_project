@@ -3,6 +3,7 @@ package com.diy.sys.controller;
 
 import com.diy.common.vo.Result;
 import com.diy.sys.service.IUserProfileService;
+import com.diy.sys.service.IUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,8 @@ public class UserProfileController {
 
     @Autowired
     private IUserProfileService userProfileService;
+    @Autowired
+    private IUserService userService;
 
     /**
      * 获取用户个人信息
@@ -39,4 +42,11 @@ public class UserProfileController {
         }
         return Result.fail(20003, "登录信息无效，请重新登录");
     }
+
+    @Operation(summary = "检测账号是否已经存在")
+    @GetMapping("/checkUsername")
+    public Result<Boolean> check(@RequestParam("username") String username){
+        return Result.success(userService.check(username));
+    }
+
 }
