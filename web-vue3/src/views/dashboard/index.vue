@@ -24,7 +24,8 @@ export default defineComponent({
   },
   created() {
     console.log('dashboard created');
-    if (!this.roles.includes('admin')) {
+    // 检查 roles 是否存在且为数组
+    if (!this.roles || !Array.isArray(this.roles) || !this.roles.includes('admin')) {
       this.currentRole = 'editorDashboard';
     }
   }

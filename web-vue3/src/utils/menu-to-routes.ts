@@ -47,6 +47,16 @@ const componentMap: Record<string, () => Promise<RouteComponent>> = {
   'logging/translation_history': () => import('@/views/logging/translation_history/index.vue'),
   // @ts-ignore
   'logging/system_logs': () => import('@/views/logging/system_logs/index.vue'),
+  
+  // learning 模块
+  // @ts-ignore
+  'learning/challenge': () => import('@/views/learning/challenge/index.vue'),
+  // @ts-ignore
+  'learning/glossary': () => import('@/views/learning/glossary/index.vue'),
+  // @ts-ignore
+  'learning/practive': () => import('@/views/learning/practive/index.vue'),
+  // @ts-ignore - 支持拼写错误的 practive，也支持正确的 practice
+  'learning/practice': () => import('@/views/learning/practive/index.vue'),
 };
 
 // 使用 import.meta.glob 作为补充，自动发现其他组件
@@ -54,22 +64,26 @@ const componentMap: Record<string, () => Promise<RouteComponent>> = {
 const viewsModules = import.meta.glob('@/views/**/index.vue');
 
 // 自动构建组件映射表（补充）
+const autoDiscoveredComponents: Record<string, () => Promise<RouteComponent>> = {};
 Object.keys(viewsModules).forEach((path) => {
   // import.meta.glob 返回的路径格式可能是 '@/views/...'
   // 提取组件路径，例如: '@/views/sys/user/index.vue' -> 'sys/user'
   const match = path.match(/@\/views\/(.+)\/index\.vue$/);
   if (match) {
     const componentPath = match[1];
-    // 如果组件映射表中还没有，则添加
+    // 如果组件映射表中还没有，则添加到自动发现的映射中
     if (!componentMap[componentPath]) {
-      componentMap[componentPath] = viewsModules[path] as () => Promise<RouteComponent>;
+      autoDiscoveredComponents[componentPath] = viewsModules[path] as () => Promise<RouteComponent>;
       // 调试信息（开发环境）
       if (import.meta.env.DEV) {
-        console.log(`[动态路由] 自动注册组件: ${componentPath}`);
+        console.log(`[动态路由] 自动发现组件: ${componentPath}`);
       }
     }
   }
 });
+
+// 将自动发现的组件合并到 componentMap 中
+Object.assign(componentMap, autoDiscoveredComponents);
 
 // 输出所有已注册的组件（开发环境）
 if (import.meta.env.DEV) {
@@ -87,7 +101,14 @@ function loadComponent(componentPath: string): () => Promise<RouteComponent> {
   }
 
   // 从映射表中获取组件
-  const componentLoader = componentMap[componentPath];
+  let componentLoader = componentMap[componentPath];
+  
+  // 如果直接映射没有找到，尝试从自动发现的映射中查找
+  if (!componentLoader && autoDiscoveredComponents[componentPath]) {
+    componentLoader = autoDiscoveredComponents[componentPath];
+    // 添加到主映射表中，避免下次查找
+    componentMap[componentPath] = componentLoader;
+  }
   
   if (componentLoader) {
     return componentLoader;
@@ -95,7 +116,7 @@ function loadComponent(componentPath: string): () => Promise<RouteComponent> {
 
   // 如果映射表中没有，输出错误信息
   console.error(`[动态路由] 组件路径 "${componentPath}" 未在 componentMap 中定义`);
-  console.error(`[动态路由] 可用的组件路径:`, Object.keys(componentMap));
+  console.error(`[动态路由] 可用的组件路径:`, Object.keys(componentMap).sort());
   
   // 返回一个错误组件，而不是尝试动态导入（因为 Vite 不支持）
   return () => Promise.reject(
