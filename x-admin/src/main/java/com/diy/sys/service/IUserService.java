@@ -58,4 +58,11 @@ public interface IUserService extends IService<User> {
      * @return 是否更新成功
      */
     Boolean updateEmail(Map<String, String> emailMap);
+
+    /**
+     * 更新头像
+     * @param avatarMap 包含 token、avatar 的 Map
+     * @return 是否更新成功
+     */
+    Boolean updateAvatar(Map<String, String> avatarMap);
 }

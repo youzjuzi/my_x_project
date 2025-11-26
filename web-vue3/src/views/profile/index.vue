@@ -57,6 +57,24 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 头像预览对话框 -->
+    <el-dialog
+      v-model="showAvatarPreview"
+      title="预览头像"
+      width="400px"
+      @close="cancelAvatarPreview">
+      <div class="avatar-preview-container">
+        <img :src="previewAvatarUrl" alt="预览头像" class="preview-avatar" />
+        <p class="preview-tip">确认使用此头像吗？</p>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="cancelAvatarPreview">取消</el-button>
+          <el-button type="primary" :loading="uploadingAvatar" @click="confirmUploadAvatar">确认上传</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -68,7 +86,7 @@ import { defineComponent } from 'vue';
 import { Camera } from '@element-plus/icons-vue';
 import store from '@/store';
 import { ElMessage } from 'element-plus';
-import { getProfileInfo } from '@/api/profile';
+import { getProfileInfo, uploadAvatar } from '@/api/profile';
 
 export default defineComponent({
   name: 'Profile',
@@ -82,7 +100,11 @@ export default defineComponent({
       user: {},
       activeTab: 'profile',
       defaultAvatar: 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif',
-      loading: false
+      loading: false,
+      showAvatarPreview: false,
+      previewAvatarUrl: '',
+      selectedFile: null,
+      uploadingAvatar: false
     };
   },
   computed: {
@@ -173,26 +195,61 @@ export default defineComponent({
       // 验证文件类型
       if (!file.type.startsWith('image/')) {
         ElMessage.error('只能上传图片文件!');
+        event.target.value = '';
         return;
       }
 
       // 验证文件大小
-      if (file.size / 1024 / 1024 > 2) {
-        ElMessage.error('图片大小不能超过 2MB!');
+      if (file.size / 1024 / 1024 > 5) {
+        ElMessage.error('图片大小不能超过 5MB!');
+        event.target.value = '';
         return;
       }
+
+      // 保存选中的文件
+      this.selectedFile = file;
 
       // 预览头像
       const reader = new FileReader();
       reader.onload = (e) => {
-        this.user.avatar = e.target.result;
-        this.handleUserUpdate({ avatar: e.target.result });
-        ElMessage.success('头像更新成功');
+        this.previewAvatarUrl = e.target.result;
+        this.showAvatarPreview = true;
       };
       reader.readAsDataURL(file);
 
       // 清空input，以便可以重复选择同一文件
       event.target.value = '';
+    },
+    cancelAvatarPreview() {
+      this.showAvatarPreview = false;
+      this.previewAvatarUrl = '';
+      this.selectedFile = null;
+    },
+    async confirmUploadAvatar() {
+      if (!this.selectedFile) {
+        ElMessage.error('请先选择图片');
+        return;
+      }
+
+      try {
+        this.uploadingAvatar = true;
+        const response = await uploadAvatar(this.selectedFile);
+        if (response.code === 20000 && response.data) {
+          const avatarUrl = response.data.url;
+          this.user.avatar = avatarUrl;
+          this.handleUserUpdate({ avatar: avatarUrl });
+          ElMessage.success('头像上传成功');
+          this.cancelAvatarPreview();
+        } else {
+          ElMessage.error(response.message || '头像上传失败');
+        }
+      } catch (error) {
+        console.error('头像上传失败:', error);
+        const errorMessage = error.response?.data?.message || error.message || '头像上传失败，请稍后重试';
+        ElMessage.error(errorMessage);
+      } finally {
+        this.uploadingAvatar = false;
+      }
     }
   }
 });
@@ -201,6 +258,26 @@ export default defineComponent({
 <style lang="scss" scoped>
 .app-container {
   padding: 20px;
+}
+
+.avatar-preview-container {
+  text-align: center;
+  padding: 20px;
+
+  .preview-avatar {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e4e7ed;
+    margin-bottom: 20px;
+  }
+
+  .preview-tip {
+    color: #606266;
+    font-size: 14px;
+    margin: 0;
+  }
 }
 
 .user-card {

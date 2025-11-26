@@ -401,4 +401,38 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         updateWrapper.set("email", email);
         return this.update(updateWrapper);
     }
+
+    /**
+     * 更新头像
+     * @param avatarMap 包含 token、avatar 的 Map
+     * @return 是否更新成功
+     */
+    @Override
+    @Transactional
+    public Boolean updateAvatar(Map<String, String> avatarMap) {
+        String token = avatarMap.get("token");
+        String avatar = avatarMap.get("avatar");
+
+        if (token == null || avatar == null || avatar.trim().isEmpty()) {
+            throw new RuntimeException("参数不完整");
+        }
+
+        // 1. 根据 token 解析用户信息
+        User loginUser = null;
+        try {
+            loginUser = jwtUtil.parseToken(token, User.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Token 无效，请重新登录");
+        }
+
+        if (loginUser == null || loginUser.getId() == null) {
+            throw new RuntimeException("用户信息无效");
+        }
+
+        // 2. 更新头像
+        UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("id", loginUser.getId());
+        updateWrapper.set("avatar", avatar);
+        return this.update(updateWrapper);
+    }
 }

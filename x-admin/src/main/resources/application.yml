@@ -26,4 +26,13 @@ mybatis-plus:
       logic-delete-value: 1
   type-aliases-package: com.diy.*.entity
 
+cloudflare:
+  r2:
+    access-key: "71b2b4aef9d416917801610b1dc33963"
+    secret-key: "7d33aa0640e631cbd49731633328c2f5c436b555989b1ac2f4002424cae492be"
+    endpoint: "https://4b9f4af50152c4c4b85005817e83e269.r2.cloudflarestorage.com"
+    bucket-name: "avatar-bucket"
+    domain: "https://avatar.youzilite.us.kg" # 你绑定的访问域名
+
+
 user.filepath: D:/images/

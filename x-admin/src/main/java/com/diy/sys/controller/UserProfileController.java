@@ -2,13 +2,16 @@ package com.diy.sys.controller;
 
 
 import com.diy.common.vo.Result;
+import com.diy.sys.service.IFileUploadService;
 import com.diy.sys.service.IUserProfileService;
 import com.diy.sys.service.IUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.Map;
 
 
@@ -21,6 +24,8 @@ public class UserProfileController {
     private IUserProfileService userProfileService;
     @Autowired
     private IUserService userService;
+    @Autowired
+    private IFileUploadService fileUploadService;
 
     /**
      * 获取用户个人信息
@@ -111,6 +116,40 @@ public class UserProfileController {
         } catch (Exception e) {
             e.printStackTrace();
             return Result.fail(20006, "邮箱更新失败，请稍后重试");
+        }
+    }
+
+    @Operation(summary = "上传头像")
+    @PostMapping("/uploadAvatar")
+    public Result<Map<String, String>> uploadAvatar(
+            @RequestHeader("X-Token") String token,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            if (token == null || token.isEmpty()) {
+                return Result.fail(20003, "缺少认证token");
+            }
+
+            // 上传文件到 Cloudflare R2
+            String fileUrl = fileUploadService.uploadFile(file, "avatar/");
+
+            // 更新用户头像
+            Map<String, String> avatarMap = new HashMap<>();
+            avatarMap.put("token", token);
+            avatarMap.put("avatar", fileUrl);
+            Boolean success = userService.updateAvatar(avatarMap);
+
+            if (success) {
+                Map<String, String> result = new HashMap<>();
+                result.put("url", fileUrl);
+                return Result.success(result, "头像上传成功");
+            } else {
+                return Result.fail(20007, "头像更新失败");
+            }
+        } catch (RuntimeException e) {
+            return Result.fail(20007, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail(20007, "头像上传失败，请稍后重试");
         }
     }
 
