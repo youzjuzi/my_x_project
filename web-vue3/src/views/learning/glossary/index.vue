@@ -80,18 +80,22 @@ const searchKey = ref('')
 const dialogVisible = ref(false)
 const currentItem = ref({})
 
-// 模拟数据 (实际开发中请把图片路径换成你的 assets 或 Cloudflare 链接)
+// 使用 Cloudflare 上的字母图片
 const glossaryData = {
-  letters: Array.from({ length: 26 }, (_, i) => ({
-    label: String.fromCharCode(65 + i), // A-Z
-    desc: `ASL 字母 ${String.fromCharCode(65 + i)}`,
-    // 这里的 URL 是维基百科的公开资源，你可以换成你自己的图
-    image: `https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/American_Sign_Language_letter_${String.fromCharCode(65 + i)}.svg/1200px-American_Sign_Language_letter_${String.fromCharCode(65 + i)}.svg.png`
-  })),
+  letters: Array.from({ length: 26 }, (_, i) => {
+    const letter = String.fromCharCode(65 + i); // A-Z
+    return {
+      label: letter,
+      desc: `ASL 字母 ${letter}`,
+      // Cloudflare 图片路径，图片尺寸 775x804
+      image: `https://avatar.youzilite.us.kg/letter/${letter}.png`
+    };
+  }),
   numbers: Array.from({ length: 10 }, (_, i) => ({
     label: String(i),
     desc: `数字手势 ${i}`,
-    image: 'https://cdn-icons-png.flaticon.com/512/2921/2921224.png' // 占位图
+    // Cloudflare 数字图片路径，图片尺寸 549x868
+    image: `https://avatar.youzilite.us.kg/number/${i}.png`
   }))
 }
 
@@ -189,7 +193,7 @@ const goToPractice = (item) => {
   }
 
   .card-image {
-    height: 180px;
+    height: 260px; // 增加高度以适应数字图片 549x868 和字母图片 775x804
     padding: 20px;
     background: #fcfcfc;
     display: flex;
@@ -200,6 +204,10 @@ const goToPractice = (item) => {
       width: 100%;
       height: 100%;
       transition: transform 0.3s;
+      
+      :deep(img) {
+        object-fit: contain; // 保持图片比例，完整显示
+      }
     }
   }
 
@@ -237,7 +245,8 @@ const goToPractice = (item) => {
   text-align: center;
   .detail-img {
     max-width: 100%;
-    height: 200px;
+    max-height: 400px; // 增加高度以适应 775x804 的图片
+    height: auto;
     margin-bottom: 20px;
     object-fit: contain;
   }

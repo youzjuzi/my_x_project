@@ -1,25 +1,18 @@
 package com.diy.sys.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.diy.common.vo.Result;
-import com.diy.config.CaptureConfig;
 import com.diy.sys.entity.User;
 import com.diy.sys.entity.UserActivityTime;
 import com.diy.sys.service.IUserActivityTimeService;
 import com.diy.sys.service.IUserService;
-import com.wf.captcha.utils.CaptchaUtil;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.repository.query.Param;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.stereotype.Controller;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.HashMap;
+
 import java.util.List;
 import java.util.Map;
 
