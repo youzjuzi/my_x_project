@@ -35,6 +35,8 @@ const componentMap: Record<string, () => Promise<RouteComponent>> = {
   'sys/user': () => import('@/views/sys/user/index.vue'),
   // @ts-ignore
   'sys/role': () => import('@/views/sys/role/index.vue'),
+  // @ts-ignore
+  'sys/question_bank': () => import('@/views/sys/question_bank/index.vue'),
   
   // translation 模块
   // @ts-ignore

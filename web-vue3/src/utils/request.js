@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import store from '@/store';
 import { getToken } from '@/utils/auth';
 
@@ -72,7 +73,7 @@ service.interceptors.response.use(
     }
   },
   error => {
-    console.log('err' + error); // for debug
+    console.log(error); // for debug
     ElMessage({
       message: error.message,
       type: 'error',

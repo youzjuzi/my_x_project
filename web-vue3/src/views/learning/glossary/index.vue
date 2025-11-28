@@ -13,7 +13,7 @@
         <el-input
           v-model="searchKey"
           placeholder="搜索手势..."
-          prefix-icon="Search"
+          prefix-icon="search"
           class="search-input"
           clearable
         />
