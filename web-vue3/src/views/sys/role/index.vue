@@ -42,18 +42,19 @@
             {{ row.roleDesc || '—' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center">
+        <el-table-column label="操作" width="240" align="center">
           <template #default="{ row }">
-            <div class="action-buttons">
-              <el-tooltip content="编辑" effect="dark" placement="top">
-                <el-button
-                  size="small"
-                  type="primary"
-                  :icon="Edit"
-                  :disabled="isProtectedRole(row)"
-                  @click="handleEdit(row)"
-                />
-              </el-tooltip>
+            <div class="action-links">
+              <span class="action-link view-link" @click="handleViewMenus(row)">查看菜单</span>
+              <el-divider direction="vertical" />
+              <span 
+                class="action-link edit-link" 
+                :class="{ 'is-disabled': isProtectedRole(row) }"
+                @click="!isProtectedRole(row) && handleEdit(row)"
+              >
+                编辑
+              </span>
+              <el-divider direction="vertical" />
               <el-popconfirm
                 title="确认要删除该角色吗？"
                 :disabled="isProtectedRole(row)"
@@ -62,13 +63,13 @@
                 @confirm="handleDelete(row)"
               >
                 <template #reference>
-                  <el-button
-                    size="small"
-                    type="danger"
-                    :disabled="isProtectedRole(row)"
-                    :loading="deleteLoadingId === row.roleId"
-                    :icon="Delete"
-                  />
+                  <span 
+                    class="action-link delete-link"
+                    :class="{ 'is-disabled': isProtectedRole(row), 'is-loading': deleteLoadingId === row.roleId }"
+                    @click="!isProtectedRole(row) && handleDelete(row)"
+                  >
+                    {{ deleteLoadingId === row.roleId ? '删除中...' : '删除' }}
+                  </span>
                 </template>
               </el-popconfirm>
             </div>
@@ -130,6 +131,51 @@
           <el-button type="primary" :loading="createSubmitting" @click="handleCreateSubmit">
             保存
           </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- 查看角色菜单对话框 -->
+    <el-dialog
+      v-model="viewMenusDialogVisible"
+      title="角色菜单权限"
+      width="600px"
+      destroy-on-close
+    >
+      <div v-if="viewMenusRole">
+        <div class="role-info">
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item label="角色ID">{{ viewMenusRole.roleId }}</el-descriptions-item>
+            <el-descriptions-item label="角色名称">{{ viewMenusRole.roleName }}</el-descriptions-item>
+            <el-descriptions-item label="角色描述">
+              {{ viewMenusRole.roleDesc || '—' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="菜单数量">
+              <el-tag type="info">{{ viewMenusRole.menuIdList?.length || 0 }} 个菜单</el-tag>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
+        <div class="menu-tree-section">
+          <div class="section-title">可访问的菜单列表</div>
+          <div class="menu-tree-wrapper view-only">
+            <el-tree
+              ref="viewMenuTreeRef"
+              :data="menuTree"
+              node-key="value"
+              :loading="menuLoading"
+              :props="treeProps"
+              :default-checked-keys="viewMenusRole.menuIdList || []"
+              show-checkbox
+              default-expand-all
+              :check-strictly="true"
+              :disabled="true"
+            />
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button type="primary" @click="viewMenusDialogVisible = false">关闭</el-button>
         </span>
       </template>
     </el-dialog>
@@ -238,6 +284,11 @@ const editForm = reactive({
 })
 
 const deleteLoadingId = ref<number | null>(null)
+
+// 查看角色菜单
+const viewMenusDialogVisible = ref(false)
+const viewMenusRole = ref<RoleItem | null>(null)
+const viewMenuTreeRef = ref()
 
 const fetchRoleList = async () => {
   loading.value = true
@@ -431,6 +482,28 @@ const isProtectedRole = (row: RoleItem) => {
   return row.roleId === 1 || row.roleName === 'user'
 }
 
+const handleViewMenus = async (row: RoleItem) => {
+  await loadMenuTree()
+  try {
+    // 获取角色的完整信息（包含菜单列表）
+    const res = await roleManageApi.getRoleById(row.roleId)
+    const data = res.data || {}
+    viewMenusRole.value = {
+      roleId: data.roleId,
+      roleName: data.roleName,
+      roleDesc: data.roleDesc,
+      menuIdList: Array.isArray(data.menuIdList) ? data.menuIdList : []
+    }
+    viewMenusDialogVisible.value = true
+    nextTick(() => {
+      viewMenuTreeRef.value?.setCheckedKeys(viewMenusRole.value?.menuIdList || [], true)
+    })
+  } catch (error) {
+    console.error('获取角色菜单失败', error)
+    ElMessage.error('获取角色菜单失败，请稍后重试')
+  }
+}
+
 onMounted(() => {
   fetchRoleList()
 })
@@ -494,11 +567,61 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.action-buttons {
+.action-links {
   display: flex;
-  justify-content: center;
-  gap: 12px;
   align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.action-link {
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+.action-link:hover:not(.is-disabled) {
+  opacity: 0.8;
+}
+
+.action-link.is-disabled {
+  color: #c0c4cc;
+  cursor: not-allowed;
+}
+
+.view-link {
+  color: #409eff;
+}
+
+.view-link:hover:not(.is-disabled) {
+  color: #66b1ff;
+  background-color: rgba(64, 158, 255, 0.1);
+}
+
+.edit-link {
+  color: #e6a23c;
+}
+
+.edit-link:hover:not(.is-disabled) {
+  color: #ebb563;
+  background-color: rgba(230, 162, 60, 0.1);
+}
+
+.delete-link {
+  color: #f56c6c;
+}
+
+.delete-link:hover:not(.is-disabled) {
+  color: #f78989;
+  background-color: rgba(245, 108, 108, 0.1);
+}
+
+.delete-link.is-loading {
+  color: #c0c4cc;
+  cursor: not-allowed;
 }
 
 .pagination-wrapper {
@@ -519,6 +642,25 @@ onMounted(() => {
   border: 1px solid var(--el-border-color);
   border-radius: 4px;
   padding: 8px;
+}
+
+.menu-tree-wrapper.view-only {
+  max-height: 400px;
+}
+
+.role-info {
+  margin-bottom: 20px;
+}
+
+.menu-tree-section {
+  margin-top: 20px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: 12px;
 }
 </style>
 
