@@ -126,27 +126,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right" align="center">
+        <el-table-column label="操作" width="180" fixed="right" align="center">
           <template #default="{ row }">
-            <div class="action-buttons">
-              <el-tooltip content="查看" effect="dark" placement="top">
-                <el-button
-                  circle
-                  class="action-icon"
-                  type="primary"
-                  :icon="View"
-                  @click="handleView(row)"
-                />
-              </el-tooltip>
-              <el-tooltip content="编辑" effect="dark" placement="top">
-                <el-button
-                  circle
-                  class="action-icon"
-                  type="warning"
-                  :icon="Edit"
-                  @click="handleEdit(row)"
-                />
-              </el-tooltip>
+            <div class="action-links">
+              <span class="action-link view-link" @click="handleView(row)">查看</span>
+              <el-divider direction="vertical" />
+              <span class="action-link edit-link" @click="handleEdit(row)">编辑</span>
+              <el-divider direction="vertical" />
               <el-popconfirm
                 title="确认要删除该题目吗？"
                 :confirm-button-text="'删除'"
@@ -155,13 +141,12 @@
                 @confirm="handleDelete(row)"
               >
                 <template #reference>
-                  <el-button
-                    circle
-                    class="action-icon danger"
-                    type="danger"
-                    :loading="deleteLoadingId === row.id"
-                    :icon="Delete"
-                  />
+                  <span 
+                    class="action-link delete-link"
+                    :class="{ 'is-loading': deleteLoadingId === row.id }"
+                  >
+                    {{ deleteLoadingId === row.id ? '删除中...' : '删除' }}
+                  </span>
                 </template>
               </el-popconfirm>
             </div>
@@ -389,7 +374,7 @@
 </template>
 
 <script lang="ts" setup>
-import { Edit, Delete, Plus, RefreshRight, Search, View } from '@element-plus/icons-vue'
+import { Plus, RefreshRight, Search } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { computed, reactive, ref, onMounted } from 'vue'
 import questionBankManageApi from '@/api/questionBankManage'
@@ -787,21 +772,56 @@ onMounted(() => {
   font-size: 11px;
 }
 
-.action-buttons {
+.action-links {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
 }
 
-.action-icon {
-  width: 42px;
-  height: 42px;
-  font-size: 18px;
+.action-link {
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+  padding: 2px 4px;
+  border-radius: 2px;
 }
 
-.action-icon:deep(.el-icon) {
-  font-size: 20px;
+.action-link:hover {
+  opacity: 0.8;
+}
+
+.view-link {
+  color: #409eff;
+}
+
+.view-link:hover {
+  color: #66b1ff;
+  background-color: rgba(64, 158, 255, 0.1);
+}
+
+.edit-link {
+  color: #e6a23c;
+}
+
+.edit-link:hover {
+  color: #ebb563;
+  background-color: rgba(230, 162, 60, 0.1);
+}
+
+.delete-link {
+  color: #f56c6c;
+}
+
+.delete-link:hover {
+  color: #f78989;
+  background-color: rgba(245, 108, 108, 0.1);
+}
+
+.delete-link.is-loading {
+  color: #c0c4cc;
+  cursor: not-allowed;
 }
 
 .text-muted {
