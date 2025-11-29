@@ -24,7 +24,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/challenge")
 public class ChallengeController {
-
+    
     @Autowired
     private IChallengeService challengeService;
 
@@ -263,6 +263,58 @@ public class ChallengeController {
             Map<String, Object> data = challengeService.getChallengeHistory(userId, pageNo, pageSize);
             
             return Result.success(data, "查询成功");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail("查询失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取所有用户的挑战记录（管理员接口，分页）
+     * 
+     * @param userId 用户ID（可选，用于筛选特定用户）
+     * @param mode 挑战模式（可选）：random/questionSet
+     * @param status 状态（可选）：0-进行中，1-已完成，2-已放弃
+     * @param pageNo 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    @Operation(summary = "获取所有用户的挑战记录", description = "管理员接口，支持按用户、模式、状态筛选")
+    @GetMapping("/admin/list")
+    public Result<Map<String, Object>> getAllChallengeHistory(
+            @RequestParam(value = "userId", required = false) Integer userId,
+            @RequestParam(value = "mode", required = false) String mode,
+            @RequestParam(value = "status", required = false) Integer status,
+            @RequestParam("pageNo") Long pageNo,
+            @RequestParam("pageSize") Long pageSize) {
+        try {
+            // 参数验证
+            if (pageNo == null || pageNo < 1) {
+                return Result.fail("页码必须大于0");
+            }
+            if (pageSize == null || pageSize < 1) {
+                return Result.fail("每页大小必须大于0");
+            }
+
+            Map<String, Object> data = challengeService.getAllChallengeHistory(userId, mode, status, pageNo, pageSize);
+            return Result.success(data, "查询成功");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail("查询失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取所有有过挑战的用户列表
+     * 
+     * @return 用户列表
+     */
+    @Operation(summary = "获取所有有过挑战的用户列表", description = "用于下拉框选择")
+    @GetMapping("/admin/users")
+    public Result<List<User>> getUsersWithChallenges() {
+        try {
+            List<User> users = challengeService.getUsersWithChallenges();
+            return Result.success(users, "查询成功");
         } catch (Exception e) {
             e.printStackTrace();
             return Result.fail("查询失败：" + e.getMessage());

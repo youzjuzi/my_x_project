@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.diy.sys.entity.Question.QuestionBank;
 import com.diy.sys.entity.Question.QuestionSetQuestion;
+import com.diy.sys.entity.UserAndRole.User;
 import com.diy.sys.entity.challenge.Challenge;
 import com.diy.sys.entity.challenge.ChallengeQuestion;
+import com.diy.sys.entity.challenge.ChallengeWithUser;
 import com.diy.sys.mapper.Question.QuestionBankMapper;
 import com.diy.sys.mapper.Question.QuestionSetQuestionMapper;
 import com.diy.sys.mapper.challenge.ChallengeMapper;
@@ -40,6 +42,9 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
 
     @Autowired
     private ChallengeQuestionMapper challengeQuestionMapper;
+    
+    @Autowired
+    private ChallengeMapper challengeMapper;
 
     /**
      * 根据条件查询题目
@@ -267,6 +272,38 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
         result.put("rows", page.getRecords());
 
         return result;
+    }
+
+    /**
+     * 获取所有用户的挑战记录（管理员接口，分页）
+     */
+    @Override
+    public Map<String, Object> getAllChallengeHistory(Integer userId, String mode, Integer status, Long pageNo, Long pageSize) {
+        // 使用自定义查询，包含用户信息
+        List<ChallengeWithUser> allRecords = challengeMapper.getChallengeListWithUser(userId, mode, status);
+        
+        // 手动分页
+        long total = allRecords.size();
+        int start = (int) ((pageNo - 1) * pageSize);
+        int end = (int) Math.min(start + pageSize, total);
+        
+        List<ChallengeWithUser> pagedRecords = start < total 
+            ? allRecords.subList(start, end) 
+            : new ArrayList<>();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("total", total);
+        result.put("rows", pagedRecords);
+
+        return result;
+    }
+    
+    /**
+     * 获取所有有过挑战的用户列表
+     */
+    @Override
+    public List<User> getUsersWithChallenges() {
+        return challengeMapper.getUsersWithChallenges();
     }
 }
 

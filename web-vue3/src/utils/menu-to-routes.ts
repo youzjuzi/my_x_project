@@ -68,9 +68,9 @@ Object.keys(viewsModules).forEach((path) => {
     componentMap[componentPath] = viewsModules[path] as () => Promise<RouteComponent>;
     
     // 开发环境输出调试信息
-    if (import.meta.env.DEV) {
+      if (import.meta.env.DEV) {
       console.log(`[动态路由] 自动发现组件: ${componentPath} <- ${path}`);
-    }
+      }
   } else {
     // 如果无法匹配，输出警告
     if (import.meta.env.DEV) {
@@ -131,12 +131,12 @@ function loadComponent(componentPath: string): () => Promise<RouteComponent> {
   } catch (error) {
     // 如果动态导入也失败，输出错误信息
     console.error(`[动态路由] 组件路径 "${componentPath}" 未找到`);
-    console.error(`[动态路由] 可用的组件路径:`, Object.keys(componentMap).sort());
+  console.error(`[动态路由] 可用的组件路径:`, Object.keys(componentMap).sort());
     console.error(`[动态路由] 错误详情:`, error);
-    
-    return () => Promise.reject(
-      new Error(`组件 "${componentPath}" 未找到。请确保该组件存在于 @/views/${componentPath}/index.vue`)
-    ) as Promise<RouteComponent>;
+  
+  return () => Promise.reject(
+    new Error(`组件 "${componentPath}" 未找到。请确保该组件存在于 @/views/${componentPath}/index.vue`)
+  ) as Promise<RouteComponent>;
   }
 }
 

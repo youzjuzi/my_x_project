@@ -1,5 +1,6 @@
 package com.diy.sys.service.challenge;
 
+import com.diy.sys.entity.UserAndRole.User;
 import com.diy.sys.entity.challenge.Challenge;
 import com.baomidou.mybatisplus.extension.service.IService;
 
@@ -65,5 +66,24 @@ public interface IChallengeService extends IService<Challenge> {
      * @return 分页结果
      */
     Map<String, Object> getChallengeHistory(Integer userId, Long pageNo, Long pageSize);
+
+    /**
+     * 获取所有用户的挑战记录（管理员接口，分页）
+     * 
+     * @param userId 用户ID（可选，用于筛选特定用户）
+     * @param mode 挑战模式（可选）：random/questionSet
+     * @param status 状态（可选）：0-进行中，1-已完成，2-已放弃
+     * @param pageNo 页码
+     * @param pageSize 每页大小
+     * @return 分页结果（包含用户信息）
+     */
+    Map<String, Object> getAllChallengeHistory(Integer userId, String mode, Integer status, Long pageNo, Long pageSize);
+    
+    /**
+     * 获取所有有过挑战的用户列表
+     * 
+     * @return 用户列表
+     */
+    List<User> getUsersWithChallenges();
 }
 

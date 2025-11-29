@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diy.sys.mapper.challenge.ChallengeMapper">
+    
+    <!-- 查询挑战记录（包含用户信息） -->
+    <select id="getChallengeListWithUser" resultType="com.diy.sys.entity.challenge.ChallengeWithUser">
+        SELECT 
+            c.id,
+            c.challenge_id as challengeId,
+            c.user_id as userId,
+            u.username,
+            c.mode,
+            c.question_set_id as questionSetId,
+            c.time_limit as timeLimit,
+            c.time_used as timeUsed,
+            c.score,
+            c.completed_count as completedCount,
+            c.total_count as totalCount,
+            c.status,
+            c.create_time as createTime,
+            c.finish_time as finishTime
+        FROM x_challenge c
+        LEFT JOIN x_user u ON c.user_id = u.id
+        <where>
+            <if test="userId != null">
+                AND c.user_id = #{userId}
+            </if>
+            <if test="mode != null and mode != ''">
+                AND c.mode = #{mode}
+            </if>
+            <if test="status != null">
+                AND c.status = #{status}
+            </if>
+        </where>
+        ORDER BY c.create_time DESC
+    </select>
+    
+    <!-- 获取所有有过挑战的用户列表 -->
+    <select id="getUsersWithChallenges" resultType="com.diy.sys.entity.UserAndRole.User">
+        SELECT DISTINCT
+            u.id,
+            u.username,
+            u.email,
+            u.phone,
+            u.status,
+            u.avatar,
+            u.deleted
+        FROM x_user u
+        INNER JOIN x_challenge c ON u.id = c.user_id
+        WHERE u.deleted = 0
+        ORDER BY u.username
+    </select>
+</mapper>
+

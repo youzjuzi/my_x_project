@@ -44,3 +44,24 @@ export function getChallengeHistory(params) {
   })
 }
 
+/**
+ * 获取所有用户的挑战记录（管理员接口）
+ */
+export function getAllChallengeHistory(params) {
+  return request({
+    url: '/challenge/admin/list',
+    method: 'get',
+    params
+  })
+}
+
+/**
+ * 获取所有有过挑战的用户列表
+ */
+export function getUsersWithChallenges() {
+  return request({
+    url: '/challenge/admin/users',
+    method: 'get'
+  })
+}
+
