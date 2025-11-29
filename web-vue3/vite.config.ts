@@ -84,6 +84,11 @@ export default defineConfig(({ command, mode }) => {
         host: 'localhost',
         port: 8001,
         proxy: {
+            '/auth': {
+                target: 'http://localhost:9999',
+                changeOrigin: true,
+                secure: false,
+            },
             '/user': {
                 target: 'http://localhost:9999',
                 changeOrigin: true,

@@ -86,6 +86,59 @@ public class UserProfileServiceImpl extends ServiceImpl<UserMapper, User> implem
         
         return data;
     }
+
+    /**
+     * 根据用户ID获取用户完整信息
+     * @param userId 用户ID
+     * @return 用户信息Map
+     */
+    @Override
+    public Map<String, Object> getUserInfoByUserId(Integer userId) {
+        if (userId == null) {
+            return null;
+        }
+        
+        // 从数据库获取完整的用户信息
+        User dbUser = this.getById(userId);
+        if (dbUser == null) {
+            return null;
+        }
+        
+        // 获取用户角色
+        List<String> roleList = this.baseMapper.getRoleNameByUserId(dbUser.getId());
+        
+        // 获取注册时间（首次活动时间）
+        LocalDateTime createTime = getFirstActivityTime(dbUser.getId());
+        
+        // 获取最后登录时间（最近一次活动时间）
+        LocalDateTime lastLoginTime = getLastActivityTime(dbUser.getId());
+        
+        // 构建返回数据
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", dbUser.getId());
+        data.put("name", dbUser.getUsername());
+        data.put("avatar", dbUser.getAvatar() != null ? dbUser.getAvatar() : "");
+        data.put("email", dbUser.getEmail() != null ? dbUser.getEmail() : "");
+        data.put("phone", dbUser.getPhone() != null ? dbUser.getPhone() : "");
+        data.put("roles", roleList);
+        data.put("role", roleList != null && !roleList.isEmpty() ? roleList.get(0) : "普通用户");
+        
+        // 格式化时间
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        if (createTime != null) {
+            data.put("createTime", createTime.format(formatter));
+        } else {
+            data.put("createTime", "");
+        }
+        
+        if (lastLoginTime != null) {
+            data.put("lastLoginTime", lastLoginTime.format(formatter));
+        } else {
+            data.put("lastLoginTime", "");
+        }
+        
+        return data;
+    }
     
     /**
      * 获取用户首次活动时间（注册时间）

@@ -1,12 +1,13 @@
 package com.diy.sys.controller.challenge;
 
-import com.diy.common.utils.JwtUtil;
+import com.diy.common.utils.SecurityUtils;
 import com.diy.common.vo.Result;
 import com.diy.sys.entity.UserAndRole.User;
 import com.diy.sys.service.challenge.IChallengeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,13 +24,11 @@ import java.util.Map;
 @Tag(name = "挑战接口")
 @RestController
 @RequestMapping("/challenge")
+@PreAuthorize("hasPermission('/learning/challenge', 'MENU')")
 public class ChallengeController {
     
     @Autowired
     private IChallengeService challengeService;
-
-    @Autowired
-    private JwtUtil jwtUtil;
 
     /**
      * 根据条件查询题目
@@ -98,7 +97,6 @@ public class ChallengeController {
     /**
      * 开始挑战（创建挑战记录）
      * 
-     * @param token 用户认证token（从请求头获取）
      * @param requestBody 请求体，包含：
      *                    - mode: 挑战模式
      *                    - questionSetId: 题库ID（题库模式）
@@ -109,26 +107,13 @@ public class ChallengeController {
     @Operation(summary = "开始挑战", description = "创建挑战记录并返回题目列表")
     @PostMapping("/start")
     public Result<Map<String, Object>> startChallenge(
-            @RequestHeader("X-Token") String token,
             @RequestBody Map<String, Object> requestBody) {
         try {
-            // 从token中获取用户信息
-            if (token == null || token.isEmpty()) {
-                return Result.fail(20003, "缺少认证token");
-            }
-
-            User loginUser;
-            try {
-                loginUser = jwtUtil.parseToken(token, User.class);
-            } catch (Exception e) {
-                return Result.fail(20003, "登录信息无效，请重新登录");
-            }
-
-            if (loginUser == null || loginUser.getId() == null) {
+            // 从SecurityContext获取当前用户ID
+            Integer userId = SecurityUtils.getCurrentUserId();
+            if (userId == null) {
                 return Result.fail(20003, "无法获取用户信息，请重新登录");
             }
-
-            Integer userId = loginUser.getId();
             String mode = (String) requestBody.get("mode");
             Integer questionSetId = (Integer) requestBody.get("questionSetId");
             @SuppressWarnings("unchecked")
@@ -159,7 +144,6 @@ public class ChallengeController {
     /**
      * 提交挑战结果
      * 
-     * @param token 用户认证token（从请求头获取）
      * @param requestBody 请求体，包含：
      *                    - challengeId: 挑战ID
      *                    - score: 得分
@@ -170,26 +154,13 @@ public class ChallengeController {
     @Operation(summary = "提交挑战结果", description = "保存挑战结果并返回统计信息，包含用户验证、重复提交检查、分数验证等")
     @PostMapping("/submit")
     public Result<Map<String, Object>> submitChallenge(
-            @RequestHeader("X-Token") String token,
             @RequestBody Map<String, Object> requestBody) {
         try {
-            // 从token中获取用户信息
-            if (token == null || token.isEmpty()) {
-                return Result.fail(20003, "缺少认证token");
-            }
-
-            User loginUser;
-            try {
-                loginUser = jwtUtil.parseToken(token, User.class);
-            } catch (Exception e) {
-                return Result.fail(20003, "登录信息无效，请重新登录");
-            }
-
-            if (loginUser == null || loginUser.getId() == null) {
+            // 从SecurityContext获取当前用户ID
+            Integer userId = SecurityUtils.getCurrentUserId();
+            if (userId == null) {
                 return Result.fail(20003, "无法获取用户信息，请重新登录");
             }
-
-            Integer userId = loginUser.getId();
             String challengeId = (String) requestBody.get("challengeId");
             Integer score = (Integer) requestBody.get("score");
             Integer completedCount = (Integer) requestBody.get("completedCount");
@@ -222,7 +193,6 @@ public class ChallengeController {
     /**
      * 获取挑战历史记录（分页）
      * 
-     * @param token 用户认证token（从请求头获取）
      * @param pageNo 页码
      * @param pageSize 每页大小
      * @return 分页结果
@@ -230,27 +200,14 @@ public class ChallengeController {
     @Operation(summary = "获取挑战历史记录", description = "分页查询用户的挑战历史记录")
     @GetMapping("/history")
     public Result<Map<String, Object>> getChallengeHistory(
-            @RequestHeader("X-Token") String token,
             @RequestParam("pageNo") Long pageNo,
             @RequestParam("pageSize") Long pageSize) {
         try {
-            // 从token中获取用户信息
-            if (token == null || token.isEmpty()) {
-                return Result.fail(20003, "缺少认证token");
-            }
-
-            User loginUser;
-            try {
-                loginUser = jwtUtil.parseToken(token, User.class);
-            } catch (Exception e) {
-                return Result.fail(20003, "登录信息无效，请重新登录");
-            }
-
-            if (loginUser == null || loginUser.getId() == null) {
+            // 从SecurityContext获取当前用户ID
+            Integer userId = SecurityUtils.getCurrentUserId();
+            if (userId == null) {
                 return Result.fail(20003, "无法获取用户信息，请重新登录");
             }
-
-            Integer userId = loginUser.getId();
 
             // 参数验证
             if (pageNo == null || pageNo < 1) {
@@ -280,6 +237,7 @@ public class ChallengeController {
      * @return 分页结果
      */
     @Operation(summary = "获取所有用户的挑战记录", description = "管理员接口，支持按用户、模式、状态筛选")
+    @PreAuthorize("hasPermission('/sys/challenge', 'MENU')")
     @GetMapping("/admin/list")
     public Result<Map<String, Object>> getAllChallengeHistory(
             @RequestParam(value = "userId", required = false) Integer userId,
@@ -310,6 +268,7 @@ public class ChallengeController {
      * @return 用户列表
      */
     @Operation(summary = "获取所有有过挑战的用户列表", description = "用于下拉框选择")
+    @PreAuthorize("hasPermission('/sys/challenge', 'MENU')")
     @GetMapping("/admin/users")
     public Result<List<User>> getUsersWithChallenges() {
         try {

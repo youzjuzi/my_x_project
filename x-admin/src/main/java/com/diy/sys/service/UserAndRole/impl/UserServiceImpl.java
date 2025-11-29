@@ -15,6 +15,7 @@ import com.diy.sys.service.MenuAndRole.IMenuService;
 import com.diy.sys.service.UserAndRole.IUserService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Autowired
     private JwtUtil jwtUtil;
     @Autowired
+    @Lazy  // 延迟加载，打破循环依赖
     private PasswordEncoder passwordEncoder;
     @Autowired
     private UserRoleMapper userRoleMapper;
@@ -271,28 +273,41 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     @Transactional
     public Boolean changePassword(Map<String, String> passwordMap) {
+        String userIdStr = passwordMap.get("userId");
         String token = passwordMap.get("token");
         String oldPassword = passwordMap.get("oldPassword");
         String newPassword = passwordMap.get("newPassword");
 
-        if (token == null || oldPassword == null || newPassword == null) {
+        if (oldPassword == null || newPassword == null) {
             throw new RuntimeException("参数不完整");
         }
 
-        // 1. 根据 token 解析用户信息
-        User loginUser = null;
-        try {
-            loginUser = jwtUtil.parseToken(token, User.class);
-        } catch (Exception e) {
-            throw new RuntimeException("Token 无效，请重新登录");
-        }
-
-        if (loginUser == null || loginUser.getId() == null) {
-            throw new RuntimeException("用户信息无效");
+        // 1. 获取用户ID（优先使用 userId，如果没有则从 token 解析）
+        Integer userId = null;
+        if (userIdStr != null && !userIdStr.trim().isEmpty()) {
+            try {
+                userId = Integer.parseInt(userIdStr);
+            } catch (NumberFormatException e) {
+                throw new RuntimeException("用户ID格式错误");
+            }
+        } else if (token != null) {
+            // 向后兼容：从 token 解析用户信息
+            User loginUser = null;
+            try {
+                loginUser = jwtUtil.parseToken(token, User.class);
+            } catch (Exception e) {
+                throw new RuntimeException("Token 无效，请重新登录");
+            }
+            if (loginUser == null || loginUser.getId() == null) {
+                throw new RuntimeException("用户信息无效");
+            }
+            userId = loginUser.getId();
+        } else {
+            throw new RuntimeException("参数不完整：需要 userId 或 token");
         }
 
         // 2. 从数据库获取用户信息
-        User dbUser = this.getById(loginUser.getId());
+        User dbUser = this.getById(userId);
         if (dbUser == null) {
             throw new RuntimeException("用户不存在");
         }
@@ -325,23 +340,36 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     @Transactional
     public Boolean updatePhone(Map<String, String> phoneMap) {
+        String userIdStr = phoneMap.get("userId");
         String token = phoneMap.get("token");
         String phone = phoneMap.get("phone");
 
-        if (token == null || phone == null || phone.trim().isEmpty()) {
+        if (phone == null || phone.trim().isEmpty()) {
             throw new RuntimeException("参数不完整");
         }
 
-        // 1. 根据 token 解析用户信息
-        User loginUser = null;
-        try {
-            loginUser = jwtUtil.parseToken(token, User.class);
-        } catch (Exception e) {
-            throw new RuntimeException("Token 无效，请重新登录");
-        }
-
-        if (loginUser == null || loginUser.getId() == null) {
-            throw new RuntimeException("用户信息无效");
+        // 1. 获取用户ID（优先使用 userId，如果没有则从 token 解析）
+        Integer userId = null;
+        if (userIdStr != null && !userIdStr.trim().isEmpty()) {
+            try {
+                userId = Integer.parseInt(userIdStr);
+            } catch (NumberFormatException e) {
+                throw new RuntimeException("用户ID格式错误");
+            }
+        } else if (token != null) {
+            // 向后兼容：从 token 解析用户信息
+            User loginUser = null;
+            try {
+                loginUser = jwtUtil.parseToken(token, User.class);
+            } catch (Exception e) {
+                throw new RuntimeException("Token 无效，请重新登录");
+            }
+            if (loginUser == null || loginUser.getId() == null) {
+                throw new RuntimeException("用户信息无效");
+            }
+            userId = loginUser.getId();
+        } else {
+            throw new RuntimeException("参数不完整：需要 userId 或 token");
         }
 
         // 2. 验证手机号格式（简单验证：11位数字）
@@ -351,7 +379,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
         // 3. 更新手机号
         UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
-        updateWrapper.eq("id", loginUser.getId());
+        updateWrapper.eq("id", userId);
         updateWrapper.set("phone", phone);
         return this.update(updateWrapper);
     }
@@ -364,23 +392,36 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     @Transactional
     public Boolean updateEmail(Map<String, String> emailMap) {
+        String userIdStr = emailMap.get("userId");
         String token = emailMap.get("token");
         String email = emailMap.get("email");
 
-        if (token == null || email == null || email.trim().isEmpty()) {
+        if (email == null || email.trim().isEmpty()) {
             throw new RuntimeException("参数不完整");
         }
 
-        // 1. 根据 token 解析用户信息
-        User loginUser = null;
-        try {
-            loginUser = jwtUtil.parseToken(token, User.class);
-        } catch (Exception e) {
-            throw new RuntimeException("Token 无效，请重新登录");
-        }
-
-        if (loginUser == null || loginUser.getId() == null) {
-            throw new RuntimeException("用户信息无效");
+        // 1. 获取用户ID（优先使用 userId，如果没有则从 token 解析）
+        Integer userId = null;
+        if (userIdStr != null && !userIdStr.trim().isEmpty()) {
+            try {
+                userId = Integer.parseInt(userIdStr);
+            } catch (NumberFormatException e) {
+                throw new RuntimeException("用户ID格式错误");
+            }
+        } else if (token != null) {
+            // 向后兼容：从 token 解析用户信息
+            User loginUser = null;
+            try {
+                loginUser = jwtUtil.parseToken(token, User.class);
+            } catch (Exception e) {
+                throw new RuntimeException("Token 无效，请重新登录");
+            }
+            if (loginUser == null || loginUser.getId() == null) {
+                throw new RuntimeException("用户信息无效");
+            }
+            userId = loginUser.getId();
+        } else {
+            throw new RuntimeException("参数不完整：需要 userId 或 token");
         }
 
         // 2. 验证邮箱格式
@@ -390,7 +431,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
         // 3. 更新邮箱
         UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
-        updateWrapper.eq("id", loginUser.getId());
+        updateWrapper.eq("id", userId);
         updateWrapper.set("email", email);
         return this.update(updateWrapper);
     }
@@ -403,28 +444,41 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     @Transactional
     public Boolean updateAvatar(Map<String, String> avatarMap) {
+        String userIdStr = avatarMap.get("userId");
         String token = avatarMap.get("token");
         String avatar = avatarMap.get("avatar");
 
-        if (token == null || avatar == null || avatar.trim().isEmpty()) {
+        if (avatar == null || avatar.trim().isEmpty()) {
             throw new RuntimeException("参数不完整");
         }
 
-        // 1. 根据 token 解析用户信息
-        User loginUser = null;
-        try {
-            loginUser = jwtUtil.parseToken(token, User.class);
-        } catch (Exception e) {
-            throw new RuntimeException("Token 无效，请重新登录");
-        }
-
-        if (loginUser == null || loginUser.getId() == null) {
-            throw new RuntimeException("用户信息无效");
+        // 1. 获取用户ID（优先使用 userId，如果没有则从 token 解析）
+        Integer userId = null;
+        if (userIdStr != null && !userIdStr.trim().isEmpty()) {
+            try {
+                userId = Integer.parseInt(userIdStr);
+            } catch (NumberFormatException e) {
+                throw new RuntimeException("用户ID格式错误");
+            }
+        } else if (token != null) {
+            // 向后兼容：从 token 解析用户信息
+            User loginUser = null;
+            try {
+                loginUser = jwtUtil.parseToken(token, User.class);
+            } catch (Exception e) {
+                throw new RuntimeException("Token 无效，请重新登录");
+            }
+            if (loginUser == null || loginUser.getId() == null) {
+                throw new RuntimeException("用户信息无效");
+            }
+            userId = loginUser.getId();
+        } else {
+            throw new RuntimeException("参数不完整：需要 userId 或 token");
         }
 
         // 2. 更新头像
         UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
-        updateWrapper.eq("id", loginUser.getId());
+        updateWrapper.eq("id", userId);
         updateWrapper.set("avatar", avatar);
         return this.update(updateWrapper);
     }

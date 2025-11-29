@@ -6,6 +6,7 @@ import com.diy.sys.service.Question.IQuestionSetService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +23,7 @@ import java.util.Map;
 @Tag(name = "题库管理接口")
 @RestController
 @RequestMapping("/questionSet")
+@PreAuthorize("hasPermission('/sys/question_set', 'MENU')")
 public class QuestionSetController {
 
     @Autowired
@@ -167,6 +169,7 @@ public class QuestionSetController {
      */
     @Operation(summary = "查询所有题库")
     @GetMapping("/all")
+    @PreAuthorize("hasPermission('/learning/challenge', 'MENU') or hasPermission('/sys/challenge', 'MENU')")
     public Result<?> getAllQuestionSets() {
         try {
             return Result.success(questionSetService.list(), "查询成功");
@@ -184,6 +187,7 @@ public class QuestionSetController {
      */
     @Operation(summary = "获取题库下的题目ID列表")
     @GetMapping("/{id}/questions")
+    @PreAuthorize("hasPermission('/learning/challenge', 'MENU') or hasPermission('/sys/challenge', 'MENU')")
     public Result<List<Integer>> getQuestionIdsByQuestionSetId(@PathVariable("id") Integer id) {
         try {
             List<Integer> questionIds = questionSetService.getQuestionIdsByQuestionSetId(id);

@@ -4,60 +4,17 @@ import com.diy.common.vo.Result;
 import com.diy.sys.entity.UserAndRole.Role;
 import com.diy.sys.service.UserAndRole.IRoleService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
 
-//@RestController
-//@RequestMapping("/role")
-//public class RoleController {
-//    @Autowired
-//    private IRoleService roleService;
-//    @GetMapping("/list")
-//    public Result<Map<String ,Object>> getRoleList(@RequestParam(value = "roleName",required = false) String roleName,
-//                                                   @RequestParam("pageNo") Long pageNo,
-//                                                   @RequestParam("pageSize") Long pageSize){
-//        LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
-//        wrapper.eq(StringUtils.hasLength(roleName),Role::getRoleName,roleName);
-//        wrapper.orderByAsc(Role::getRoleId);
-//
-//        Page<Role> page = new Page<>(pageNo,pageSize);
-//        roleService.page(page,wrapper);
-//
-//        Map<String ,Object> data = new HashMap<>();
-//        data.put("total",page.getTotal());
-//        data.put("row",page.getRecords());
-//
-//        return Result.success(data);
-//    }
-//
-//    @PutMapping
-//    public Result<?> addRole(@RequestBody Role role){
-//        roleService.save(role);
-//        return Result.success("新增角色成功");
-//    }
-//    @PostMapping
-//    public Result<?> updateRole(@RequestBody Role role){
-//        roleService.updateById(role);
-//        return Result.success("修改角色成功");
-//    }
-//    @GetMapping("/{id}")
-//    public Result<Role> getRoleById(@PathVariable("id") Integer id){
-//        Role role = roleService.getById(id);
-//        return Result.success(role);
-//    }
-//    @DeleteMapping("/{id}")
-//    public Result<Role> deleteRoleById(@PathVariable("id") Integer id){
-//        roleService.removeById(id);
-//        return Result.success("删除角色成功");
-//    }
-//
-//
-//}
+
 @RestController
 @RequestMapping("/role")
+@PreAuthorize("hasPermission('/sys/role', 'MENU')")
 public class RoleController {
 
     @Autowired

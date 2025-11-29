@@ -8,6 +8,7 @@ import com.diy.sys.service.Question.IQuestionBankService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -24,6 +25,7 @@ import java.util.Map;
 @Tag(name = "题库管理接口")
 @RestController
 @RequestMapping("/questionBank")
+@PreAuthorize("hasPermission('/sys/question_set', 'MENU')")
 public class QuestionBankController {
     @Autowired
     private IQuestionBankService questionBankService;
