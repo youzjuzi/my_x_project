@@ -167,8 +167,10 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
      * 包含安全验证：
      * 1. 验证用户身份（必须是挑战的创建者）
      * 2. 验证挑战是否已提交（防止重复提交）
-     * 3. 验证分数合理性（最高100分）
-     * 4. 验证完成题目数不超过总题目数
+     * 3. 验证完成题目数不超过总题目数
+     * 4. 验证使用时间不超过时间限制
+     * 
+     * 计分规则：每个字母或数字识别成功加10分，不设置最高分数限制
      */
     @Override
     @Transactional
@@ -194,11 +196,9 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
             throw new RuntimeException("该挑战已经提交过，不能重复提交");
         }
 
-        // 验证4：分数合理性验证（最高100分，防止分数被篡改）
-        // 假设每道题10分，最高分数 = 总题目数 * 10
-        int maxScore = challenge.getTotalCount() * 10;
-        if (score < 0 || score > maxScore) {
-            throw new RuntimeException("分数异常，最高分数为 " + maxScore + " 分");
+        // 验证4：分数不能为负数
+        if (score < 0) {
+            throw new RuntimeException("分数不能为负数");
         }
 
         // 验证5：完成题目数不能超过总题目数
@@ -209,13 +209,6 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
         // 验证6：使用时间不能超过时间限制
         if (timeUsed < 0 || timeUsed > challenge.getTimeLimit()) {
             throw new RuntimeException("使用时间异常，不能超过时间限制 " + challenge.getTimeLimit() + " 秒");
-        }
-
-        // 验证7：分数与完成题目数的合理性（粗略验证）
-        // 如果完成题目数 > 0，分数应该 >= 完成题目数 * 10（假设每道题至少10分）
-        if (completedCount > 0 && score < completedCount * 10) {
-            // 这里只是警告，不阻止提交，因为可能有其他计分规则
-            // 可以记录日志或放宽验证
         }
 
         // 更新挑战记录
