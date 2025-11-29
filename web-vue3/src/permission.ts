@@ -33,6 +33,8 @@ router.beforeEach(async (to, from, next) => {
       const hasRoles = userStore().name;
       // console.log('hasRoles=', hasRoles);
       if (hasRoles) {
+        // 如果已经有用户信息，直接放行
+        // 但如果是登录后首次访问，确保路由已正确加载
         next();
       } else {
         try {

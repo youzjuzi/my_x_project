@@ -3,7 +3,7 @@
     <div class="login-card">
       <!-- 标题区域 -->
       <div class="title-container">
-        <h3 class="title">{{ isRegister ? '欢迎注册' : '欢迎登录' }} <span class="system-name">Element后台管理系统</span></h3>
+        <h3 class="title">{{ isRegister ? '欢迎注册' : '欢迎登录' }} <span class="system-name">虚拟手语交流平台</span></h3>
       </div>
 
       <!-- 登录表单 -->
@@ -286,10 +286,14 @@ export default defineComponent({
             this.loading = true;
             store.user().login(this.loginForm)
               .then(() => {
-                this.$router.push({ path: this.redirect || '/', query: this.otherQuery });
+                ElMessage.success('登录成功');
+                // 登录成功后，清除 redirect 参数，强制跳转到首页
+                // 这样可以避免新用户登录后停留在之前用户访问的页面
+                this.$router.replace('/');
                 this.loading = false;
               })
               .catch(() => {
+                // 错误提示已在 request.js 拦截器中处理，这里不需要重复显示
                 this.loading = false;
               }).finally(() => {
                 resolve();

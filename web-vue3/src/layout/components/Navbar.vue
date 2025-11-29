@@ -57,6 +57,7 @@ import SizeSelect from '@/components/SizeSelect';
 import Search from '@/components/HeaderSearch';
 import { defineComponent } from 'vue';
 import { CaretBottom } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 
 export default defineComponent({
   components: {
@@ -82,8 +83,14 @@ export default defineComponent({
       store.app().toggleSidebar();
     },
     async logout() {
-      await store.user().logout();
-      this.$router.push(`/login?redirect=${this.$route.fullPath}`);
+      try {
+        await store.user().logout();
+        ElMessage.success('退出登录成功');
+        // 清除路由历史，跳转到登录页（不保留 redirect 参数）
+        this.$router.replace('/login');
+      } catch (error) {
+        ElMessage.error('退出登录失败，请稍后重试');
+      }
     }
   }
 });
