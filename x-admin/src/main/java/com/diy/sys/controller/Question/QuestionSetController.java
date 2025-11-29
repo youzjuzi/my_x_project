@@ -21,7 +21,7 @@ import java.util.Map;
  */
 @Tag(name = "题库管理接口")
 @RestController
-@RequestMapping("/question-set")
+@RequestMapping("/questionSet")
 public class QuestionSetController {
 
     @Autowired
@@ -79,13 +79,19 @@ public class QuestionSetController {
     /**
      * 分页查询题库列表
      * 
-     * @param name 题库名称（模糊查询，可选）
-     * @param status 状态（可选）
-     * @param pageNo 页码
-     * @param pageSize 每页大小
-     * @return 分页结果
+     * 支持按题库名称模糊查询和按状态精确筛选
+     * 结果按ID倒序排列（最新的在前）
+     * 
+     * @param name 题库名称（模糊查询，可选）。如果提供，会匹配包含该名称的题库
+     * @param status 状态（可选）。1-启用，0-禁用。如果提供，只返回该状态的题库
+     * @param pageNo 页码（必需）。从1开始，表示要查询的页码
+     * @param pageSize 每页大小（必需）。表示每页返回的记录数，建议值：5, 10, 20, 50
+     * @return 分页结果，包含：
+     *         - total: 总记录数（Long类型）
+     *         - rows: 当前页的数据列表（List<QuestionSet>类型）
+     * 
      */
-    @Operation(summary = "分页查询题库列表")
+    @Operation(summary = "分页查询题库列表", description = "支持按名称模糊查询和按状态筛选，结果按ID倒序排列")
     @GetMapping("/list")
     public Result<Map<String, Object>> getQuestionSetList(
             @RequestParam(value = "name", required = false) String name,
@@ -93,6 +99,15 @@ public class QuestionSetController {
             @RequestParam("pageNo") Long pageNo,
             @RequestParam("pageSize") Long pageSize) {
         try {
+            // 参数验证
+            if (pageNo == null || pageNo < 1) {
+                return Result.fail("页码必须大于0");
+            }
+            if (pageSize == null || pageSize < 1) {
+                return Result.fail("每页大小必须大于0");
+            }
+            
+            // 调用Service层进行分页查询
             Map<String, Object> data = questionSetService.getQuestionSetList(name, status, pageNo, pageSize);
             return Result.success(data, "查询成功");
         } catch (Exception e) {

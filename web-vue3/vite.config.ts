@@ -81,36 +81,41 @@ export default defineConfig(({ command, mode }) => {
       // })
     ],
     server: {
-      host: 'localhost',
-      port: 8001,
-      proxy: {
-        '/user': {
-          target: 'http://localhost:9999',
-          changeOrigin: true,
-          secure: false,
-          //rewrite: (path) => path.replace(/^\/api-test/, ''),
-        },
-        '/role': {
-          target: 'http://localhost:9999',
-          changeOrigin: true,
-          secure: false,
-        },
-        '/menu': {
-          target: 'http://localhost:9999',
-          changeOrigin: true,
-          secure: false,
-        },
-        '/profile': {
-           target: 'http://localhost:9999',
-           changeOrigin: true,
-           secure: false,
-        },
-        '/challenge': {
-           target: 'http://localhost:9999',
-           changeOrigin: true,
-           secure: false,
-        },
+        host: 'localhost',
+        port: 8001,
+        proxy: {
+            '/user': {
+                target: 'http://localhost:9999',
+                changeOrigin: true,
+                secure: false,
+                //rewrite: (path) => path.replace(/^\/api-test/, ''),
+            },
+            '/role': {
+                target: 'http://localhost:9999',
+                changeOrigin: true,
+                secure: false,
+            },
+            '/menu': {
+                target: 'http://localhost:9999',
+                changeOrigin: true,
+                secure: false,
+            },
+            '/profile': {
+                target: 'http://localhost:9999',
+                changeOrigin: true,
+                secure: false,
+            },
+            '/challenge': {
+                target: 'http://localhost:9999',
+                changeOrigin: true,
+                secure: false,
+            },
+            '/questionSet': {
+                target: 'http://localhost:9999',
+                changeOrigin: true,
+                secure: false,
+            },
         }
-      }
+    }
     }
 });
