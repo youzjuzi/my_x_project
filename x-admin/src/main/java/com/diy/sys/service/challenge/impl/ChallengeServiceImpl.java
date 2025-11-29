@@ -180,7 +180,7 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
     @Override
     @Transactional
     public Map<String, Object> submitChallenge(Integer userId, String challengeId, Integer score, 
-                                                Integer completedCount, Integer timeUsed) {
+                                                Integer completedCount, Integer timeUsed, Integer status) {
         // 查询挑战记录
         LambdaQueryWrapper<Challenge> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Challenge::getChallengeId, challengeId);
@@ -220,7 +220,12 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
         challenge.setScore(score);
         challenge.setCompletedCount(completedCount);
         challenge.setTimeUsed(timeUsed);
-        challenge.setStatus(1); // 已完成
+        // 设置状态：1-已完成，2-已放弃
+        if (status != null && (status == 1 || status == 2)) {
+            challenge.setStatus(status);
+        } else {
+            challenge.setStatus(1); // 默认为已完成
+        }
         challenge.setFinishTime(LocalDateTime.now());
         this.updateById(challenge);
 

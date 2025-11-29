@@ -34,7 +34,7 @@
       :last-detected-char="lastDetectedChar"
       :current-question="currentQuestion"
       @start-game="startGame"
-      @stop-game="stopGame"
+      @stop-game="() => stopGame(true)"
     />
 
     <!-- 结果对话框 -->
@@ -53,208 +53,91 @@
 
     <!-- 挑战记录对话框 -->
     <ChallengeHistory v-model="showHistoryDialog" />
+
+    <!-- 暂停对话框 -->
+    <ChallengePauseDialog
+      v-model="showPauseDialog"
+      @resume="handleResume"
+      @restart="handleRestartFromPause"
+      @return="handleReturnFromPause"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted, watch, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount, onUnmounted } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import { Clock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { pinyin } from 'pinyin-pro'
 import ChallengeConfig from './components/ChallengeConfig.vue'
 import ChallengeGame from './components/ChallengeGame.vue'
 import ChallengeResult from './components/ChallengeResult.vue'
 import ChallengeHistory from './components/ChallengeHistory.vue'
-import questionSetManage from '@/api/questionSetManage'
-import { queryQuestions, startChallenge, submitChallenge } from '@/api/challenge'
+import ChallengePauseDialog from './components/ChallengePauseDialog.vue'
+import { startChallenge } from '@/api/challenge'
+import { useChallengeConfig } from './composables/useChallengeConfig'
+import { useChallengeGame } from './composables/useChallengeGame'
 
-// --- 配置状态 ---
-const showConfig = ref(true)
+// 使用 composables
+const configComposable = useChallengeConfig()
+const {
+  showConfig,
+  challengeMode,
+  selectedQuestionSetId,
+  challengeTime,
+  questionSetList,
+  config,
+  currentQuestionSetName,
+  handleConfigUpdate,
+  loadQuestionSets,
+  loadQuestions
+} = configComposable
+
+// 传入 challengeTime 引用给游戏 composable
+const gameComposable = useChallengeGame(challengeTime)
+const {
+  isPlaying,
+  currentMode,
+  score,
+  timeLeft,
+  showResult,
+  showPauseDialog,
+  currentQuestionList,
+  currentWordIndex,
+  matchedCount,
+  lastDetectedChar,
+  currentQuestion,
+  challengeId,
+  totalWords,
+  currentWordOriginal,
+  currentTargetSequence,
+  currentTargetChar,
+  startGame,
+  stopGame,
+  resumeGame,
+  abandonChallenge,
+  handleMatchSuccess,
+  updateCurrentMode,
+  getRank
+} = gameComposable
+
 const showHistoryDialog = ref(false)
-const challengeMode = ref<'random' | 'questionSet'>('random')
-const selectedQuestionSetId = ref<number | null>(null)
-const randomFromQuestionSet = ref(true)
-const selectedTypes = ref<string[]>(['1', '2', '3'])
-const selectedDifficulties = ref<string[]>(['1', '2', '3'])
-const questionCount = ref(20)
-const challengeTime = ref(60)
 
-// 配置对象（用于传递给组件）
-const config = computed(() => ({
-  challengeMode: challengeMode.value,
-  selectedQuestionSetId: selectedQuestionSetId.value,
-  randomFromQuestionSet: randomFromQuestionSet.value,
-  selectedTypes: selectedTypes.value,
-  selectedDifficulties: selectedDifficulties.value,
-  questionCount: questionCount.value,
-  challengeTime: challengeTime.value
-}))
-
-// --- 游戏状态 ---
-const isPlaying = ref(false)
-const currentMode = ref<'english' | 'number' | 'chinese'>('chinese')
-const score = ref(0)
-const timeLeft = ref(60)
-const showResult = ref(false)
-const timer = ref<NodeJS.Timeout | null>(null)
-
-// --- 题目数据 ---
-const currentQuestionList = ref<any[]>([])
-const currentWordIndex = ref(0)
-const matchedCount = ref(0)
-const lastDetectedChar = ref('')
-const recognitionTimer = ref<NodeJS.Timeout | null>(null)
-const currentQuestion = ref<any>(null)
-const challengeId = ref<string>('')
-
-// --- 题库数据 ---
-const questionSetList = ref<any[]>([])
-
-// --- 计算属性 ---
-const totalWords = computed(() => currentQuestionList.value.length)
-
-const currentWordOriginal = computed(() => {
-  if (!currentQuestion.value) return ''
-  return currentQuestion.value.content
-})
-
-const currentTargetSequence = computed(() => {
-  const word = currentWordOriginal.value
-  if (currentMode.value === 'chinese') {
-    const py = pinyin(word, { toneType: 'none', type: 'string' }).toUpperCase().replace(/\s+/g, '')
-    return py.split('')
-  } else {
-    return word.split('')
-  }
-})
-
-const currentTargetChar = computed(() => {
-  return currentTargetSequence.value[matchedCount.value]
-})
-
-const currentQuestionSetName = computed(() => {
-  const set = questionSetList.value.find(s => s.id === selectedQuestionSetId.value)
-  return set?.name || ''
-})
-
-// --- 方法 ---
-const handleConfigUpdate = (key: string, value: any) => {
-  switch (key) {
-    case 'challengeMode':
-      challengeMode.value = value
-      break
-    case 'selectedQuestionSetId':
-      selectedQuestionSetId.value = value
-      break
-    case 'randomFromQuestionSet':
-      randomFromQuestionSet.value = value
-      break
-    case 'selectedTypes':
-      selectedTypes.value = value
-      break
-    case 'selectedDifficulties':
-      selectedDifficulties.value = value
-      break
-    case 'questionCount':
-      questionCount.value = value
-      break
-    case 'challengeTime':
-      challengeTime.value = value
-      break
-  }
-}
-
-// 加载题库列表
-const loadQuestionSets = async () => {
-  try {
-    const res = await questionSetManage.getAllQuestionSets()
-    if (res.data) {
-      // 为每个题库获取题目数量
-      const setsWithCount = await Promise.all(
-        res.data.map(async (set: any) => {
-          try {
-            const questionIdsRes = await questionSetManage.getQuestionIdsByQuestionSetId(set.id)
-            const questionCount = questionIdsRes.data?.length || 0
-            return {
-              ...set,
-              questionCount
-            }
-          } catch (error) {
-            console.error(`获取题库 ${set.id} 的题目数量失败`, error)
-            return {
-              ...set,
-              questionCount: 0
-            }
-          }
-        })
-      )
-      questionSetList.value = setsWithCount
-    }
-  } catch (error) {
-    console.error('加载题库列表失败', error)
-  }
-}
-
-// 加载题目
-const loadQuestions = async () => {
-  try {
-    const params: any = {
-      mode: challengeMode.value,
-      count: questionCount.value,
-      random: challengeMode.value === 'questionSet' ? randomFromQuestionSet.value : true
-    }
-
-    if (challengeMode.value === 'random') {
-      params.types = selectedTypes.value.join(',')
-      if (selectedDifficulties.value.length > 0) {
-        params.difficulties = selectedDifficulties.value.join(',')
-      }
-    } else if (challengeMode.value === 'questionSet' && selectedQuestionSetId.value) {
-      params.questionSetId = selectedQuestionSetId.value
-    }
-
-    const res = await queryQuestions(params)
-    const data = res.data || {}
-    const questions = data.questions || []
-
-    if (questions.length === 0) {
-      ElMessage.warning('没有符合条件的题目，请调整筛选条件')
-      return false
-    }
-
-    currentQuestionList.value = questions
-    currentWordIndex.value = 0
-    currentQuestion.value = questions[0]
-    updateCurrentMode()
-
-    return true
-  } catch (error) {
-    console.error('加载题目失败', error)
-    ElMessage.error('加载题目失败，请稍后重试')
-    return false
-  }
-}
-
-const updateCurrentMode = () => {
-  if (!currentQuestion.value) return
-  const type = currentQuestion.value.type
-  if (type === 1) {
-    currentMode.value = 'english'
-  } else if (type === 2) {
-    currentMode.value = 'chinese'
-  } else if (type === 3) {
-    currentMode.value = 'number'
-  }
-}
-
+// 开始挑战
 const handleStartChallenge = async () => {
-  if (!(await loadQuestions())) {
+  const questions = await loadQuestions()
+  if (!questions || questions.length === 0) {
     return
   }
 
-  // 调用后端接口开始挑战
+  // 设置题目到游戏 composable
+  currentQuestionList.value = questions
+  currentWordIndex.value = 0
+  currentQuestion.value = questions[0]
+  updateCurrentMode()
+
   try {
-    const questionIds = currentQuestionList.value.map(q => q.id)
+    const questionIds = questions.map((q: any) => q.id)
     const res = await startChallenge({
       mode: challengeMode.value,
       questionSetId: challengeMode.value === 'questionSet' ? selectedQuestionSetId.value : null,
@@ -263,11 +146,11 @@ const handleStartChallenge = async () => {
     })
 
     const data = res.data || {}
-    challengeId.value = data.challengeId || ''
+    gameComposable.challengeId.value = data.challengeId || ''
     
     showConfig.value = false
     setTimeout(() => {
-      startGame()
+      gameComposable.startGame()
     }, 100)
   } catch (error) {
     console.error('开始挑战失败', error)
@@ -275,117 +158,62 @@ const handleStartChallenge = async () => {
   }
 }
 
-const startGame = () => {
-  stopGame()
-  
-  isPlaying.value = true
-  score.value = 0
-  timeLeft.value = challengeTime.value
-  currentWordIndex.value = 0
-  matchedCount.value = 0
-  lastDetectedChar.value = ''
-  currentQuestion.value = currentQuestionList.value[0]
-  updateCurrentMode()
-
-  timer.value = setInterval(() => {
-    timeLeft.value--
-    if (timeLeft.value <= 0) gameOver()
-  }, 1000)
-
-  mockRecognitionLoop()
+// 继续挑战
+const handleResume = () => {
+  gameComposable.resumeGame()
 }
 
-const stopGame = () => {
-  if (timer.value) {
-    clearInterval(timer.value)
-    timer.value = null
-  }
-  if (recognitionTimer.value) {
-    clearTimeout(recognitionTimer.value)
-    recognitionTimer.value = null
-  }
-  isPlaying.value = false
-  lastDetectedChar.value = ''
-}
-
-const gameOver = async () => {
-  stopGame()
+// 从暂停对话框重新开始
+const handleRestartFromPause = async () => {
+  showPauseDialog.value = false
   
-  // 提交挑战结果
   if (challengeId.value) {
-    try {
-      await submitChallenge({
-        challengeId: challengeId.value,
-        score: score.value,
-        completedCount: currentWordIndex.value + 1,
-        timeUsed: challengeTime.value - timeLeft.value
-      })
-    } catch (error) {
-      console.error('提交挑战结果失败', error)
-    }
+    await abandonChallenge()
   }
   
-  showResult.value = true
-}
-
-const mockRecognitionLoop = () => {
-  if (!isPlaying.value) {
-    recognitionTimer.value = null
-    return
-  }
-  recognitionTimer.value = setTimeout(() => {
-    if (!isPlaying.value) {
-      recognitionTimer.value = null
-      return
-    }
-    const target = currentTargetChar.value
-    // 模拟识别成功
-    if (Math.random() > 0.6) {
-      lastDetectedChar.value = target
-      handleMatchSuccess()
-    } else {
-      lastDetectedChar.value = '?'
-    }
-    mockRecognitionLoop()
-  }, 800)
-}
-
-const handleMatchSuccess = () => {
-  if (!isPlaying.value) return
+  challengeId.value = ''
+  currentQuestionList.value = []
   
-  matchedCount.value++
-  score.value += 10
-
-  // 检查是否拼完当前词
-  if (matchedCount.value >= currentTargetSequence.value.length) {
-    if (currentWordIndex.value < totalWords.value - 1) {
-      setTimeout(() => {
-        if (!isPlaying.value) return
-        currentWordIndex.value++
-        matchedCount.value = 0
-        currentQuestion.value = currentQuestionList.value[currentWordIndex.value]
-        updateCurrentMode()
-      }, 500)
-    } else {
-      gameOver()
-    }
-  }
+  await handleStartChallenge()
 }
 
-const handleBackToConfig = () => {
-  showResult.value = false
+// 从暂停对话框返回
+const handleReturnFromPause = async () => {
+  showPauseDialog.value = false
+  
+  if (challengeId.value) {
+    await abandonChallenge()
+  }
+  
   showConfig.value = true
-  stopGame()
   currentQuestionList.value = []
   challengeId.value = ''
 }
 
+// 返回配置
+const handleBackToConfig = async () => {
+  if (isPlaying.value && challengeId.value) {
+    await abandonChallenge()
+  }
+  showResult.value = false
+  showConfig.value = true
+  stopGame(false)
+  currentQuestionList.value = []
+  challengeId.value = ''
+}
+
+// 重新开始
 const handleRestart = async () => {
   showResult.value = false
-  if (await loadQuestions()) {
-    // 重新开始挑战
+  const questions = await loadQuestions()
+  if (questions && questions.length > 0) {
+    currentQuestionList.value = questions
+    currentWordIndex.value = 0
+    currentQuestion.value = questions[0]
+    updateCurrentMode()
+    
     try {
-      const questionIds = currentQuestionList.value.map(q => q.id)
+      const questionIds = questions.map((q: any) => q.id)
       const res = await startChallenge({
         mode: challengeMode.value,
         questionSetId: challengeMode.value === 'questionSet' ? selectedQuestionSetId.value : null,
@@ -402,34 +230,45 @@ const handleRestart = async () => {
   }
 }
 
-const getRank = (accuracy: number) => {
-  if (accuracy >= 0.9) return '优秀'
-  if (accuracy >= 0.7) return '良好'
-  if (accuracy >= 0.5) return '及格'
-  return '一般'
-}
-
 // 初始化
 onMounted(() => {
   loadQuestionSets()
 })
 
+// 路由离开前，放弃进行中的挑战
+onBeforeRouteLeave(async (to, from, next) => {
+  if (isPlaying.value && challengeId.value) {
+    await abandonChallenge()
+  }
+  next()
+})
+
+// 组件卸载时，放弃进行中的挑战
+onBeforeUnmount(async () => {
+  if (isPlaying.value && challengeId.value) {
+    await abandonChallenge()
+  }
+  stopGame(false)
+})
+
 onUnmounted(() => {
-  stopGame()
+  stopGame(false)
 })
 </script>
 
 <style scoped lang="scss">
 .challenge-container {
-  padding: 24px;
+  padding: 0 24px 24px 24px;
   min-height: calc(100vh - 84px);
   background-color: #f5f7fa;
+  margin-top: -84px;
+  padding-top: 84px;
 }
 
 .top-actions {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 20px;
+  margin-top: 12px;
+  margin-bottom: 5px;
 }
 </style>
-

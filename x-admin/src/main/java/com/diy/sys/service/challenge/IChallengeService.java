@@ -55,7 +55,7 @@ public interface IChallengeService extends IService<Challenge> {
      * @return 挑战结果统计
      */
     Map<String, Object> submitChallenge(Integer userId, String challengeId, Integer score, 
-                                         Integer completedCount, Integer timeUsed);
+                                        Integer completedCount, Integer timeUsed, Integer status);
 
     /**
      * 获取挑战历史记录（分页）

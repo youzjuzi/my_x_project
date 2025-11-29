@@ -165,6 +165,7 @@ public class ChallengeController {
             Integer score = (Integer) requestBody.get("score");
             Integer completedCount = (Integer) requestBody.get("completedCount");
             Integer timeUsed = (Integer) requestBody.get("timeUsed");
+            Integer status = (Integer) requestBody.get("status"); // 可选：1-已完成，2-已放弃，默认为1
 
             // 参数验证
             if (challengeId == null || challengeId.trim().isEmpty()) {
@@ -180,8 +181,13 @@ public class ChallengeController {
                 return Result.fail("使用时间不能为空");
             }
 
+            // 如果没有指定状态，默认为已完成（1）
+            if (status == null) {
+                status = 1;
+            }
+
             Map<String, Object> data = challengeService.submitChallenge(
-                    userId, challengeId, score, completedCount, timeUsed);
+                    userId, challengeId, score, completedCount, timeUsed, status);
             
             return Result.success(data, "提交成功");
         } catch (Exception e) {
