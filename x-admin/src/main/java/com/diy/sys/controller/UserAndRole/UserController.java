@@ -1,0 +1,143 @@
+package com.diy.sys.controller.UserAndRole;
+
+import com.diy.common.vo.Result;
+import com.diy.sys.entity.UserAndRole.User;
+import com.diy.sys.entity.UserAndRole.UserActivityTime;
+import com.diy.sys.service.UserAndRole.IUserActivityTimeService;
+import com.diy.sys.service.UserAndRole.IUserService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * <p>
+ *  前端控制器
+ * </p>
+ *
+ * @author youzi
+ * @since 2023-09-02
+ */
+@Tag(name = "用户接口列表")
+@RestController
+@RequestMapping("/user")
+public class UserController {
+    @Autowired
+    private IUserService userService;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private IUserActivityTimeService userActivityTimeService;
+
+
+    @GetMapping("/time")
+    public Result<List<UserActivityTime>> getAllActivityTime() {
+        List<UserActivityTime> list = userActivityTimeService.list();
+        return Result.success(list,"查询成功");
+    }
+    @GetMapping("/all")
+    public Result<List<User>> getAllUser() {
+        List<User> list = userService.list();
+        return Result.success(list, "查询成功");
+    }
+    @Operation(summary = "用户登录")
+    @PostMapping("/login")
+    public Result<Map<String,Object>> login(@RequestBody User user){
+        Map<String,Object> data = userService.login(user);
+        if (data != null){
+            User loggedInUser = userService.getByUsername(user.getUsername());
+            data.put("userId", loggedInUser.getId());
+            return Result.success(data,"登录成功");
+        }
+        return Result.fail(20002,"用户名或密码错误");
+    }
+
+    @Operation(summary = "用户注册")
+    @PostMapping("/register")
+    public Result<?> register(@RequestBody User user,HttpServletRequest request){
+        //检测用户名是否已经存在
+        Map<String,Object> data = userService.register(user);
+        if (data != null){
+//            //成功，清除验证码
+//            CaptureConfig.CAPTURE_MAP.clear();
+            return Result.success(data,"注册成功");
+        }
+        return Result.fail(20001,"注册失败");
+    }
+
+    @Operation(summary = "info")
+    @GetMapping("/info")
+    public Result<Map<String,Object>> getUserInfo(@RequestParam("token") String token){
+        //根据token获取用户信息
+        Map<String,Object> data = userService.getUserInfo(token);
+        if (data != null){
+            User user = userService.getByUsername((String) data.get("name"));
+            data.put("userId", user.getId());
+            return Result.success(data);
+        }
+        return Result.fail(20003,"登录信息无效，请重新登录");
+    }
+
+    @PostMapping("/logout")
+    public Result<?> logout(@RequestHeader("X-Token") String token){
+        userService.logout(token);
+        return Result.success("注销成功");
+    }
+
+    @Operation(summary = "用户列表")
+    @GetMapping("/list")
+    public Result<Map<String ,Object>> getUserList(
+            @RequestParam(value = "username",required = false) String username,
+            @RequestParam(value = "phone",required = false) String phone,
+            @RequestParam(value = "email",required = false) String email,
+            @RequestParam("pageNo") Long pageNo,
+            @RequestParam("pageSize") Long pageSize){
+        Map<String ,Object> data = userService.getUserList(username, phone, email ,pageNo, pageSize);
+        return Result.success(data);
+    }
+
+
+
+    // 检测账号是否已经存在
+    @Operation(summary = "检测账号是否已经存在")
+    @GetMapping("/checkUsername")
+    public Result<Boolean> check(@RequestParam("username") String username){
+        return Result.success(userService.check(username));
+    }
+
+    @Operation(summary = "新增用户")
+    @PostMapping
+    public Result<?> addUser(@RequestBody User user){
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        userService.addUser(user);
+//        System.out.println(user);
+        return Result.success("新增用户成功");
+    }
+    @Operation(summary = "修改用户")
+    @PutMapping
+    public Result<?> updateUser(@RequestBody User user){
+        userService.updateUser(user);
+        return Result.success("修改用户成功");
+    }
+    @Operation(summary = "获取用户")
+    @GetMapping("/{id}")
+    public Result<User> getUserById(@PathVariable("id") Integer id){
+        User user = userService.getUserById(id);
+        return Result.success(user);
+    }
+    @Operation(summary = "删除用户")
+    @DeleteMapping ("/{id}")
+    public Result<User> deleteUserById(@PathVariable("id") Integer id){
+        userService.deleteUserById(id);
+        return Result.success("删除用户成功");
+    }
+
+
+}
+

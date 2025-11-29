@@ -1,7 +1,7 @@
 package com.diy;
 
 import com.diy.common.utils.JwtUtil;
-import com.diy.sys.entity.User;
+import com.diy.sys.entity.UserAndRole.User;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

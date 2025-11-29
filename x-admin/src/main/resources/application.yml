@@ -19,12 +19,13 @@ logging:
     com.diy: debug
 
 mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
   global-config:
     db-config:
       logic-delete-field: deleted
       logic-not-delete-value: 0
       logic-delete-value: 1
-  type-aliases-package: com.diy.*.entity
+  type-aliases-package: com.diy.sys.entity
 
 cloudflare:
   r2:

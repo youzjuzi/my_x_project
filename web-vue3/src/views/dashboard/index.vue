@@ -43,7 +43,7 @@
               <!-- 小指 -->
               <ellipse cx="160" cy="85" rx="12" ry="40" fill="url(#handGradient)" filter="url(#glow)" />
             </svg>
-          </div>
+        </div>
         </div>
       </div>
     </el-card>
@@ -507,7 +507,7 @@ export default defineComponent({
       }
 
       .stat-label {
-        font-size: 14px;
+    font-size: 14px;
         color: #6b7280;
         font-weight: 500;
       }
@@ -593,8 +593,8 @@ export default defineComponent({
         .title-icon {
           color: #6366f1;
         }
-      }
     }
+  }
 
     .panel-content {
       flex: 1;
@@ -705,7 +705,7 @@ export default defineComponent({
 
       .record-duration {
         font-size: 14px;
-        font-weight: 600;
+    font-weight: 600;
         color: #6366f1;
         flex-shrink: 0;
       }
