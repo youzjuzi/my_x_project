@@ -24,68 +24,77 @@ export interface MenuItem {
   };
 }
 
-// 组件映射表 - 将后端返回的 component 路径映射到实际的组件导入函数
-// 手动列出所有组件，确保 Vite 可以正确静态分析
-const componentMap: Record<string, () => Promise<RouteComponent>> = {
-  // Layout 组件
-  Layout: Layout as () => Promise<RouteComponent>,
-  
-  // sys 模块
-  // @ts-ignore
-  'sys/user': () => import('@/views/sys/user/index.vue'),
-  // @ts-ignore
-  'sys/role': () => import('@/views/sys/role/index.vue'),
-  // @ts-ignore
-  'sys/question_bank': () => import('@/views/sys/question_bank/index.vue'),
-  
-  // translation 模块
-  // @ts-ignore
-  'translation/translation': () => import('@/views/translation/translation/index.vue'),
-  // @ts-ignore
-  'translation/reverse_translation': () => import('@/views/translation/reverse_translation/index.vue'),
-  
-  // logging 模块
-  // @ts-ignore
-  'logging/translation_history': () => import('@/views/logging/translation_history/index.vue'),
-  // @ts-ignore
-  'logging/system_logs': () => import('@/views/logging/system_logs/index.vue'),
-  
-  // learning 模块
-  // @ts-ignore
-  'learning/challenge': () => import('@/views/learning/challenge/index.vue'),
-  // @ts-ignore
-  'learning/glossary': () => import('@/views/learning/glossary/index.vue'),
-  // @ts-ignore
-  'learning/practive': () => import('@/views/learning/practive/index.vue'),
-  // @ts-ignore - 支持拼写错误的 practive，也支持正确的 practice
-  'learning/practice': () => import('@/views/learning/practive/index.vue'),
-};
-
-// 使用 import.meta.glob 作为补充，自动发现其他组件
-// 这样可以支持未来新增的组件
+// 使用 import.meta.glob 自动发现所有组件
+// 这是主要机制，无需手动添加新组件
 const viewsModules = import.meta.glob('@/views/**/index.vue');
 
-// 自动构建组件映射表（补充）
-const autoDiscoveredComponents: Record<string, () => Promise<RouteComponent>> = {};
+// 开发环境：输出所有扫描到的文件路径
+if (import.meta.env.DEV) {
+  const allPaths = Object.keys(viewsModules);
+  console.log('[动态路由] import.meta.glob 扫描到的文件数量:', allPaths.length);
+  console.log('[动态路由] import.meta.glob 扫描到的所有文件:', allPaths);
+}
+
+// 自动构建组件映射表
+const componentMap: Record<string, () => Promise<RouteComponent>> = {
+  // Layout 组件（特殊处理）
+  Layout: Layout as () => Promise<RouteComponent>,
+};
+
+// 自动发现所有组件并添加到映射表
 Object.keys(viewsModules).forEach((path) => {
-  // import.meta.glob 返回的路径格式可能是 '@/views/...'
+  // import.meta.glob 返回的路径格式通常是 '@/views/xxx/yyy/index.vue'
   // 提取组件路径，例如: '@/views/sys/user/index.vue' -> 'sys/user'
-  const match = path.match(/@\/views\/(.+)\/index\.vue$/);
-  if (match) {
-    const componentPath = match[1];
-    // 如果组件映射表中还没有，则添加到自动发现的映射中
-    if (!componentMap[componentPath]) {
-      autoDiscoveredComponents[componentPath] = viewsModules[path] as () => Promise<RouteComponent>;
-      // 调试信息（开发环境）
-      if (import.meta.env.DEV) {
-        console.log(`[动态路由] 自动发现组件: ${componentPath}`);
-      }
+  
+  // 移除开头的 '@/views/' 和结尾的 '/index.vue'
+  let componentPath = path;
+  
+  // 处理 '@/views/' 开头
+  if (componentPath.startsWith('@/views/')) {
+    componentPath = componentPath.substring(8); // 8 = '@/views/'.length
+  } else if (componentPath.includes('/views/')) {
+    // 处理包含 '/views/' 的路径
+    const viewsIndex = componentPath.indexOf('/views/');
+    componentPath = componentPath.substring(viewsIndex + 7); // 7 = '/views/'.length
+  }
+  
+  // 移除结尾的 '/index.vue'
+  if (componentPath.endsWith('/index.vue')) {
+    componentPath = componentPath.substring(0, componentPath.length - 10); // 10 = '/index.vue'.length
+  }
+  
+  // 如果成功提取到组件路径，添加到映射表
+  if (componentPath && componentPath !== path) {
+    componentMap[componentPath] = viewsModules[path] as () => Promise<RouteComponent>;
+    
+    // 开发环境输出调试信息
+    if (import.meta.env.DEV) {
+      console.log(`[动态路由] 自动发现组件: ${componentPath} <- ${path}`);
+    }
+  } else {
+    // 如果无法匹配，输出警告
+    if (import.meta.env.DEV) {
+      console.warn(`[动态路由] 无法解析路径: ${path}`);
     }
   }
 });
 
-// 将自动发现的组件合并到 componentMap 中
-Object.assign(componentMap, autoDiscoveredComponents);
+// 特殊映射：处理拼写错误或别名（可选，仅用于特殊情况）
+const specialMappings: Record<string, string> = {
+  // 支持拼写错误的 practive，映射到正确的 practice
+  'learning/practice': 'learning/practive',
+};
+
+// 应用特殊映射
+Object.keys(specialMappings).forEach((alias) => {
+  const actualPath = specialMappings[alias];
+  if (componentMap[actualPath]) {
+    componentMap[alias] = componentMap[actualPath];
+    if (import.meta.env.DEV) {
+      console.log(`[动态路由] 特殊映射: ${alias} -> ${actualPath}`);
+    }
+  }
+});
 
 // 输出所有已注册的组件（开发环境）
 if (import.meta.env.DEV) {
@@ -105,25 +114,30 @@ function loadComponent(componentPath: string): () => Promise<RouteComponent> {
   // 从映射表中获取组件
   let componentLoader = componentMap[componentPath];
   
-  // 如果直接映射没有找到，尝试从自动发现的映射中查找
-  if (!componentLoader && autoDiscoveredComponents[componentPath]) {
-    componentLoader = autoDiscoveredComponents[componentPath];
-    // 添加到主映射表中，避免下次查找
-    componentMap[componentPath] = componentLoader;
-  }
-  
   if (componentLoader) {
     return componentLoader;
   }
 
-  // 如果映射表中没有，输出错误信息
-  console.error(`[动态路由] 组件路径 "${componentPath}" 未在 componentMap 中定义`);
-  console.error(`[动态路由] 可用的组件路径:`, Object.keys(componentMap).sort());
-  
-  // 返回一个错误组件，而不是尝试动态导入（因为 Vite 不支持）
-  return () => Promise.reject(
-    new Error(`组件 "${componentPath}" 未找到。请确保该组件存在于 @/views/${componentPath}/index.vue`)
-  ) as Promise<RouteComponent>;
+  // 如果映射表中没有，尝试动态导入（回退机制）
+  // 这可以处理自动发现失败的情况
+  try {
+    const dynamicImport = () => import(`@/views/${componentPath}/index.vue`) as Promise<RouteComponent>;
+    // 先尝试导入，如果成功则缓存
+    componentMap[componentPath] = dynamicImport;
+    if (import.meta.env.DEV) {
+      console.log(`[动态路由] 使用动态导入回退机制: ${componentPath}`);
+    }
+    return dynamicImport;
+  } catch (error) {
+    // 如果动态导入也失败，输出错误信息
+    console.error(`[动态路由] 组件路径 "${componentPath}" 未找到`);
+    console.error(`[动态路由] 可用的组件路径:`, Object.keys(componentMap).sort());
+    console.error(`[动态路由] 错误详情:`, error);
+    
+    return () => Promise.reject(
+      new Error(`组件 "${componentPath}" 未找到。请确保该组件存在于 @/views/${componentPath}/index.vue`)
+    ) as Promise<RouteComponent>;
+  }
 }
 
 /**

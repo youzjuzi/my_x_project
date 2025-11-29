@@ -49,15 +49,13 @@
               <el-divider direction="vertical" />
               <span 
                 class="action-link edit-link" 
-                :class="{ 'is-disabled': isProtectedRole(row) }"
-                @click="!isProtectedRole(row) && handleEdit(row)"
+                @click="handleEdit(row)"
               >
                 编辑
               </span>
               <el-divider direction="vertical" />
               <el-popconfirm
                 title="确认要删除该角色吗？"
-                :disabled="isProtectedRole(row)"
                 :confirm-button-text="'删除'"
                 :cancel-button-text="'取消'"
                 @confirm="handleDelete(row)"
@@ -65,8 +63,8 @@
                 <template #reference>
                   <span 
                     class="action-link delete-link"
-                    :class="{ 'is-disabled': isProtectedRole(row), 'is-loading': deleteLoadingId === row.roleId }"
-                    @click="!isProtectedRole(row) && handleDelete(row)"
+                    :class="{ 'is-loading': deleteLoadingId === row.roleId }"
+                    @click="handleDelete(row)"
                   >
                     {{ deleteLoadingId === row.roleId ? '删除中...' : '删除' }}
                   </span>
@@ -400,10 +398,6 @@ const handleCreateSubmit = async () => {
 }
 
 const handleEdit = async (row: RoleItem) => {
-  if (isProtectedRole(row)) {
-    ElMessage.warning('系统默认角色不可修改')
-    return
-  }
   await loadMenuTree()
   try {
     const res = await roleManageApi.getRoleById(row.roleId)
@@ -461,10 +455,6 @@ const handleEditSubmit = async () => {
 }
 
 const handleDelete = async (row: RoleItem) => {
-  if (isProtectedRole(row)) {
-    ElMessage.warning('系统默认角色不可删除')
-    return
-  }
   deleteLoadingId.value = row.roleId
   try {
     await roleManageApi.deleteRole(row.roleId)
@@ -476,10 +466,6 @@ const handleDelete = async (row: RoleItem) => {
   } finally {
     deleteLoadingId.value = null
   }
-}
-
-const isProtectedRole = (row: RoleItem) => {
-  return row.roleId === 1 || row.roleName === 'user'
 }
 
 const handleViewMenus = async (row: RoleItem) => {
