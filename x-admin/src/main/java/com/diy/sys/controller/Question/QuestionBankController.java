@@ -1,5 +1,6 @@
 package com.diy.sys.controller.Question;
 
+
 import com.diy.common.utils.PinyinUtil;
 import com.diy.common.vo.Result;
 import com.diy.sys.entity.Question.QuestionBank;
@@ -13,28 +14,28 @@ import java.util.Map;
 
 /**
  * <p>
- * 挑战题库控制器
+ * 题目控制器
  * </p>
  *
  * @author youzi
  * @since 2024
  */
-@Tag(name = "挑战题库接口")
-@RestController
-@RequestMapping("/challenge")
-public class ChallengeController {
 
+@Tag(name = "题库管理接口")
+@RestController
+@RequestMapping("/questionBank")
+public class QuestionBankController {
     @Autowired
     private IQuestionBankService questionBankService;
 
     /**
      * 新增题目
-     * 
+     *
      * @param question 题目信息
      * @return 操作结果
      */
     @Operation(summary = "新增题目")
-    @PostMapping("/question")
+    @PostMapping
     public Result<QuestionBank> addQuestion(@RequestBody QuestionBank question) {
         try {
             // 如果是中文类型（type = 2），自动生成拼音
@@ -42,17 +43,17 @@ public class ChallengeController {
                 String pinyin = PinyinUtil.toPinyin(question.getContent());
                 question.setPinyin(pinyin);
             }
-            
+
             // 设置默认状态为启用（如果未设置）
             if (question.getStatus() == 0) {
                 question.setStatus(1);
             }
-            
+
             // 如果 levelGroup 是数字，转换为字符串（根据实体类定义）
             if (question.getLevelGroup() == null) {
                 question.setLevelGroup("1");
             }
-            
+
             boolean success = questionBankService.save(question);
             if (success) {
                 return Result.success(question, "新增题目成功");
@@ -67,12 +68,12 @@ public class ChallengeController {
 
     /**
      * 修改题目
-     * 
+     *
      * @param question 题目信息
      * @return 操作结果
      */
     @Operation(summary = "修改题目")
-    @PutMapping("/question")
+    @PutMapping
     public Result<?> updateQuestion(@RequestBody QuestionBank question) {
         try {
             // 如果是中文类型（type = 2），且拼音为空或需要重新生成，自动生成拼音
@@ -83,7 +84,7 @@ public class ChallengeController {
                     question.setPinyin(pinyin);
                 }
             }
-            
+
             boolean success = questionBankService.updateById(question);
             if (success) {
                 return Result.success(question, "修改题目成功");
@@ -97,7 +98,7 @@ public class ChallengeController {
 
     /**
      * 分页查询题目列表
-     * 
+     *
      * @param content 题目内容（模糊查询，可选）
      * @param type 题目类型（1:单词 2:中文 3:数字，可选）
      * @param difficulty 难度（1:简单 2:中等 3:困难，可选）
@@ -107,7 +108,7 @@ public class ChallengeController {
      * @return 分页结果
      */
     @Operation(summary = "分页查询题目列表")
-    @GetMapping("/question/list")
+    @GetMapping("/list")
     public Result<Map<String, Object>> getQuestionList(
             @RequestParam(value = "content", required = false) String content,
             @RequestParam(value = "type", required = false) Integer type,
@@ -126,12 +127,12 @@ public class ChallengeController {
 
     /**
      * 根据ID查询单个题目
-     * 
+     *
      * @param id 题目ID
      * @return 题目信息
      */
     @Operation(summary = "根据ID查询题目")
-    @GetMapping("/question/{id}")
+    @GetMapping("/{id}")
     public Result<QuestionBank> getQuestionById(@PathVariable("id") Integer id) {
         try {
             QuestionBank question = questionBankService.getById(id);
@@ -148,12 +149,12 @@ public class ChallengeController {
 
     /**
      * 根据ID删除题目
-     * 
+     *
      * @param id 题目ID
      * @return 操作结果
      */
     @Operation(summary = "删除题目")
-    @DeleteMapping("/question/{id}")
+    @DeleteMapping("/{id}")
     public Result<?> deleteQuestionById(@PathVariable("id") Integer id) {
         try {
             boolean success = questionBankService.removeById(id);
@@ -168,4 +169,3 @@ public class ChallengeController {
         }
     }
 }
-

@@ -4,7 +4,7 @@ export default {
   // 分页查询题目列表
   getQuestionList(params) {
     return request({
-      url: '/challenge/question/list',
+      url: '/questionBank/list',
       method: 'get',
       params
     })
@@ -12,14 +12,14 @@ export default {
   // 根据ID查询题目
   getQuestionById(id) {
     return request({
-      url: `/challenge/question/${id}`,
+      url: `/questionBank/${id}`,
       method: 'get'
     })
   },
   // 新增题目
   addQuestion(data) {
     return request({
-      url: '/challenge/question',
+      url: '/questionBank',
       method: 'post',
       data
     })
@@ -27,7 +27,7 @@ export default {
   // 修改题目
   updateQuestion(data) {
     return request({
-      url: '/challenge/question',
+      url: '/questionBank',
       method: 'put',
       data
     })
@@ -35,7 +35,7 @@ export default {
   // 删除题目
   deleteQuestion(id) {
     return request({
-      url: `/challenge/question/${id}`,
+      url: `/questionBank/${id}`,
       method: 'delete'
     })
   }

@@ -115,6 +115,11 @@ export default defineConfig(({ command, mode }) => {
                 changeOrigin: true,
                 secure: false,
             },
+            '/questionBank': {
+                target: 'http://localhost:9999',
+                changeOrigin: true,
+                secure: false,
+            },
         }
     }
     }
