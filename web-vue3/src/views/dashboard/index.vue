@@ -73,44 +73,20 @@
 
     <!-- 快捷入口 -->
     <el-row :gutter="20" style="margin-top: 20px;">
-      <!-- 最近的学习记录 -->
+      <!-- 游戏化挑战成就列表 -->
       <el-col :xs="24" :md="12">
-        <div class="panel-card learning-records">
+        <div class="panel-card challenge-timeline-card">
           <div class="panel-header">
             <div class="panel-title">
               <el-icon :size="20" class="title-icon">
-                <component :is="ClockIcon" />
+                <component :is="TrophyIcon" />
               </el-icon>
-              <span>最近的学习记录</span>
+              <span>挑战成就</span>
             </div>
             <el-button text type="primary" size="small">查看全部</el-button>
           </div>
-          <div class="panel-content">
-            <div 
-              v-for="(record, index) in learningRecords" 
-              :key="index" 
-              class="record-item"
-            >
-              <div class="record-icon">
-                <el-icon :size="18">
-                  <component :is="VideoCamera" />
-                </el-icon>
-              </div>
-              <div class="record-info">
-                <div class="record-title">{{ record.title }}</div>
-                <div class="record-meta">
-                  <span class="record-time">{{ record.time }}</span>
-                  <span class="record-accuracy">准确率: {{ record.accuracy }}</span>
-                </div>
-              </div>
-              <div class="record-duration">{{ record.duration }}</div>
-            </div>
-            <div v-if="learningRecords.length === 0" class="empty-state">
-              <el-icon :size="48" color="#d1d5db">
-                <component :is="Document" />
-              </el-icon>
-              <p>暂无学习记录</p>
-            </div>
+          <div class="panel-content timeline-content">
+            <ChallengeTimeline :challenges="recentChallenges" />
           </div>
         </div>
       </el-col>
@@ -152,6 +128,7 @@
 
 <script>
 import GithubCorner from '@/components/GithubCorner';
+import ChallengeTimeline from '@/components/ChallengeTimeline/index.vue';
 import { defineComponent, markRaw } from 'vue';
 import { 
   VideoCamera, 
@@ -162,13 +139,15 @@ import {
   ArrowDown,
   Clock,
   Reading,
-  Document
+  Document,
+  Trophy
 } from '@element-plus/icons-vue';
 
 export default defineComponent({
   name: 'Dashboard',
   components: {
-    GithubCorner
+    GithubCorner,
+    ChallengeTimeline
   },
   data() {
     return {
@@ -208,25 +187,14 @@ export default defineComponent({
       ReadingIcon: markRaw(Reading),
       Document: markRaw(Document),
       VideoCamera: markRaw(VideoCamera),
-      learningRecords: [
-        {
-          title: '基础手语练习',
-          time: '2小时前',
-          accuracy: '95%',
-          duration: '15分钟'
-        },
-        {
-          title: '日常对话训练',
-          time: '5小时前',
-          accuracy: '88%',
-          duration: '20分钟'
-        },
-        {
-          title: '数字手语识别',
-          time: '昨天',
-          accuracy: '92%',
-          duration: '10分钟'
-        }
+      TrophyIcon: markRaw(Trophy),
+      // 最近挑战记录（Mock数据，实际应从API获取）
+      recentChallenges: [
+        { id: 1, mode: '题库挑战', score: 630, accuracy: '100%', status: '已完成', time: '2025-11-29 21:22' },
+        { id: 2, mode: '随机挑战', score: 300, accuracy: '33%', status: '已完成', time: '2025-11-29 21:25' },
+        { id: 3, mode: '随机挑战', score: 100, accuracy: '25%', status: '已放弃', time: '2025-11-29 21:16' },
+        { id: 4, mode: '随机挑战', score: 20, accuracy: '8%', status: '已放弃', time: '2025-11-29 21:14' },
+        { id: 5, mode: '随机挑战', score: 0, accuracy: '0%', status: '已放弃', time: '2025-11-29 21:10' }
       ],
       dailyVocabulary: [
         {
@@ -636,79 +604,10 @@ export default defineComponent({
     }
   }
 
-  .learning-records {
-    .record-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 16px;
-      border-radius: 12px;
-      margin-bottom: 12px;
-      transition: all 0.2s ease;
-      cursor: pointer;
-      background: #f9fafb;
-
-      &:hover {
-        background: #f3f4f6;
-        transform: translateX(4px);
-      }
-
-      &:last-child {
-        margin-bottom: 0;
-      }
-
-      .record-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-
-        :deep(.el-icon) {
-          color: #fff;
-        }
-      }
-
-      .record-info {
-        flex: 1;
-        min-width: 0;
-
-        .record-title {
-          font-size: 15px;
-          font-weight: 600;
-          color: #1f2937;
-          margin-bottom: 6px;
-        }
-
-        .record-meta {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          font-size: 13px;
-          color: #6b7280;
-
-          .record-time {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-          }
-
-          .record-accuracy {
-            color: #10b981;
-            font-weight: 500;
-          }
-        }
-      }
-
-      .record-duration {
-        font-size: 14px;
-    font-weight: 600;
-        color: #6366f1;
-        flex-shrink: 0;
-      }
+  .challenge-timeline-card {
+    .timeline-content {
+      padding: 0;
+      // 去除默认padding，让列表撑满
     }
   }
 

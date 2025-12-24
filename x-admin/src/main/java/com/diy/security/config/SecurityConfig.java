@@ -138,7 +138,18 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList(
             "http://localhost:8888",
             "http://localhost:8001",
-            "http://localhost:5173"
+            "http://localhost:5173",
+            "http://4.194.131.190:9999",
+            "http://4.194.131.190",
+            "http://4.194.131.190:8888",
+            "http://admin.youzilite.app:8888",
+            "http://admin.youzilite.app:9999",
+            "http://admin.youzilite.app",
+            "https://admin.youzilite.app:9999",
+            "https://admin.youzilite.app:443",
+            "https://admin.youzilite.app",
+            "https://admin.youzilite.app:443",
+            "https://admin.youzilite.app:8888"
         ));
         
         // 允许的请求方法

@@ -37,18 +37,6 @@ export const constantRoutes:RouteRecordRaw[] = [
         hidden: true // 关键：设为 true，这样它就不会出现在后台侧边栏菜单里
       }
     },
-
-  {
-    path: '/redirect',
-    component: Layout,
-    meta: { hidden: true },
-    children: [
-      {
-        path: '/redirect/:path(.*)',
-        component: () => import('@/views/redirect/index.vue')
-      }
-    ]
-  },
   {
     path: '/login',
     component: () => import('@/views/login/index.vue'),
@@ -62,16 +50,6 @@ export const constantRoutes:RouteRecordRaw[] = [
   {
     path: '/auth-redirect',
     component: () => import('@/views/login/auth-redirect.vue'),
-    meta: { hidden: true }
-  },
-  {
-    path: '/404',
-    component: () => import('@/views/error-page/404.vue'),
-    meta: { hidden: true }
-  },
-  {
-    path: '/401',
-    component: () => import('@/views/error-page/401.vue'),
     meta: { hidden: true }
   },
   {

@@ -9,7 +9,7 @@ console.log('import.meta.env=', import.meta.env);
 const service = axios.create({
   baseURL: import.meta.env.VITE_BASE_API, // url = base url + request url
   // withCredentials: true, // send cookies when cross-domain requests
-  timeout: 5000 // request timeout
+  timeout: 30000 // request timeout (30 seconds)
 });
 
 // request interceptor

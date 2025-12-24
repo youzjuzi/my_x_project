@@ -5,9 +5,9 @@ spring:
     activate:
       on-profile: prod
   datasource:
-    username: root
-    password: Aa1234
-    url: jdbc:mysql://10.130.92.113/xdb?useSSL=false
+    username: zyc
+    password: YouZi20221850$$
+    url: jdbc:mysql://youzi-mysql.mysql.database.azure.com:3306/xdb?useSSL=true&requireSSL=true&allowPublicKeyRetrieval=true
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   data:
@@ -17,7 +17,11 @@ spring:
 
 logging:
   level:
-    com.diy: debug
+    root: info
+    com.diy: info
+    org.springframework: warn
+    org.mybatis: warn
+    com.baomidou.mybatisplus: warn
 
 mybatis-plus:
   global-config:
