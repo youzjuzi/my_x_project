@@ -16,32 +16,44 @@
             <span>开始识别</span>
           </button>
           <div class="hand-illustration">
-            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <!-- 全息磨砂玻璃手 -->
+            <svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg" class="holo-hand">
               <defs>
-                <linearGradient id="handGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:rgba(255, 255, 255, 0.4);stop-opacity:1" />
-                  <stop offset="100%" style="stop-color:rgba(255, 255, 255, 0.2);stop-opacity:1" />
+                <linearGradient id="holoGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" style="stop-color:#a5b4fc;stop-opacity:0.2" />
+                  <stop offset="50%" style="stop-color:#6366f1;stop-opacity:0.4" />
+                  <stop offset="100%" style="stop-color:#4f46e5;stop-opacity:0.1" />
                 </linearGradient>
-                <filter id="glow">
-                  <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                  <feMerge>
-                    <feMergeNode in="coloredBlur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                  </feMerge>
+                <filter id="glassGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="5" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="rgba(99, 102, 241, 0.5)" />
                 </filter>
               </defs>
-              <!-- 手掌 -->
-              <ellipse cx="100" cy="140" rx="50" ry="40" fill="url(#handGradient)" filter="url(#glow)" />
-              <!-- 拇指 -->
-              <ellipse cx="60" cy="120" rx="20" ry="30" fill="url(#handGradient)" filter="url(#glow)" transform="rotate(-30 60 120)" />
-              <!-- 食指 -->
-              <ellipse cx="100" cy="80" rx="15" ry="50" fill="url(#handGradient)" filter="url(#glow)" />
-              <!-- 中指 -->
-              <ellipse cx="120" cy="70" rx="15" ry="55" fill="url(#handGradient)" filter="url(#glow)" />
-              <!-- 无名指 -->
-              <ellipse cx="140" cy="75" rx="15" ry="50" fill="url(#handGradient)" filter="url(#glow)" />
-              <!-- 小指 -->
-              <ellipse cx="160" cy="85" rx="12" ry="40" fill="url(#handGradient)" filter="url(#glow)" />
+              
+              <g class="hand-shape" filter="url(#glassGlow)">
+                <!-- 平滑手掌轮廓 path (修正大拇指) -->
+                <path d="M90,225 
+                         C60,220 50,190 40,160 
+                         C35,145 20,130 25,115 
+                         C30,100 50,110 65,135 
+                         L70,110 
+                         L75,60 C78,45 90,45 92,60 
+                         L95,120 L100,120 
+                         L105,40 C108,25 120,25 122,40 
+                         L125,120 L130,120 
+                         L140,60 C143,45 155,55 152,70 
+                         L148,130 L152,135 
+                         L170,110 C180,115 175,130 165,145 
+                         C155,160 160,190 140,225 
+                         Z" 
+                      fill="url(#holoGradient)" 
+                      stroke="rgba(255, 255, 255, 0.4)" 
+                      stroke-width="1.5" />
+                
+                <!-- 掌心能量核心 -->
+                <circle cx="100" cy="140" r="15" fill="rgba(255, 255, 255, 0.2)" class="energy-core" />
+              </g>
             </svg>
         </div>
         </div>
@@ -373,35 +385,53 @@ export default defineComponent({
         }
 
         .hand-illustration {
-          width: 180px;
-          height: 180px;
+          width: 200px;
+          height: 240px;
           display: flex;
           align-items: center;
           justify-content: center;
-          filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
-          animation: float 3s ease-in-out infinite;
+          filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.3));
+          animation: float 5s ease-in-out infinite;
           transform-style: preserve-3d;
           perspective: 1000px;
 
           svg {
             width: 100%;
             height: 100%;
-            transform: rotateY(-15deg) rotateX(5deg);
-            transition: transform 0.3s ease;
+            transform: rotateY(-5deg) rotateX(5deg);
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            
+            /* 全息光效呼吸 */
+            animation: holo-pulse 4s ease-in-out infinite;
+          }
+
+          .energy-core {
+            animation: core-pulse 3s ease-in-out infinite;
           }
 
           &:hover svg {
-            transform: rotateY(0deg) rotateX(0deg) scale(1.05);
+            transform: rotateY(0deg) rotateX(0deg) scale(1.02);
+            filter: drop-shadow(0 0 30px rgba(99, 102, 241, 0.6));
           }
         }
 
         @keyframes float {
           0%, 100% {
-            transform: translateY(0px);
+            transform: translateY(0px) rotateZ(0deg);
           }
           50% {
-            transform: translateY(-10px);
+            transform: translateY(-12px) rotateZ(1deg);
           }
+        }
+
+        @keyframes holo-pulse {
+          0%, 100% { opacity: 0.8; filter: brightness(1); }
+          50% { opacity: 1; filter: brightness(1.2); }
+        }
+
+        @keyframes core-pulse {
+          0%, 100% { r: 15; opacity: 0.2; }
+          50% { r: 20; opacity: 0.4; }
         }
       }
     }

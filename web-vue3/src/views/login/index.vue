@@ -166,7 +166,6 @@ import type { FormItemRule } from 'element-plus';
 import type { IForm } from '@/types/element-plus';
 import store from '@/store';
 import { ElMessage } from 'element-plus';
-import { ElForm } from 'element-plus';
 
 
 interface QueryType {
