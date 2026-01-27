@@ -225,6 +225,10 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({
+  name: 'roleList' // ⚠️ 必须与路由 name 完全一致！
+})
+
 import { RefreshRight, Search, Edit, Delete, Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { reactive, ref, onMounted, nextTick } from 'vue'

@@ -30,6 +30,10 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({
+  name: 'challenge_history' // ⚠️ 必须与路由 name 完全一致！
+})
+
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import ChallengeSearch from './components/ChallengeSearch.vue'

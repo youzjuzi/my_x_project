@@ -8,7 +8,7 @@ interface ITagsViewState {
 
 export default defineStore({
   id: 'tagsView',
-  state: ():ITagsViewState => ({
+  state: (): ITagsViewState => ({
     visitedViews: [],
     cachedViews: []
   }),
@@ -30,6 +30,7 @@ export default defineStore({
       if (this.cachedViews.includes(view.name)) return;
       if (!view.meta.noCache) {
         this.cachedViews.push(view.name);
+        console.log(`[keep-alive] 添加缓存: ${view.name}`, '当前缓存列表:', this.cachedViews);
       }
     },
     delView(view) {

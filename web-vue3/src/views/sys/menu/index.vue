@@ -215,6 +215,10 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({
+  name: 'menu' // ⚠️ 必须与路由 name 完全一致！
+})
+
 import { RefreshRight, Search, Plus } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { reactive, ref, onMounted, computed } from 'vue'

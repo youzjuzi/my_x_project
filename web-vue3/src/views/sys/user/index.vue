@@ -352,6 +352,10 @@
 </template>
 
 <script lang="ts" setup>
+defineOptions({
+  name: 'userList' // ⚠️ 必须与路由 name 完全一致！
+})
+
 import { Edit, Delete, Plus, RefreshRight, Search, View } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { computed, reactive, ref, onMounted } from 'vue'
@@ -780,6 +784,7 @@ const handleCurrentChange = (val: number) => {
 
 // 挂载
 onMounted(async () => {
+  console.log('👤 [用户管理] 组件挂载 - 开始请求数据')
   await loadRoleDict()
   fetchUserList()
 })

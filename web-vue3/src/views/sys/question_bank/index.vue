@@ -374,6 +374,10 @@
 </template>
 
 <script lang="ts" setup>
+defineOptions({
+  name: 'question_bank' // ⚠️ 必须与路由 name 完全一致！
+})
+
 import { Plus, RefreshRight, Search } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { computed, reactive, ref, onMounted } from 'vue'

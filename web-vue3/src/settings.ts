@@ -9,7 +9,7 @@ interface ISettings {
 }
 
 const settings:ISettings = {
-  title: 'Vue3 Element Admin',
+  title: '手语交流平台',
 
   /**
    * @type {boolean} true | false
