@@ -106,3 +106,9 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+# 自动生成的类型声明文件
+components.d.ts
+auto-imports.d.ts
+web-vue3/auto-imports.d.ts
+web-vue3/components.d.ts
