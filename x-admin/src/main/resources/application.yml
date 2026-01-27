@@ -2,16 +2,16 @@ server:
   port: 9999
 spring:
   datasource:
-    #默认（本地数据库）
-    username: root
-    password: 123456
-    url: jdbc:mysql://localhost/xdb?useSSL=false&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    #云服务器MySQL（已移至application-prod.yml）
-#    username: zyc
-#    password: YouZi20221850$$
-#    url: jdbc:mysql://youzi-mysql.mysql.database.azure.com:3306/xdb?useSSL=true&requireSSL=true
+#    #默认（本地数据库）
+#    username: root
+#    password: 123456
+#    url: jdbc:mysql://localhost/xdb?useSSL=false&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true
 #    driver-class-name: com.mysql.cj.jdbc.Driver
+    #云服务器MySQL
+    username: youzilite
+    password: vsNDgmYmYPyDRkUM
+    url: jdbc:mysql://mysql6.sqlpub.com:3311/project_xdb?useSSL=true&requireSSL=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
   data:
     redis:
