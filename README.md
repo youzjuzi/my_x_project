@@ -202,6 +202,35 @@ java -jar target/x-admin-0.0.1-SNAPSHOT.jar
 
 ---
 
+### Docker 部署
+
+本项目的 Docker 环境已预置以下优化：
+- **后端镜像**：配置阿里云 Maven 镜像加速依赖下载，解决国内网络构建超时问题。
+- **前端镜像**：配置 npm 淘宝镜像加速构建。
+
+#### 常用命令
+
+```bash
+# 一键构建并启动服务（推荐）
+docker compose up -d --build
+
+# 查看实时日志
+docker compose logs -f
+
+# 停止并移除容器
+docker compose down
+```
+
+#### 常见问题
+
+**端口冲突 (9999)**
+启动时若出现 `bind: address already in use` 错误，通常是因为本地 IDE 或终端已运行了后端服务。
+解决方案：
+1. 停止本地运行的 Java 进程（检查占用端口：`lsof -i :9999`）。
+2. 或修改 `docker-compose.yml` 中的映射端口（例如修改为 `9998:9999`）。
+
+---
+
 ## 🎯 功能模块详解
 
 ### 1. 用户管理
