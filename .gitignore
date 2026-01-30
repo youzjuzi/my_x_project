@@ -110,3 +110,30 @@ coverage
 # 自动生成的类型声明文件
 web-vue3/auto-imports.d.ts
 web-vue3/components.d.ts
+
+# ===================================================================
+# Tauri (web-vue3/src-tauri)
+# Rules specific to Tauri desktop app build outputs.
+# ===================================================================
+
+# Rust build output
+web-vue3/src-tauri/target/
+
+# Generated schemas
+web-vue3/src-tauri/gen/
+
+# ===================================================================
+# Logs & Runtime Files
+# ===================================================================
+
+# Application logs
+x-admin/logs/
+web-vue3/logs/
+
+# ===================================================================
+# Other Files to Ignore
+# ===================================================================
+
+# Windows batch files (only useful locally)
+*.bat
+

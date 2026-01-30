@@ -231,6 +231,75 @@ docker compose down
 
 ---
 
+### Tauri 桌面应用打包（Linux）
+
+#### 1. 安装系统依赖
+
+```bash
+sudo apt update
+sudo apt install -y \
+  libwebkit2gtk-4.1-dev \
+  libgtk-3-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev \
+  build-essential \
+  curl \
+  wget \
+  file \
+  libxdo-dev \
+  libssl-dev \
+  libsoup-3.0-dev \
+  javascriptcoregtk-4.1
+```
+
+#### 2. 安装 Rust
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+```
+
+#### 3. 配置 API 地址
+
+编辑 `web-vue3/.env.build_prod`，设置后端地址：
+
+```bash
+VITE_BASE_API = 'http://localhost:9999'
+```
+
+> ⚠️ 若分发给其他用户，需替换为公网可访问的后端地址。
+
+#### 4. 执行打包
+
+```bash
+cd web-vue3
+npm run tauri:build
+```
+
+产物位于 `src-tauri/target/release/bundle/`：
+- `.deb` - Debian/Ubuntu 安装包
+- `.rpm` - Fedora/CentOS 安装包
+- `.AppImage` - 通用 Linux 可执行文件
+
+#### 5. 安装
+
+```bash
+# Debian/Ubuntu
+sudo apt install ./src-tauri/target/release/bundle/deb/MyGradProject_0.1.0_amd64.deb
+
+# 卸载
+sudo apt remove my-grad-project
+```
+
+#### 6. 常见问题
+
+| 问题 | 原因 | 解决方案 |
+|------|------|----------|
+| Network Error | 后端未启动或 CORS 配置缺失 | 启动后端，并确保 CORS 包含 `tauri://localhost` |
+| 登录不跳转 | Cookies 在 tauri:// 协议下不可用 | 将 token 存储改为 localStorage |
+
+---
+
 ## 🎯 功能模块详解
 
 ### 1. 用户管理

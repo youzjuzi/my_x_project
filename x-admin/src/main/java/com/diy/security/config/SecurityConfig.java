@@ -37,10 +37,9 @@ import java.util.Arrays;
  */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(
-    prePostEnabled = true,  // 启用 @PreAuthorize 和 @PostAuthorize
-    securedEnabled = true,  // 启用 @Secured
-    jsr250Enabled = true    // 启用 @RolesAllowed
+@EnableMethodSecurity(prePostEnabled = true, // 启用 @PreAuthorize 和 @PostAuthorize
+        securedEnabled = true, // 启用 @Secured
+        jsr250Enabled = true // 启用 @RolesAllowed
 )
 public class SecurityConfig {
 
@@ -68,61 +67,58 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 禁用 CSRF（因为使用 JWT，不需要 CSRF 保护）
-            .csrf(AbstractHttpConfigurer::disable)
-            
-            // 配置 CORS
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            
-            // 配置会话管理（无状态，使用 JWT）
-            .sessionManagement(session -> 
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
-            
-            // 配置请求授权
-            .authorizeHttpRequests(auth -> auth
-                // 公开访问的接口（不需要认证）
-                .requestMatchers(
-                    "/auth/login",
-                    "/auth/register",
-                    "/auth/info",
-                    "/captcha",
-                    "/error",
-                    "/swagger-ui.html",
-                    "/swagger-ui/**",
-                    "/swagger-resources/**",
-                    "/v3/api-docs/**",
-                    "/v3/**",
-                    "/doc.html",
-                    "/webjars/**"
-                ).permitAll()
-                
-                // 需要认证的接口（具体权限由方法级安全注解控制）
-                // 注意：这里只做基本的认证检查，具体权限由菜单权限系统控制
-                // 注意：路径匹配顺序很重要，更具体的路径应该放在前面
-                .requestMatchers(
-                    "/challenge/admin/**",  // 管理员挑战接口
-                    "/challenge/**",       // 普通挑战接口（放在 admin 后面，避免冲突）
-                    "/user/**",            // 用户管理接口（需要管理员权限）
-                    "/role/**",
-                    "/menu/**",
-                    "/questionSet/**",
-                    "/question/**",
-                    "/profile/**"          // 个人信息接口（需要登录，用户只能修改自己的信息）
-                ).authenticated() // 需要认证，具体权限由方法级注解或菜单权限控制
-                
-                // 其他所有请求需要认证
-                .anyRequest().authenticated()
-            )
-            
-            // 添加 JWT 认证过滤器（在 UsernamePasswordAuthenticationFilter 之前）
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            
-            // 配置异常处理
-            .exceptionHandling(exceptions -> exceptions
-                .authenticationEntryPoint(authenticationEntryPoint) // 未认证时的处理
-                .accessDeniedHandler(accessDeniedHandler) // 权限不足时的处理
-            );
+                // 禁用 CSRF（因为使用 JWT，不需要 CSRF 保护）
+                .csrf(AbstractHttpConfigurer::disable)
+
+                // 配置 CORS
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // 配置会话管理（无状态，使用 JWT）
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // 配置请求授权
+                .authorizeHttpRequests(auth -> auth
+                        // 公开访问的接口（不需要认证）
+                        .requestMatchers(
+                                "/auth/login",
+                                "/auth/register",
+                                "/auth/info",
+                                "/captcha",
+                                "/error",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/swagger-resources/**",
+                                "/v3/api-docs/**",
+                                "/v3/**",
+                                "/doc.html",
+                                "/webjars/**")
+                        .permitAll()
+
+                        // 需要认证的接口（具体权限由方法级安全注解控制）
+                        // 注意：这里只做基本的认证检查，具体权限由菜单权限系统控制
+                        // 注意：路径匹配顺序很重要，更具体的路径应该放在前面
+                        .requestMatchers(
+                                "/challenge/admin/**", // 管理员挑战接口
+                                "/challenge/**", // 普通挑战接口（放在 admin 后面，避免冲突）
+                                "/user/**", // 用户管理接口（需要管理员权限）
+                                "/role/**",
+                                "/menu/**",
+                                "/questionSet/**",
+                                "/question/**",
+                                "/profile/**" // 个人信息接口（需要登录，用户只能修改自己的信息）
+                        ).authenticated() // 需要认证，具体权限由方法级注解或菜单权限控制
+
+                        // 其他所有请求需要认证
+                        .anyRequest().authenticated())
+
+                // 添加 JWT 认证过滤器（在 UsernamePasswordAuthenticationFilter 之前）
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+
+                // 配置异常处理
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(authenticationEntryPoint) // 未认证时的处理
+                        .accessDeniedHandler(accessDeniedHandler) // 权限不足时的处理
+                );
 
         return http.build();
     }
@@ -133,42 +129,44 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // 允许的源
         configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:8888",
-            "http://localhost:8001",
-            "http://localhost:5173",
-            "http://4.194.131.190:9999",
-            "http://4.194.131.190",
-            "http://4.194.131.190:8888",
-            "http://admin.youzilite.app:8888",
-            "http://admin.youzilite.app:9999",
-            "http://admin.youzilite.app",
-            "https://admin.youzilite.app:9999",
-            "https://admin.youzilite.app:443",
-            "https://admin.youzilite.app",
-            "https://admin.youzilite.app:443",
-            "https://admin.youzilite.app:8888"
-        ));
-        
+                "http://localhost",
+                "http://localhost:8888",
+                "http://localhost:8001",
+                "http://localhost:5173",
+                "http://4.194.131.190:9999",
+                "http://4.194.131.190",
+                "http://4.194.131.190:8888",
+                "http://admin.youzilite.app:8888",
+                "http://admin.youzilite.app:9999",
+                "http://admin.youzilite.app",
+                "https://admin.youzilite.app:9999",
+                "https://admin.youzilite.app:443",
+                "https://admin.youzilite.app",
+                "https://admin.youzilite.app:443",
+                "https://admin.youzilite.app:8888",
+                // Tauri 应用的 origin
+                "tauri://localhost",
+                "http://tauri.localhost"));
+
         // 允许的请求方法
         configuration.setAllowedMethods(Arrays.asList(
-            "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"
-        ));
-        
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
+
         // 允许的请求头
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        
+
         // 允许携带凭证
         configuration.setAllowCredentials(true);
-        
+
         // 预检请求的缓存时间
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-        
+
         return source;
     }
 
@@ -191,4 +189,3 @@ public class SecurityConfig {
         return handler;
     }
 }
-
