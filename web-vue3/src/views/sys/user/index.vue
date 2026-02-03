@@ -352,9 +352,7 @@
 </template>
 
 <script lang="ts" setup>
-defineOptions({
-  name: 'userList' // ⚠️ 必须与路由 name 完全一致！
-})
+
 
 import { Edit, Delete, Plus, RefreshRight, Search, View } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'

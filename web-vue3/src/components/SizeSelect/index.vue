@@ -43,9 +43,7 @@ export default defineComponent({
       });
     },
     refreshView() {
-      // In order to make the cached page re-rendered
-      store.tagsView().delAllCachedViews();
-
+      // Redirect to refresh the current view
       const { fullPath } = this.$route;
 
       this.$nextTick(() => {
