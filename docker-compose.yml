@@ -23,6 +23,18 @@ services:
             - ./web-vue3/logs:/var/log/nginx
         networks:
             - x_net
+    redis:
+        image: redis:7.0
+        container_name: x_redis
+        ports:
+            - "6379:6379"  # 必须暴露，因为你的 IDE 在容器外面
+        command: redis-server --requirepass 123456
+        volumes:
+            - ./data/redis:/data
+        networks:
+            - x_net  # 确保和你的前后端在同一个网络
+
+
 networks:
     x_net:
         driver: bridge

@@ -2,6 +2,7 @@ package com.diy.security.filter;
 
 import com.diy.common.utils.JwtUtil;
 import com.diy.security.service.CustomUserDetailsService;
+import com.diy.sys.service.TokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,8 +40,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private JwtUtil jwtUtil;
 
     @Autowired
-    @Lazy  // 延迟加载，打破循环依赖
+    @Lazy // 延迟加载，打破循环依赖
     private CustomUserDetailsService userDetailsService;
+
+    @Autowired
+    private TokenService tokenService;
 
     private static final String TOKEN_HEADER = "X-Token";
     private static final String TOKEN_PREFIX = ""; // JWT Token 没有前缀
@@ -49,38 +53,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
-        
+            FilterChain filterChain) throws ServletException, IOException {
+
         String requestPath = request.getRequestURI();
-        
+
         // 提取 Token
         String token = extractTokenFromRequest(request);
-        
+
         if (token != null) {
             try {
                 // 解析 Token，获取用户信息
                 Integer userId = extractUserIdFromToken(token);
-                
+
                 if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                    // 验证 Redis 中的 Token 是否有效
+                    if (!tokenService.validateToken(userId, token)) {
+                        log.debug("Redis Token 验证失败 - 用户ID: {}, 路径: {}", userId, requestPath);
+                        // Token 在 Redis 中不存在或不匹配，拒绝访问
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+
+                    // Token 验证通过，自动续签
+                    tokenService.refreshToken(userId);
+
                     // 加载用户详情（包含角色和权限）
                     UserDetails userDetails = userDetailsService.loadUserByUserId(userId);
-                    
+
                     if (userDetails != null) {
                         // 创建认证对象
-                        UsernamePasswordAuthenticationToken authentication =
-                                new UsernamePasswordAuthenticationToken(
-                                        userDetails,
-                                        null,
-                                        userDetails.getAuthorities()
-                                );
-                        
+                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                                userDetails,
+                                null,
+                                userDetails.getAuthorities());
+
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                        
+
                         // 设置到 Spring Security 上下文
                         SecurityContextHolder.getContext().setAuthentication(authentication);
-                        
-                        log.debug("JWT 认证成功 - 用户ID: {}, 路径: {}", userId, requestPath);
+
+                        log.debug("JWT 认证成功 - 用户ID: {}, 路径: {}, Token 已续签", userId, requestPath);
                     }
                 }
             } catch (Exception e) {
@@ -90,7 +102,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } else {
             log.debug("请求未包含 Token - 路径: {}", requestPath);
         }
-        
+
         // 继续过滤器链
         filterChain.doFilter(request, response);
     }
@@ -100,7 +112,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      */
     private String extractTokenFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader(TOKEN_HEADER);
-        
+
         if (StringUtils.hasText(bearerToken)) {
             // 如果 Token 有前缀（如 "Bearer "），则移除
             if (bearerToken.startsWith(TOKEN_PREFIX)) {
@@ -108,7 +120,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
             return bearerToken;
         }
-        
+
         return null;
     }
 
@@ -118,7 +130,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private Integer extractUserIdFromToken(String token) {
         try {
             // 解析 Token，获取用户对象
-            com.diy.sys.entity.UserAndRole.User user = jwtUtil.parseToken(token, com.diy.sys.entity.UserAndRole.User.class);
+            com.diy.sys.entity.UserAndRole.User user = jwtUtil.parseToken(token,
+                    com.diy.sys.entity.UserAndRole.User.class);
             if (user != null && user.getId() != null) {
                 return user.getId();
             }
@@ -128,4 +141,3 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 }
-

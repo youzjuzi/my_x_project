@@ -6,7 +6,6 @@
 #### 软件架构
 后端：SpringBoot + vue + mysql + redis
 
-注意：node版本指定v16.20.0
 
 #### 安装教程
 

@@ -2,23 +2,22 @@ package com.diy.common.utils;
 
 import com.alibaba.fastjson2.JSON;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Date;
 import java.util.UUID;
 
 @Component
 public class JwtUtil {
     // 有效期
-    private static final long JWT_EXPIRE = 30*60*1000L;  //半小时
+    //private static final long JWT_EXPIRE = 30*60*1000L;  //半小时
+    //由于加入了redis,jwt验证设置一天时间
+    private static final long JWT_EXPIRE = 1*24*60*60*1000L;  //1天
     // 令牌秘钥
     private static final String JWT_KEY = "YourSuperSecretKeyForHS256Algorithm123";
 

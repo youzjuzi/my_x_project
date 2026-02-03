@@ -12,6 +12,7 @@ import com.diy.sys.mapper.UserAndRole.UserActivityMapper;
 import com.diy.sys.mapper.UserAndRole.UserMapper;
 import com.diy.sys.mapper.UserAndRole.UserRoleMapper;
 import com.diy.sys.service.MenuAndRole.IMenuService;
+import com.diy.sys.service.TokenService;
 import com.diy.sys.service.UserAndRole.IUserService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +31,7 @@ import java.util.stream.Collectors;
 
 /**
  * <p>
- *  服务实现类
+ * 服务实现类
  * </p>
  *
  * @author youzi
@@ -44,48 +45,53 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Autowired
     private JwtUtil jwtUtil;
     @Autowired
-    @Lazy  // 延迟加载，打破循环依赖
+    @Lazy // 延迟加载，打破循环依赖
     private PasswordEncoder passwordEncoder;
     @Autowired
     private UserRoleMapper userRoleMapper;
     @Autowired
     private IMenuService menuService;
     @Autowired
+    private TokenService tokenService;
+    @Autowired
     private UserActivityMapper userActivityMapper;
 
-
-    //注册
+    // 注册
     @Override
     public Map<String, Object> register(User user) {
         // 检测用户名是否已经存在
         LambdaQueryWrapper<User> Wrapper = new LambdaQueryWrapper();
-        Wrapper.eq(User::getUsername,user.getUsername());
+        Wrapper.eq(User::getUsername, user.getUsername());
         User existUser = this.baseMapper.selectOne(Wrapper);
-        if (existUser != null){
+        if (existUser != null) {
             return null;
         }
-        //密码加密
+        // 密码加密
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         this.baseMapper.insert(user);
         // 默认分配普通用户角色
         userRoleMapper.insert(new UserRole(null, user.getId(), DEFAULT_ROLE_ID));
-        Map<String,Object> data = new HashMap<>();
+        Map<String, Object> data = new HashMap<>();
         data.put("name", user.getUsername());
         return data;
     }
 
-    //登录
+    // 登录
     @Override
     public Map<String, Object> login(User user) {
-        //根据用户名查询
+        // 根据用户名查询
         LambdaQueryWrapper<User> Wrapper = new LambdaQueryWrapper();
-        Wrapper.eq(User::getUsername,user.getUsername());
+        Wrapper.eq(User::getUsername, user.getUsername());
         User loginUser = this.baseMapper.selectOne(Wrapper);
-        //结果不为空并且密码和传入密码匹配，则需要生成token
-        if (loginUser != null && passwordEncoder.matches(user.getPassword(),loginUser.getPassword())){
+        // 结果不为空并且密码和传入密码匹配，则需要生成token
+        if (loginUser != null && passwordEncoder.matches(user.getPassword(), loginUser.getPassword())) {
             loginUser.setPassword(null);
-            //创建jwt
+            // 创建jwt
             String token = jwtUtil.createToken(loginUser);
+
+            // 存储 Token 到 Redis（TTL 30分钟）
+            tokenService.saveToken(loginUser.getId(), token);
+
             // 记录登录时间
             UserActivityTime userActivityTime = new UserActivityTime();
             userActivityTime.setUserId(loginUser.getId());
@@ -95,14 +101,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             System.out.println(userActivityTime);
             // 返回数据
             Map<String, Object> data = new HashMap<>();
-            data.put("token",token);
+            data.put("token", token);
 
             return data;
         }
         return null;
     }
 
-    //根据token获取用户信息
+    // 根据token获取用户信息
     @Override
     public Map<String, Object> getUserInfo(String token) {
         User loginUser = null;
@@ -113,19 +119,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             e.printStackTrace();
         }
 
-        if (loginUser != null){
+        if (loginUser != null) {
             Map<String, Object> data = new HashMap<>();
-            data.put("name",loginUser.getUsername());
-            data.put("avatar",loginUser.getAvatar());
+            data.put("name", loginUser.getUsername());
+            data.put("avatar", loginUser.getAvatar());
 
-            //角色
+            // 角色
             List<String> roleList = this.baseMapper.getRoleNameByUserId(loginUser.getId());
-            data.put("roles",roleList);
+            data.put("roles", roleList);
 
             // 权限列表
             List<Menu> menuList = menuService.getMenuListByUserId(loginUser.getId());
-            data.put("menuList",menuList);
-
+            data.put("menuList", menuList);
 
             return data;
 
@@ -135,7 +140,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Override
     public void logout(String token) {
-        // JWT token 无需在服务端删除，客户端删除即可
+        // 从 Token 中解析用户ID，然后从 Redis 删除
+        try {
+            User loginUser = jwtUtil.parseToken(token, User.class);
+            if (loginUser != null && loginUser.getId() != null) {
+                tokenService.removeToken(loginUser.getId());
+            }
+        } catch (Exception e) {
+            // Token 解析失败，忽略
+        }
     }
 
     @Override
@@ -159,7 +172,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         User user = this.baseMapper.selectById(id);
 
         LambdaQueryWrapper<UserRole> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserRole::getUserId,id);
+        wrapper.eq(UserRole::getUserId, id);
         List<UserRole> userRoleList = userRoleMapper.selectList(wrapper);
 
         List<Integer> roleIdList = userRoleList.stream().map(UserRole::getRoleId).collect(Collectors.toList());
@@ -172,7 +185,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     @Transactional
     public void updateUser(User user) {
-        if(user.getPassword() == null) {
+        if (user.getPassword() == null) {
             // 使用update(wrapper)方法排除密码字段
             UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("id", user.getId());
@@ -190,7 +203,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         }
         // 删除原有角色
         LambdaQueryWrapper<UserRole> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserRole::getUserId,user.getId());
+        wrapper.eq(UserRole::getUserId, user.getId());
 
         userRoleMapper.delete(wrapper);
         // 设置新的角色
@@ -200,7 +213,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             roleIdList.add(DEFAULT_ROLE_ID);
         }
         for (Integer roleId : roleIdList) {
-            userRoleMapper.insert(new UserRole(null,user.getId(),roleId));
+            userRoleMapper.insert(new UserRole(null, user.getId(), roleId));
         }
     }
 
@@ -209,7 +222,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         this.baseMapper.deleteById(id);
         // 删除原有角色
         LambdaQueryWrapper<UserRole> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserRole::getUserId,id);
+        wrapper.eq(UserRole::getUserId, id);
         userRoleMapper.delete(wrapper);
     }
 
@@ -219,7 +232,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         wrapper.eq(User::getUsername, username);
         return this.getOne(wrapper);
     }
-
 
     // 获取用户列表，包括角色和权限
     @Override
@@ -267,6 +279,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     /**
      * 修改密码
+     * 
      * @param passwordMap 包含 token、oldPassword、newPassword 的 Map
      * @return 是否修改成功
      */
@@ -334,6 +347,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     /**
      * 更新手机号
+     * 
      * @param phoneMap 包含 token、phone 的 Map
      * @return 是否更新成功
      */
@@ -386,6 +400,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     /**
      * 更新邮箱
+     * 
      * @param emailMap 包含 token、email 的 Map
      * @return 是否更新成功
      */
@@ -438,6 +453,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     /**
      * 更新头像
+     * 
      * @param avatarMap 包含 token、avatar 的 Map
      * @return 是否更新成功
      */

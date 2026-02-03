@@ -2,6 +2,7 @@ import axios from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import store from '@/store';
 import { getToken } from '@/utils/auth';
+import router from '@/router';
 
 console.log('import.meta.env=', import.meta.env);
 
@@ -74,6 +75,25 @@ service.interceptors.response.use(
   },
   error => {
     console.log(error); // for debug
+
+    // 处理 HTTP 401 未授权错误 - Token 过期或无效
+    if (error.response && error.response.status === 401) {
+      // 1. 弹出轻提示
+      ElMessage.error('登录已过期，请重新登录')
+
+      // 2. 清除 Token
+      store.user().resetToken()
+
+      // 3. 这里的关键：不要用 location.reload()，那是“硬刷新”，体验不好
+      // 应该用路由跳转到登录页，并带上当前页面路径，方便登录后跳回来
+      router.push({
+        path: '/login',
+        query: { redirect: router.currentRoute.value.fullPath }
+      })
+
+      return Promise.reject(new Error('登录已过期'))
+    }
+
     ElMessage({
       message: error.message,
       type: 'error',
