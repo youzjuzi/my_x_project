@@ -110,6 +110,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     // 根据token获取用户信息
     @Override
+    @SuppressWarnings("unchecked")
     public Map<String, Object> getUserInfo(String token) {
         User loginUser = null;
         try {
@@ -120,6 +121,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         }
 
         if (loginUser != null) {
+            Integer userId = loginUser.getId();
+
+            // 优先从 Redis 缓存获取用户信息
+            Object cached = tokenService.getUserInfo(userId);
+            if (cached != null && cached instanceof Map) {
+                System.out.println("从 Redis 缓存获取用户信息");
+                return (Map<String, Object>) cached;
+            }
+
+            // 缓存不存在，从数据库查询
+            System.out.println("从数据库查询用户信息");
             Map<String, Object> data = new HashMap<>();
             data.put("name", loginUser.getUsername());
             data.put("avatar", loginUser.getAvatar());
@@ -131,6 +143,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             // 权限列表
             List<Menu> menuList = menuService.getMenuListByUserId(loginUser.getId());
             data.put("menuList", menuList);
+
+            // 存入 Redis 缓存
+            tokenService.saveUserInfo(userId, data);
 
             return data;
 
@@ -144,7 +159,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         try {
             User loginUser = jwtUtil.parseToken(token, User.class);
             if (loginUser != null && loginUser.getId() != null) {
-                tokenService.removeToken(loginUser.getId());
+                Integer userId = loginUser.getId();
+                tokenService.removeToken(userId);
+                tokenService.removeUserInfo(userId);
             }
         } catch (Exception e) {
             // Token 解析失败，忽略
@@ -395,7 +412,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", userId);
         updateWrapper.set("phone", phone);
-        return this.update(updateWrapper);
+        boolean success = this.update(updateWrapper);
+
+        // 4. 更新成功后删除 Redis 缓存
+        if (success) {
+            tokenService.removeProfileInfo(userId);
+            tokenService.removeUserInfo(userId);
+        }
+
+        return success;
     }
 
     /**
@@ -448,7 +473,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", userId);
         updateWrapper.set("email", email);
-        return this.update(updateWrapper);
+        boolean success = this.update(updateWrapper);
+
+        // 4. 更新成功后删除 Redis 缓存
+        if (success) {
+            tokenService.removeProfileInfo(userId);
+            tokenService.removeUserInfo(userId);
+        }
+
+        return success;
     }
 
     /**
@@ -496,6 +529,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", userId);
         updateWrapper.set("avatar", avatar);
-        return this.update(updateWrapper);
+        boolean success = this.update(updateWrapper);
+
+        // 3. 更新成功后删除 Redis 缓存
+        if (success) {
+            tokenService.removeProfileInfo(userId);
+            tokenService.removeUserInfo(userId);
+        }
+
+        return success;
     }
 }

@@ -159,20 +159,8 @@ export default defineComponent({
       }
     },
     handleUserUpdate(updatedUser) {
-      this.user = { ...this.user, ...updatedUser };
-      // 更新store中的用户信息
-      if (updatedUser.name) {
-        store.user().name = updatedUser.name;
-      }
-      if (updatedUser.avatar) {
-        store.user().avatar = updatedUser.avatar;
-      }
-      if (updatedUser.phone) {
-        store.user().phone = updatedUser.phone;
-      }
-      if (updatedUser.email) {
-        store.user().email = updatedUser.email;
-      }
+      // 更新成功后重新从后端获取最新数据
+      this.getUser();
     },
     handleSwitchTab(tabName) {
       this.activeTab = tabName;

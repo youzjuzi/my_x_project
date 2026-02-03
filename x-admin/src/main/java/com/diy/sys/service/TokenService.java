@@ -120,4 +120,108 @@ public class TokenService {
         String key = getTokenKey(userId);
         return Boolean.TRUE.equals(redisTemplate.hasKey(key));
     }
+
+    // ==================== 用户信息缓存 ====================
+
+    private static final String USER_INFO_PREFIX = "auth:info:";
+
+    /**
+     * 生成用户信息 Redis Key
+     */
+    private String getUserInfoKey(Integer userId) {
+        return USER_INFO_PREFIX + userId;
+    }
+
+    /**
+     * 存储用户信息到 Redis
+     * 
+     * @param userId   用户ID
+     * @param userInfo 用户信息（Map 格式）
+     */
+    public void saveUserInfo(Integer userId, Object userInfo) {
+        String key = getUserInfoKey(userId);
+        redisTemplate.opsForValue().set(key, userInfo, TOKEN_EXPIRE_TIME, TOKEN_EXPIRE_UNIT);
+        log.debug("用户信息已缓存 - userId: {}, TTL: {}分钟", userId, TOKEN_EXPIRE_TIME);
+    }
+
+    /**
+     * 从 Redis 获取用户信息
+     * 
+     * @param userId 用户ID
+     * @return 用户信息，不存在则返回 null
+     */
+    public Object getUserInfo(Integer userId) {
+        String key = getUserInfoKey(userId);
+        return redisTemplate.opsForValue().get(key);
+    }
+
+    /**
+     * 删除用户信息缓存
+     * 
+     * @param userId 用户ID
+     */
+    public void removeUserInfo(Integer userId) {
+        String key = getUserInfoKey(userId);
+        Boolean deleted = redisTemplate.delete(key);
+        if (Boolean.TRUE.equals(deleted)) {
+            log.debug("用户信息缓存已删除 - userId: {}", userId);
+        }
+    }
+
+    /**
+     * 刷新用户信息缓存 TTL
+     * 
+     * @param userId 用户ID
+     */
+    public void refreshUserInfo(Integer userId) {
+        String key = getUserInfoKey(userId);
+        redisTemplate.expire(key, TOKEN_EXPIRE_TIME, TOKEN_EXPIRE_UNIT);
+    }
+
+    // ==================== Profile 信息缓存 ====================
+
+    private static final String PROFILE_INFO_PREFIX = "profile:getinfo:";
+
+    /**
+     * 生成 Profile 信息 Redis Key
+     */
+    private String getProfileInfoKey(Integer userId) {
+        return PROFILE_INFO_PREFIX + userId;
+    }
+
+    /**
+     * 存储 Profile 信息到 Redis
+     * 
+     * @param userId      用户ID
+     * @param profileInfo Profile 信息（Map 格式）
+     */
+    public void saveProfileInfo(Integer userId, Object profileInfo) {
+        String key = getProfileInfoKey(userId);
+        redisTemplate.opsForValue().set(key, profileInfo, TOKEN_EXPIRE_TIME, TOKEN_EXPIRE_UNIT);
+        log.debug("Profile 信息已缓存 - userId: {}, TTL: {}分钟", userId, TOKEN_EXPIRE_TIME);
+    }
+
+    /**
+     * 从 Redis 获取 Profile 信息
+     * 
+     * @param userId 用户ID
+     * @return Profile 信息，不存在则返回 null
+     */
+    public Object getProfileInfo(Integer userId) {
+        String key = getProfileInfoKey(userId);
+        return redisTemplate.opsForValue().get(key);
+    }
+
+    /**
+     * 删除 Profile 信息缓存
+     * 
+     * @param userId 用户ID
+     */
+    public void removeProfileInfo(Integer userId) {
+        String key = getProfileInfoKey(userId);
+        Boolean deleted = redisTemplate.delete(key);
+        if (Boolean.TRUE.equals(deleted)) {
+            log.debug("Profile 信息缓存已删除 - userId: {}", userId);
+        }
+    }
 }

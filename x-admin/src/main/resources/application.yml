@@ -34,7 +34,7 @@ spring:
 
 logging:
   level:
-    com.diy: debug
+    com.diy: info
 
 mybatis-plus:
   mapper-locations: classpath:mapper/**/*.xml

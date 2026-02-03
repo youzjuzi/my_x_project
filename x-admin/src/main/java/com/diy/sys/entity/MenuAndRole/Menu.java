@@ -37,30 +37,49 @@ public class Menu implements Serializable {
     private Integer parentId;
     private String isLeaf;
     private Boolean hidden;
+
     @Override
     public String toString() {
         return "Menu{" +
-            "menuId = " + menuId +
-            ", component = " + component +
-            ", path = " + path +
-            ", redirect = " + redirect +
-            ", name = " + name +
-            ", title = " + title +
-            ", icon = " + icon +
-            ", parentId = " + parentId +
-            ", isLeaf = " + isLeaf +
-            ", hidden = " + hidden +
-        "}";
+                "menuId = " + menuId +
+                ", component = " + component +
+                ", path = " + path +
+                ", redirect = " + redirect +
+                ", name = " + name +
+                ", title = " + title +
+                ", icon = " + icon +
+                ", parentId = " + parentId +
+                ", isLeaf = " + isLeaf +
+                ", hidden = " + hidden +
+                "}";
     }
+
     @TableField(exist = false)
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private List<Menu> children;
     @TableField(exist = false)
-    private Map<String,Object> mete;
-    public Map<String,Object> getMeta(){
-        mete = new HashMap<>();
-        mete.put("title",title);
-        mete.put("icon",icon);
-        return mete;
+    private Map<String, Object> meta;
+
+    public Map<String, Object> getMeta() {
+        meta = new HashMap<>();
+        meta.put("title", title);
+        meta.put("icon", icon);
+        return meta;
+    }
+
+    /**
+     * Setter for meta property (required for Jackson deserialization from Redis)
+     */
+    public void setMeta(Map<String, Object> meta) {
+        this.meta = meta;
+        // 从 meta 中恢复 title 和 icon（如果存在）
+        if (meta != null) {
+            if (meta.get("title") != null) {
+                this.title = meta.get("title").toString();
+            }
+            if (meta.get("icon") != null) {
+                this.icon = meta.get("icon").toString();
+            }
+        }
     }
 }
