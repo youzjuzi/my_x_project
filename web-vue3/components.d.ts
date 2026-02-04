@@ -91,6 +91,7 @@ declare module 'vue' {
     SingleImage2: typeof import('./src/components/Upload/SingleImage2.vue')['default']
     SingleImage3: typeof import('./src/components/Upload/SingleImage3.vue')['default']
     SizeSelect: typeof import('./src/components/SizeSelect/index.vue')['default']
+    SliderCaptcha: typeof import('./src/components/SliderCaptcha/index.vue')['default']
     Sticky: typeof import('./src/components/Sticky/index.vue')['default']
     SvgIcon: typeof import('./src/components/SvgIcon/index.vue')['default']
     Tinymce: typeof import('./src/components/Tinymce/index.vue')['default']

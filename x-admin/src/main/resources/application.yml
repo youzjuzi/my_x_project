@@ -31,6 +31,22 @@ spring:
       host: localhost
       password: 123456
 
+# Tianai-Captcha 验证码配置
+captcha:
+  # 初始化默认资源（必须设置为 true 以加载默认的滑块验证码模板）
+  init-default-resource: true
+  # 验证码数据缓存键前缀
+  prefix: "captcha:slider"
+  # 过期时间（毫秒）
+  expire:
+    default: 120000
+    WORD_IMAGE_CLICK: 20000
+  # 本地缓存配置
+  local-cache-enabled: false
+  # 二次验证配置
+  secondary:
+    enabled: false
+
 
 logging:
   level:

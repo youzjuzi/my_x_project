@@ -89,6 +89,11 @@ export default defineConfig(({ command, mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        '/captcha': {
+          target: 'http://localhost:9999',
+          changeOrigin: true,
+          secure: false,
+        },
         '/user': {
           target: 'http://localhost:9999',
           changeOrigin: true,

@@ -11,6 +11,7 @@ import com.diy.sys.entity.UserAndRole.UserRole;
 import com.diy.sys.mapper.UserAndRole.UserActivityMapper;
 import com.diy.sys.mapper.UserAndRole.UserMapper;
 import com.diy.sys.mapper.UserAndRole.UserRoleMapper;
+import com.diy.sys.service.MenuAndRole.IMenuCacheService;
 import com.diy.sys.service.MenuAndRole.IMenuService;
 import com.diy.sys.service.UserAndRole.IAuthCacheService;
 import com.diy.sys.service.UserAndRole.IProfileCacheService;
@@ -58,6 +59,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     private IProfileCacheService profileCacheService;
     @Autowired
     private UserActivityMapper userActivityMapper;
+    @Autowired
+    private IMenuCacheService menuCacheService;
 
     // 注册
     @Override
@@ -165,6 +168,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 Integer userId = loginUser.getId();
                 authCacheService.removeToken(userId);
                 authCacheService.removeUserInfo(userId);
+                menuCacheService.removeMenuTree(userId);
             }
         } catch (Exception e) {
             // Token 解析失败，忽略

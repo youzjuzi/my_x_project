@@ -83,7 +83,7 @@ public class SecurityConfig {
                                                 .requestMatchers(
                                                                 "/auth/login",
                                                                 "/auth/register",
-                                                                "/captcha",
+                                                                "/captcha/**",
                                                                 "/error",
                                                                 "/swagger-ui.html",
                                                                 "/swagger-ui/**",
@@ -130,26 +130,28 @@ public class SecurityConfig {
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration configuration = new CorsConfiguration();
 
-                // 允许的源
-                configuration.setAllowedOrigins(Arrays.asList(
-                                "http://localhost",
-                                "http://localhost:8888",
-                                "http://localhost:8001",
-                                "http://localhost:5173",
-                                "http://4.194.131.190:9999",
-                                "http://4.194.131.190",
-                                "http://4.194.131.190:8888",
-                                "http://admin.youzilite.app:8888",
-                                "http://admin.youzilite.app:9999",
-                                "http://admin.youzilite.app",
-                                "https://admin.youzilite.app:9999",
-                                "https://admin.youzilite.app:443",
-                                "https://admin.youzilite.app",
-                                "https://admin.youzilite.app:443",
-                                "https://admin.youzilite.app:8888",
-                                // Tauri 应用的 origin
-                                "tauri://localhost",
-                                "http://tauri.localhost"));
+                // 允许的源 (使用 Pattern 允许所有源，解决开发环境 IP 变动问题)
+                configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+
+                // configuration.setAllowedOrigins(Arrays.asList(
+                // "http://localhost",
+                // "http://localhost:8888",
+                // "http://localhost:8001",
+                // "http://localhost:5173",
+                // "http://4.194.131.190:9999",
+                // "http://4.194.131.190",
+                // "http://4.194.131.190:8888",
+                // "http://admin.youzilite.app:8888",
+                // "http://admin.youzilite.app:9999",
+                // "http://admin.youzilite.app",
+                // "https://admin.youzilite.app:9999",
+                // "https://admin.youzilite.app:443",
+                // "https://admin.youzilite.app",
+                // "https://admin.youzilite.app:443",
+                // "https://admin.youzilite.app:8888",
+                // // Tauri 应用的 origin
+                // "tauri://localhost",
+                // "http://tauri.localhost"));
 
                 // 允许的请求方法
                 configuration.setAllowedMethods(Arrays.asList(

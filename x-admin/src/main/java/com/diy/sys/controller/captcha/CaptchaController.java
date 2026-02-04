@@ -19,17 +19,24 @@ import java.util.Map;
 @RestController
 @RequestMapping("/captcha")
 public class CaptchaController {
-    
+
     @Autowired
     private ICaptchaService captchaService;
-    
+
     @Operation(summary = "生成验证码")
     @GetMapping("/generate")
     public Result<Map<String, Object>> generate() {
-        Map<String, Object> data = captchaService.generate();
-        return Result.success(data);
+        System.out.println("CaptchaController: 接收到 generate 请求");
+        try {
+            Map<String, Object> data = captchaService.generate();
+            return Result.success(data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            // 返回详细错误信息用于调试
+            return Result.fail(500, "生成验证码失败: " + e.getMessage());
+        }
     }
-    
+
     @Operation(summary = "验证验证码")
     @PostMapping("/verify")
     public Result<Boolean> verify(@RequestParam String id, @RequestBody Map<String, Object> data) {

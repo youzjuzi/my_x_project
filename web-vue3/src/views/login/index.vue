@@ -57,6 +57,16 @@
             </el-input>
           </el-form-item>
         </el-tooltip>
+        
+        <!-- 滑动验证码 -->
+        <el-form-item>
+          <SliderCaptcha 
+            ref="sliderCaptcha" 
+            @success="onCaptchaSuccess" 
+            @fail="onCaptchaFail" 
+          />
+        </el-form-item>
+
         <el-button :loading="loading" type="primary" style="width:100%;" @click.prevent="handleLogin">
           登 录
         </el-button>
@@ -166,6 +176,7 @@ import type { FormItemRule } from 'element-plus';
 import type { IForm } from '@/types/element-plus';
 import store from '@/store';
 import { ElMessage } from 'element-plus';
+import SliderCaptcha from '@/components/SliderCaptcha/index.vue';
 
 
 interface QueryType {
@@ -174,6 +185,9 @@ interface QueryType {
 
 export default defineComponent({
   name: 'Login',
+  components: {
+    SliderCaptcha
+  },
   data() {
     const validateUsername: FormItemRule['validator'] = (_rule, value, callback) => {
       if (!validUsername(value)) {
@@ -217,7 +231,9 @@ export default defineComponent({
       capsTooltip: false,
       loading: false,
       redirect: undefined,
-      otherQuery: {}
+      otherQuery: {},
+      captchaVerified: false,
+      captchaId: ''
     };
   },
   watch: {
@@ -277,8 +293,24 @@ export default defineComponent({
         (this.$refs.password as any).focus();
       });
     },
+    // 验证码成功回调
+    onCaptchaSuccess(captchaId: string) {
+      this.captchaVerified = true;
+      this.captchaId = captchaId;
+    },
+    // 验证码失败回调
+    onCaptchaFail() {
+      this.captchaVerified = false;
+      this.captchaId = '';
+    },
     // 登录
     handleLogin() {
+      // 检查验证码是否已验证
+      if (!this.captchaVerified) {
+        ElMessage.warning('请先完成滑动验证');
+        return;
+      }
+      
       (this.$refs.loginForm as IForm).validate(valid => {
         return new Promise((resolve, reject) => {
           if (valid) {
@@ -290,10 +322,17 @@ export default defineComponent({
                 // 这样可以避免新用户登录后停留在之前用户访问的页面
                 this.$router.replace('/');
                 this.loading = false;
+                // 重置验证码状态
+                this.captchaVerified = false;
+                this.captchaId = '';
               })
               .catch(() => {
                 // 错误提示已在 request.js 拦截器中处理，这里不需要重复显示
                 this.loading = false;
+                // 登录失败后重置验证码
+                this.captchaVerified = false;
+                this.captchaId = '';
+                (this.$refs.sliderCaptcha as any)?.reset();
               }).finally(() => {
                 resolve();
               });
