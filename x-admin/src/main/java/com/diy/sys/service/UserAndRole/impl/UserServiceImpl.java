@@ -12,7 +12,8 @@ import com.diy.sys.mapper.UserAndRole.UserActivityMapper;
 import com.diy.sys.mapper.UserAndRole.UserMapper;
 import com.diy.sys.mapper.UserAndRole.UserRoleMapper;
 import com.diy.sys.service.MenuAndRole.IMenuService;
-import com.diy.sys.service.TokenService;
+import com.diy.sys.service.UserAndRole.IAuthCacheService;
+import com.diy.sys.service.UserAndRole.IProfileCacheService;
 import com.diy.sys.service.UserAndRole.IUserService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,7 +53,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Autowired
     private IMenuService menuService;
     @Autowired
-    private TokenService tokenService;
+    private IAuthCacheService authCacheService;
+    @Autowired
+    private IProfileCacheService profileCacheService;
     @Autowired
     private UserActivityMapper userActivityMapper;
 
@@ -90,7 +93,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             String token = jwtUtil.createToken(loginUser);
 
             // 存储 Token 到 Redis（TTL 30分钟）
-            tokenService.saveToken(loginUser.getId(), token);
+            authCacheService.saveToken(loginUser.getId(), token);
 
             // 记录登录时间
             UserActivityTime userActivityTime = new UserActivityTime();
@@ -124,7 +127,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             Integer userId = loginUser.getId();
 
             // 优先从 Redis 缓存获取用户信息
-            Object cached = tokenService.getUserInfo(userId);
+            Object cached = authCacheService.getUserInfo(userId);
             if (cached != null && cached instanceof Map) {
                 System.out.println("从 Redis 缓存获取用户信息");
                 return (Map<String, Object>) cached;
@@ -145,7 +148,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             data.put("menuList", menuList);
 
             // 存入 Redis 缓存
-            tokenService.saveUserInfo(userId, data);
+            authCacheService.saveUserInfo(userId, data);
 
             return data;
 
@@ -160,8 +163,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             User loginUser = jwtUtil.parseToken(token, User.class);
             if (loginUser != null && loginUser.getId() != null) {
                 Integer userId = loginUser.getId();
-                tokenService.removeToken(userId);
-                tokenService.removeUserInfo(userId);
+                authCacheService.removeToken(userId);
+                authCacheService.removeUserInfo(userId);
             }
         } catch (Exception e) {
             // Token 解析失败，忽略
@@ -416,8 +419,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
         // 4. 更新成功后删除 Redis 缓存
         if (success) {
-            tokenService.removeProfileInfo(userId);
-            tokenService.removeUserInfo(userId);
+            profileCacheService.removeProfileInfo(userId);
+            authCacheService.removeUserInfo(userId);
         }
 
         return success;
@@ -477,8 +480,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
         // 4. 更新成功后删除 Redis 缓存
         if (success) {
-            tokenService.removeProfileInfo(userId);
-            tokenService.removeUserInfo(userId);
+            profileCacheService.removeProfileInfo(userId);
+            authCacheService.removeUserInfo(userId);
         }
 
         return success;
@@ -533,8 +536,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
         // 3. 更新成功后删除 Redis 缓存
         if (success) {
-            tokenService.removeProfileInfo(userId);
-            tokenService.removeUserInfo(userId);
+            profileCacheService.removeProfileInfo(userId);
+            authCacheService.removeUserInfo(userId);
         }
 
         return success;

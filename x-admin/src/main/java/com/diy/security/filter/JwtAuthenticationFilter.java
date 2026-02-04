@@ -2,7 +2,7 @@ package com.diy.security.filter;
 
 import com.diy.common.utils.JwtUtil;
 import com.diy.security.service.CustomUserDetailsService;
-import com.diy.sys.service.TokenService;
+import com.diy.sys.service.UserAndRole.IAuthCacheService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,7 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private CustomUserDetailsService userDetailsService;
 
     @Autowired
-    private TokenService tokenService;
+    private IAuthCacheService authCacheService;
 
     private static final String TOKEN_HEADER = "X-Token";
     private static final String TOKEN_PREFIX = ""; // JWT Token 没有前缀
@@ -67,7 +67,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     // 验证 Redis 中的 Token 是否有效
-                    if (!tokenService.validateToken(userId, token)) {
+                    if (!authCacheService.validateToken(userId, token)) {
                         log.debug("Redis Token 验证失败 - 用户ID: {}, 路径: {}", userId, requestPath);
                         // Token 在 Redis 中不存在或不匹配，拒绝访问
                         filterChain.doFilter(request, response);
@@ -75,7 +75,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
 
                     // Token 验证通过，自动续签
-                    tokenService.refreshToken(userId);
+                    authCacheService.refreshToken(userId);
 
                     // 加载用户详情（包含角色和权限）
                     UserDetails userDetails = userDetailsService.loadUserByUserId(userId);

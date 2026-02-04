@@ -7,7 +7,7 @@ import com.diy.sys.entity.UserAndRole.User;
 import com.diy.sys.entity.UserAndRole.UserActivityTime;
 import com.diy.sys.mapper.UserAndRole.UserMapper;
 import com.diy.sys.service.UserAndRole.IUserActivityTimeService;
-import com.diy.sys.service.TokenService;
+import com.diy.sys.service.UserAndRole.IProfileCacheService;
 import com.diy.sys.service.UserAndRole.IUserProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,7 +27,7 @@ public class UserProfileServiceImpl extends ServiceImpl<UserMapper, User> implem
     private IUserActivityTimeService userActivityTimeService;
 
     @Autowired
-    private TokenService tokenService;
+    private IProfileCacheService profileCacheService;
 
     /**
      * 根据token获取用户完整信息
@@ -106,7 +106,7 @@ public class UserProfileServiceImpl extends ServiceImpl<UserMapper, User> implem
         }
 
         // 优先从 Redis 缓存获取
-        Object cached = tokenService.getProfileInfo(userId);
+        Object cached = profileCacheService.getProfileInfo(userId);
         if (cached != null && cached instanceof Map) {
             System.out.println("从 Redis 缓存获取 Profile 信息");
             return (Map<String, Object>) cached;
@@ -153,7 +153,7 @@ public class UserProfileServiceImpl extends ServiceImpl<UserMapper, User> implem
         }
 
         // 存入 Redis 缓存
-        tokenService.saveProfileInfo(userId, data);
+        profileCacheService.saveProfileInfo(userId, data);
 
         return data;
     }
