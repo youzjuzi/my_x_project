@@ -3,6 +3,7 @@ package com.diy.sys.controller.MenuAndRole;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.diy.common.vo.Result;
 import com.diy.sys.entity.MenuAndRole.Menu;
+import com.diy.sys.service.MenuAndRole.IMenuCacheService;
 import com.diy.sys.service.MenuAndRole.IMenuService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,7 +15,7 @@ import java.util.List;
 
 /**
  * <p>
- *  菜单管理控制器
+ * 菜单管理控制器
  * </p>
  *
  * @author youzi
@@ -28,6 +29,9 @@ public class MenuController {
     @Autowired
     private IMenuService menuService;
 
+    @Autowired
+    private IMenuCacheService menuCacheService;
+
     /**
      * 查询所有菜单数据（树形结构）
      * 
@@ -35,7 +39,7 @@ public class MenuController {
      */
     @Operation(summary = "查询所有菜单数据")
     @GetMapping
-    public Result<List<Menu>> getAllMenu(){
+    public Result<List<Menu>> getAllMenu() {
         List<Menu> menuList = menuService.getAllMenu();
         return Result.success(menuList);
     }
@@ -82,9 +86,11 @@ public class MenuController {
             if (menu.getParentId() == null) {
                 menu.setParentId(0); // 默认父级为0（根节点）
             }
-            
+
             boolean success = menuService.save(menu);
             if (success) {
+                // 清除所有用户的菜单缓存
+                menuCacheService.removeAllMenuTreeCache();
                 return Result.success(menu, "新增菜单成功");
             } else {
                 return Result.fail("新增菜单失败");
@@ -108,9 +114,11 @@ public class MenuController {
             if (menu.getMenuId() == null) {
                 return Result.fail("菜单ID不能为空");
             }
-            
+
             boolean success = menuService.updateById(menu);
             if (success) {
+                // 清除所有用户的菜单缓存
+                menuCacheService.removeAllMenuTreeCache();
                 return Result.success(menu, "修改菜单成功");
             } else {
                 return Result.fail("修改菜单失败");
@@ -138,9 +146,11 @@ public class MenuController {
             if (children != null && !children.isEmpty()) {
                 return Result.fail("删除失败：该菜单下存在子菜单，请先删除子菜单");
             }
-            
+
             boolean success = menuService.removeById(id);
             if (success) {
+                // 清除所有用户的菜单缓存
+                menuCacheService.removeAllMenuTreeCache();
                 return Result.success("删除菜单成功");
             } else {
                 return Result.fail("删除菜单失败，菜单可能不存在");
