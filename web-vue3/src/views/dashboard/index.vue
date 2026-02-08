@@ -15,6 +15,10 @@
             <el-icon><VideoCamera/></el-icon>
             <span>开始识别</span>
           </button>
+          <button class="glass-button debug-button" @click="goToSignDebug">
+            <el-icon><Edit/></el-icon>
+            <span>手语调试</span>
+          </button>
           <div class="hand-illustration">
             <!-- 全息磨砂玻璃手 -->
             <svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg" class="holo-hand">
@@ -152,7 +156,8 @@ import {
   Clock,
   Reading,
   Document,
-  Trophy
+  Trophy,
+  Edit
 } from '@element-plus/icons-vue';
 
 export default defineComponent({
@@ -240,6 +245,9 @@ export default defineComponent({
   methods: {
     goToRecognition() {
       this.$router.push('/recognition');
+    },
+    goToSignDebug() {
+      this.$router.push('/sign-debug');
     }
   }
 });

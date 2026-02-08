@@ -123,6 +123,44 @@ web-vue3/src-tauri/target/
 web-vue3/src-tauri/gen/
 
 # ===================================================================
+# Python: YOLOv5 (my_yolov5_project)
+# Rules specific to the 'my_yolov5_project' python sub-project.
+# ===================================================================
+
+# Python Virtual Environments
+venv/
+env/
+.env/
+.venv/
+ENV/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Datasets and Large Files (YOLO specifics)
+my_yolov5_project/datasets/
+my_yolov5_project/*.pt
+my_yolov5_project/*.onnx
+my_yolov5_project/*.zip
+my_yolov5_project/*.tar
+my_yolov5_project/*.gz
+
+# Training Runs & Detections (generated artifacts)
+my_yolov5_project/runs/
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Other build artifacts
+build/
+dist/
+*.egg-info/
+downloads/
+
+# ===================================================================
 # Logs & Runtime Files
 # ===================================================================
 

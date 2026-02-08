@@ -4,7 +4,7 @@ import type { Router, RouteRecordRaw, RouteComponent } from 'vue-router';
 //import { Help as IconHelp } from '@element-plus/icons-vue';
 
 /* Layout */
-const Layout = ():RouteComponent => import('@/layout/index.vue');
+const Layout = (): RouteComponent => import('@/layout/index.vue');
 
 // /* Router Modules */
 // import componentsRouter from './modules/components';
@@ -26,17 +26,26 @@ const Layout = ():RouteComponent => import('@/layout/index.vue');
 
 
 
-export const constantRoutes:RouteRecordRaw[] = [
-    // 在 constantRoutes 数组中添加（注意：不要放在 path: '/' 的 children 里）
-     {
-      path: '/recognition',
-      name: 'Recognition',
-      component: () => import('@/views/recognition/index.vue'),
-      meta: {
-        title: '手语交互终端',
-        hidden: true // 关键：设为 true，这样它就不会出现在后台侧边栏菜单里
-      }
-    },
+export const constantRoutes: RouteRecordRaw[] = [
+  // 在 constantRoutes 数组中添加（注意：不要放在 path: '/' 的 children 里）
+  {
+    path: '/recognition',
+    name: 'Recognition',
+    component: () => import('@/views/recognition/index.vue'),
+    meta: {
+      title: '手语交互终端',
+      hidden: true // 关键：设为 true，这样它就不会出现在后台侧边栏菜单里
+    }
+  },
+  {
+    path: '/sign-debug',
+    name: 'SignDebug',
+    component: () => import('@/views/debug/SignDebug.vue'),
+    meta: {
+      title: '手语识别调试台',
+      hidden: true
+    }
+  },
   {
     path: '/login',
     component: () => import('@/views/login/index.vue'),
@@ -112,7 +121,7 @@ export const constantRoutes:RouteRecordRaw[] = [
  *
  * 注意：hidden、alwaysShow 属性配置移动到了meta中！！！
  */
-export const asyncRoutes:RouteRecordRaw[] = [
+export const asyncRoutes: RouteRecordRaw[] = [
   // {
   //   path: '/permission',
   //   component: Layout,
@@ -391,12 +400,12 @@ export const asyncRoutes:RouteRecordRaw[] = [
   // },
 
   // 404 page must be placed at the end !!!
-  { path: '/:pathMatch(.*)*', redirect: '/404', meta: { hidden: true }}
+  { path: '/:pathMatch(.*)*', redirect: '/404', meta: { hidden: true } }
 ];
 
 console.log('BASE_URL=', import.meta.env);
 
-const createTheRouter = ():Router => createRouter({
+const createTheRouter = (): Router => createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
   // 注意，如果要配置 HTML5 模式，则需要修改nginx配置，参考资料：
   // https://router.vuejs.org/zh/guide/essentials/history-mode.html
