@@ -17,38 +17,38 @@
 
 
 # ===================================================================
-# Backend: Java (x-admin)
-# Rules specific to the 'x-admin' backend sub-project.
+# Backend: Java (backend-java)
+# Rules specific to the 'backend-java' backend sub-project.
 # ===================================================================
 
 # Compiled output from Maven/Gradle
-x-admin/target/
-x-admin/build/
+backend-java/target/
+backend-java/build/
 
 # Spring Boot specific
-x-admin/HELP.md
+backend-java/HELP.md
 
 # Maven Wrapper - Do NOT ignore the wrapper jar
-!x-admin/.mvn/wrapper/maven-wrapper.jar
+!backend-java/.mvn/wrapper/maven-wrapper.jar
 
 # IDE specific files for Java projects
-x-admin/.apt_generated
-x-admin/.classpath
-x-admin/.factorypath
-x-admin/.project
-x-admin/.settings/
-x-admin/.springBeans
-x-admin/.sts4-cache
-x-admin/*.iws
-x-admin/*.iml
-x-admin/*.ipr
+backend-java/.apt_generated
+backend-java/.classpath
+backend-java/.factorypath
+backend-java/.project
+backend-java/.settings/
+backend-java/.springBeans
+backend-java/.sts4-cache
+backend-java/*.iws
+backend-java/*.iml
+backend-java/*.ipr
 
 # NetBeans specific
-x-admin/nbproject/private/
-x-admin/nbbuild/
-x-admin/dist/
-x-admin/nbdist/
-x-admin/.nb-gradle/
+backend-java/nbproject/private/
+backend-java/nbbuild/
+backend-java/dist/
+backend-java/nbdist/
+backend-java/.nb-gradle/
 
 
 # ===================================================================
@@ -74,8 +74,8 @@ admin-web/
 #admin-web/tests/**/coverage/
 
 # ===================================================================
-# Frontend: Vue (web-vue3)
-# Rules specific to the 'web-vue3' frontend sub-project.
+# Frontend: Vue (frontend-web)
+# Rules specific to the 'frontend-web' frontend sub-project.
 # ===================================================================
 # Logs
 logs
@@ -108,23 +108,23 @@ coverage
 *.tsbuildinfo
 
 # 自动生成的类型声明文件
-web-vue3/auto-imports.d.ts
-web-vue3/components.d.ts
+frontend-web/auto-imports.d.ts
+frontend-web/components.d.ts
 
 # ===================================================================
-# Tauri (web-vue3/src-tauri)
+# Tauri (frontend-web/src-tauri)
 # Rules specific to Tauri desktop app build outputs.
 # ===================================================================
 
 # Rust build output
-web-vue3/src-tauri/target/
+frontend-web/src-tauri/target/
 
 # Generated schemas
-web-vue3/src-tauri/gen/
+frontend-web/src-tauri/gen/
 
 # ===================================================================
-# Python: YOLOv5 (my_yolov5_project)
-# Rules specific to the 'my_yolov5_project' python sub-project.
+# AI: Python/YOLOv5 (ai-server)
+# Rules specific to the 'ai-server' python sub-project.
 # ===================================================================
 
 # Python Virtual Environments
@@ -141,15 +141,15 @@ __pycache__/
 *.pyd
 
 # Datasets and Large Files (YOLO specifics)
-my_yolov5_project/datasets/
-my_yolov5_project/*.pt
-my_yolov5_project/*.onnx
-my_yolov5_project/*.zip
-my_yolov5_project/*.tar
-my_yolov5_project/*.gz
+ai-server/datasets/
+ai-server/*.pt
+ai-server/*.onnx
+ai-server/*.zip
+ai-server/*.tar
+ai-server/*.gz
 
 # Training Runs & Detections (generated artifacts)
-my_yolov5_project/runs/
+ai-server/runs/
 
 # Jupyter Notebook Checkpoints
 .ipynb_checkpoints/
@@ -165,8 +165,8 @@ downloads/
 # ===================================================================
 
 # Application logs
-x-admin/logs/
-web-vue3/logs/
+backend-java/logs/
+frontend-web/logs/
 
 # ===================================================================
 # Other Files to Ignore
@@ -176,4 +176,4 @@ web-vue3/logs/
 *.bat
 # 忽略本地数据库数据
 data/
-web-vue3/components.d.ts
+frontend-web/components.d.ts

@@ -1,12 +1,11 @@
-
 services:
     backend:
-        build: ./x-admin
+        build: ./backend-java
         container_name: x-admin
         ports:
             - "9999:9999"
         volumes:
-            - ./x-admin/logs:/app/logs
+            - ./backend-java/logs:/app/logs
         environment:
             SERVER_PORT: 9999
             SPRING_DATASOURCE_URL: jdbc:mysql://mysql6.sqlpub.com:3311/project_xdb?useSSL=true&requireSSL=true
@@ -15,27 +14,25 @@ services:
         networks:
             - x_net
     frontend:
-        build: ./web-vue3
+        build: ./frontend-web
         container_name: web-vue3
         ports:
             - "80:80"
         volumes:
-            - ./web-vue3/logs:/var/log/nginx
+            - ./frontend-web/logs:/var/log/nginx
         networks:
             - x_net
     redis:
         image: redis:7.0
         container_name: x_redis
         ports:
-            - "6379:6379"  # 必须暴露，因为你的 IDE 在容器外面
+            - "6379:6379" # 必须暴露，因为你的 IDE 在容器外面
         command: redis-server --requirepass 123456
         volumes:
             - ./data/redis:/data
         networks:
-            - x_net  # 确保和你的前后端在同一个网络
-
+            - x_net # 确保和你的前后端在同一个网络
 
 networks:
     x_net:
         driver: bridge
-        

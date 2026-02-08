@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.diy</groupId>
-    <artifactId>x-admin</artifactId>
+    <artifactId>backend-java</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>x-admin</name>
-    <description>x-admin</description>
+    <name>backend-java</name>
+    <description>backend-java</description>
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
