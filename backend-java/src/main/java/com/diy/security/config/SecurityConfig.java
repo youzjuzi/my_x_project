@@ -91,7 +91,8 @@ public class SecurityConfig {
                                                                 "/v3/api-docs/**",
                                                                 "/v3/**",
                                                                 "/doc.html",
-                                                                "/webjars/**")
+                                                                "/webjars/**",
+                                                                "/sign/submit")
                                                 .permitAll()
 
                                                 // 需要认证的接口（具体权限由方法级安全注解控制）

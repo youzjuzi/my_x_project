@@ -29,23 +29,80 @@
             </div>
           </div>
 
+
           <!-- 结果展示区域 -->
           <div class="result-section">
-            <el-row :gutter="15">
-              <el-col :span="12">
+            <el-row :gutter="10">
+              <el-col :span="4">
+                <div class="result-box candidate-box">
+                  <div class="label">正在识别</div>
+                  <div class="value">{{ candidate || '-' }}</div>
+                </div>
+              </el-col>
+              <el-col :span="4">
                 <div class="result-box buffer-box">
-                  <div class="label">当前拼音缓冲区</div>
+                  <div class="label">拼音缓冲区</div>
                   <div class="value">{{ pinyinBuffer || '-' }}</div>
                 </div>
               </el-col>
-              <el-col :span="12">
+              <el-col :span="10">
+                <div class="result-box hanzi-box">
+                  <div class="label">汉字候选 <span v-if="hanziCandidates.length > 0" class="index-tag">(双击Space切换)</span></div>
+                  <div class="candidates-list" v-if="hanziCandidates.length > 0">
+                    <span
+                      v-for="(item, idx) in hanziCandidates"
+                      :key="idx"
+                      class="candidate-item"
+                      :class="{ 'candidate-active': idx === candidateIndex }"
+                    >{{ idx + 1 }}.{{ item }}</span>
+                  </div>
+                  <div v-else class="value hanzi-highlight">-</div>
+                </div>
+              </el-col>
+              <el-col :span="6">
                 <div class="result-box sentence-box">
-                  <div class="label">已生成句子</div>
+                  <div class="label">已确认词语</div>
                   <div class="value">{{ sentence || '-' }}</div>
                 </div>
               </el-col>
             </el-row>
+
+            <!-- 新增：已发送历史与AI识别区域 -->
+            <el-row :gutter="20" style="margin-top: 20px;">
+              <!-- 左侧：已发送列表 -->
+              <el-col :span="12">
+                <div class="result-box history-box">
+                  <div class="label"><el-icon><Promotion /></el-icon> 已发送 Java 端</div>
+                  <div class="history-list">
+                    <div v-if="sentHistory.length === 0" class="empty-text">暂无发送记录</div>
+                    <div v-for="(item, index) in sentHistory" :key="index" class="history-item">
+                      <span class="history-index">{{ sentHistory.length - index }}.</span>
+                      <span class="history-content">{{ item }}</span>
+                    </div>
+                  </div>
+                </div>
+              </el-col>
+              
+              <!-- 右侧：AI句子识别 -->
+              <el-col :span="12">
+                <div class="result-box ai-box">
+                  <div class="label"><el-icon><MagicStick /></el-icon> AI 句子识别</div>
+                  
+                  <div v-if="aiResult" class="ai-content-result">
+                    {{ aiResult }}
+                  </div>
+                  <div v-else class="ai-content-placeholder">
+                    <div v-if="isAiLoading">
+                      <el-skeleton :rows="2" animated />
+                      <div class="ai-tip">DeepSeek 正在思考中... (约5秒)</div>
+                    </div>
+                    <div v-else class="ai-tip">等待提交完整句子...</div>
+                  </div>
+                </div>
+              </el-col>
+            </el-row>
           </div>
+
 
           <!-- 虚拟键盘区域 -->
           <div class="keyboard-area">
@@ -123,7 +180,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { VideoCamera, Back, VideoPause, Check, Promotion, Monitor, List } from '@element-plus/icons-vue'
+import { VideoCamera, Back, VideoPause, Check, Promotion, Monitor, List, MagicStick } from '@element-plus/icons-vue'
 
 // 状态定义
 const ws = ref<WebSocket | null>(null)
@@ -135,13 +192,29 @@ interface LogItem {
 }
 const logs = ref<LogItem[]>([])
 const lastKey = ref('')
+const candidate = ref('') // 识别候选
 const pinyinBuffer = ref('') 
+const hanziCandidate = ref('') // 汉字候选词
+const hanziCandidates = ref<string[]>([]) // 所有候选词
+const candidateIndex = ref(0) // 当前候选词索引
 const sentence = ref('')
+const sentHistory = ref<string[]>([])
+const aiResult = ref('')
+const isAiLoading = ref(false)
 const logContainerRef = ref<HTMLElement | null>(null)
+
+import useUserStore from '@/store/modules/user'
+
+const userStore = useUserStore()
+const userId = userStore.userId
 
 // 连接 WebSocket
 const connectWs = () => {
-  ws.value = new WebSocket('ws://localhost:8000/ws')
+  if (!userId) {
+    addLog('System: 未找到用户ID，请先登录')
+    return
+  }
+  ws.value = new WebSocket(`ws://localhost:8000/ws?userId=${userId}`)
 
   ws.value.onopen = () => {
     wsStatus.value = 'OPEN'
@@ -159,6 +232,34 @@ const connectWs = () => {
       addLog(`Received: ${JSON.stringify(data)}`)
       if(data.buffer !== undefined) pinyinBuffer.value = data.buffer
       if(data.sentence !== undefined) sentence.value = data.sentence
+      if(data.candidate !== undefined) candidate.value = data.candidate
+      else candidate.value = ''
+      if(data.hanzi_candidate !== undefined) hanziCandidate.value = data.hanzi_candidate
+      else hanziCandidate.value = ''
+      if(data.hanzi_candidates !== undefined) hanziCandidates.value = data.hanzi_candidates
+      else hanziCandidates.value = []
+      if(data.candidate_index !== undefined) candidateIndex.value = data.candidate_index
+      else candidateIndex.value = 0
+      if(data.candidate_index !== undefined) candidateIndex.value = data.candidate_index
+      else candidateIndex.value = 0
+      
+      // 处理已提交的句子
+      if (data.submitted) {
+        sentHistory.value.unshift(data.submitted)
+        // 保持最近 10 条
+        if (sentHistory.value.length > 10) sentHistory.value.pop()
+        
+        // 重置 AI 状态
+        aiResult.value = ''
+        isAiLoading.value = true
+      }
+      
+      // 处理 AI 润色结果
+      if (data.type === 'ai_result') {
+        aiResult.value = data.content
+        isAiLoading.value = false
+        addLog('System: 收到 AI 润色结果')
+      }
     } catch (e) {
       addLog(`Received Raw: ${event.data}`)
     }
@@ -376,6 +477,106 @@ onUnmounted(() => {
 
 .sentence-box .value {
   color: #67C23A;
+}
+
+.candidate-box .value {
+  color: #909399; /* 灰色表示不确定 */
+}
+
+.hanzi-box .value {
+  color: #E6A23C; /* 橙色高亮汉字候选 */
+}
+
+.hanzi-highlight {
+  font-weight: bold;
+  font-size: 22px;
+}
+
+.index-tag {
+  font-size: 12px;
+  color: #909399;
+  font-weight: normal;
+}
+
+.candidates-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.candidate-item {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 18px;
+  background: #f0f0f0;
+  color: #606266;
+  cursor: default;
+  transition: all 0.2s;
+}
+
+.candidate-active {
+  background: #E6A23C;
+  color: #fff;
+  font-weight: bold;
+  box-shadow: 0 2px 6px rgba(230, 162, 60, 0.4);
+}
+
+/* 历史列表与AI区域 */
+.history-box, .ai-box {
+  min-height: 200px;
+  text-align: left;
+}
+
+.history-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.history-item {
+  padding: 4px 0;
+  border-bottom: 1px dashed #eee;
+  font-size: 16px;
+  color: #606266;
+  display: flex;
+}
+
+.history-index {
+  color: #909399;
+  margin-right: 8px;
+  width: 24px;
+  text-align: right;
+}
+
+.history-content {
+  color: #303133;
+  font-weight: 500;
+}
+
+.empty-text {
+  color: #C0C4CC;
+  text-align: center;
+  margin-top: 40px;
+}
+
+.ai-content-placeholder {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.ai-tip {
+  margin-top: 15px;
+  color: #909399;
+  font-size: 14px;
+}
+
+.ai-content-result {
+  font-size: 18px;
+  color: #409EFF;
+  font-weight: bold;
+  line-height: 1.5;
+  padding: 10px;
+  text-align: left;
 }
 
 /* 键盘区域 */

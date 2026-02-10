@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -61,6 +62,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     private UserActivityMapper userActivityMapper;
     @Autowired
     private IMenuCacheService menuCacheService;
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     // 注册
     @Override
@@ -169,6 +172,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 authCacheService.removeToken(userId);
                 authCacheService.removeUserInfo(userId);
                 menuCacheService.removeMenuTree(userId);
+
+                // 清理手语识别缓存
+                String key = "sign:buffer:" + userId;
+                redisTemplate.delete(key);
+
+                // 清理 AI 对话历史
+                String chatKey = "ai:chat:history:" + userId;
+                redisTemplate.delete(chatKey);
             }
         } catch (Exception e) {
             // Token 解析失败，忽略

@@ -40,7 +40,7 @@ export const constantRoutes: RouteRecordRaw[] = [
   {
     path: '/sign-debug',
     name: 'SignDebug',
-    component: () => import('@/views/debug/SignDebug.vue'),
+    component: () => import('@/views/ddbug/SignDebug.vue'),
     meta: {
       title: '手语识别调试台',
       hidden: true
