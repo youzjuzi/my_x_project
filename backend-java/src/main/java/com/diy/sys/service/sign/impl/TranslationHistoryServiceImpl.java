@@ -8,8 +8,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
+import org.springframework.beans.factory.annotation.Value;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.TimeUnit;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONArray;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 /**
  * <p>
@@ -26,13 +41,13 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
 
-    @org.springframework.beans.factory.annotation.Value("${ai.deepseek.api-key}")
+    @Value("${ai.deepseek.api-key}")
     private String apiKey;
 
-    @org.springframework.beans.factory.annotation.Value("${ai.deepseek.url}")
+    @Value("${ai.deepseek.url}")
     private String apiUrl;
 
-    @org.springframework.beans.factory.annotation.Value("${ai.deepseek.model}")
+    @Value("${ai.deepseek.model}")
     private String model;
 
     // ==================== Private Methods for AI Chat History ====================
@@ -40,16 +55,16 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
     private static final String CHAT_HISTORY_PREFIX = "ai:chat:history:";
     private static final long CHAT_HISTORY_TTL = 30; // 30 minutes
 
-    private java.util.List<com.alibaba.fastjson2.JSONObject> getChatHistory(Integer userId) {
+    private List<JSONObject> getChatHistory(Integer userId) {
         String key = CHAT_HISTORY_PREFIX + userId;
-        java.util.List<Object> historyList = redisTemplate.opsForList().range(key, 0, -1);
-        java.util.List<com.alibaba.fastjson2.JSONObject> messages = new java.util.ArrayList<>();
+        List<Object> historyList = redisTemplate.opsForList().range(key, 0, -1);
+        List<JSONObject> messages = new ArrayList<>();
 
         if (historyList != null) {
             for (Object obj : historyList) {
                 try {
                     String jsonStr = obj.toString();
-                    messages.add(com.alibaba.fastjson2.JSONObject.parseObject(jsonStr));
+                    messages.add(JSONObject.parseObject(jsonStr));
                 } catch (Exception e) {
                     System.err.println("Error parsing chat history: " + e.getMessage());
                 }
@@ -60,12 +75,12 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
 
     private void saveChatHistory(Integer userId, String role, String content) {
         String key = CHAT_HISTORY_PREFIX + userId;
-        com.alibaba.fastjson2.JSONObject message = new com.alibaba.fastjson2.JSONObject();
+        JSONObject message = new JSONObject();
         message.put("role", role);
         message.put("content", content);
 
         redisTemplate.opsForList().rightPush(key, message.toString());
-        redisTemplate.expire(key, CHAT_HISTORY_TTL, java.util.concurrent.TimeUnit.MINUTES);
+        redisTemplate.expire(key, CHAT_HISTORY_TTL, TimeUnit.MINUTES);
     }
 
     @Override
@@ -82,10 +97,10 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
                 String systemPrompt = "你是一个智能手语翻译助手。请将以下【手语词汇流】翻译成【自然中文口语】。\n\n参考示例：\n输入：[你, 吃, 饭] -> 输出：你吃饭了吗？\n输入：[书, 我, 给, 他] -> 输出：我把书给了他。\n输入：[昨天, 球, 打, 我, 去] -> 输出：我昨天去打球了。\n输入：[不, 喜欢, 苹果, 我] -> 输出：我不喜欢苹果。\n";
 
                 // 获取历史记录
-                java.util.List<com.alibaba.fastjson2.JSONObject> messages = new java.util.ArrayList<>();
+                List<JSONObject> messages = new ArrayList<>();
 
                 // 添加 System Prompt
-                com.alibaba.fastjson2.JSONObject systemMsg = new com.alibaba.fastjson2.JSONObject();
+                JSONObject systemMsg = new JSONObject();
                 systemMsg.put("role", "system");
                 systemMsg.put("content", systemPrompt);
                 messages.add(systemMsg);
@@ -95,7 +110,7 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
 
                 // 添加 Current User Input
                 String userContent = String.format("输入：[%s] -> 输出：", content);
-                com.alibaba.fastjson2.JSONObject userMsg = new com.alibaba.fastjson2.JSONObject();
+                JSONObject userMsg = new JSONObject();
                 userMsg.put("role", "user");
                 userMsg.put("content", userContent);
                 messages.add(userMsg);
@@ -152,22 +167,22 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
     private void notifyFrontend(Integer userId, String result) {
         System.out.println("Preparing to notify frontend for user: " + userId);
         try {
-            com.alibaba.fastjson2.JSONObject payload = new com.alibaba.fastjson2.JSONObject();
+            JSONObject payload = new JSONObject();
             payload.put("userId", userId);
             payload.put("result", result);
             String jsonBody = payload.toString();
             System.out.println("Sending notification payload: " + jsonBody);
 
-            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                    .uri(java.net.URI.create("http://localhost:8000/notify/ai_result"))
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:8000/notify/ai_result"))
                     .header("Content-Type", "application/json")
-                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                     .build();
 
             // 使用同步发送以便于调试
-            java.net.http.HttpResponse<String> response = client.send(request,
-                    java.net.http.HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = client.send(request,
+                    HttpResponse.BodyHandlers.ofString());
 
             System.out.println("Notification response: " + response.statusCode() + " " + response.body());
 
@@ -180,35 +195,105 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
         }
     }
 
-    private String callDeepSeekApi(java.util.List<com.alibaba.fastjson2.JSONObject> messages) throws Exception {
-        com.alibaba.fastjson2.JSONObject requestBody = new com.alibaba.fastjson2.JSONObject();
+    private String callDeepSeekApi(List<JSONObject> messages) throws Exception {
+        JSONObject requestBody = new JSONObject();
         requestBody.put("model", model);
         requestBody.put("stream", false);
         requestBody.put("messages", messages);
 
-        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                .uri(java.net.URI.create(apiUrl))
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + apiKey)
-                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestBody.toString()))
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                 .build();
 
-        java.net.http.HttpResponse<String> response = client.send(request,
-                java.net.http.HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = client.send(request,
+                HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == 200) {
-            com.alibaba.fastjson2.JSONObject responseJson = com.alibaba.fastjson2.JSONObject
+            JSONObject responseJson = JSONObject
                     .parseObject(response.body());
-            com.alibaba.fastjson2.JSONArray choices = responseJson.getJSONArray("choices");
+            JSONArray choices = responseJson.getJSONArray("choices");
             if (choices != null && !choices.isEmpty()) {
-                com.alibaba.fastjson2.JSONObject choice = choices.getJSONObject(0);
-                com.alibaba.fastjson2.JSONObject msg = choice.getJSONObject("message");
+                JSONObject choice = choices.getJSONObject(0);
+                JSONObject msg = choice.getJSONObject("message");
                 return msg.getString("content");
             }
         } else {
             System.err.println("DeepSeek API error: " + response.statusCode() + " " + response.body());
         }
         return null;
+    }
+
+    @Override
+    public Map<String, Object> getHistoryList(Integer userId, Long pageNo, Long pageSize, String startDate,
+            String endDate, String keyword) {
+        LambdaQueryWrapper<TranslationHistory> wrapper = new LambdaQueryWrapper<>();
+
+        // 查询指定用户的记录
+        wrapper.eq(TranslationHistory::getUserId, userId);
+
+        // 关键词搜索 (匹配原文或译文)
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            wrapper.and(w -> w.like(TranslationHistory::getResultSentence, keyword)
+                    .or()
+                    .like(TranslationHistory::getOriginalWords, keyword));
+        }
+
+        // 日期范围过滤
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        if (startDate != null && !startDate.trim().isEmpty()) {
+            // 假设前端传过来的是 "2024-01-01"，我们需要补全时间或直接解析
+            // 这里假设前端传的是完整时间或者我们补全
+            // 简单处理：如果长度不够，补全 00:00:00
+            if (startDate.length() <= 10) {
+                startDate += " 00:00:00";
+            }
+            wrapper.ge(TranslationHistory::getCreateTime, LocalDateTime.parse(startDate, formatter));
+        }
+        if (endDate != null && !endDate.trim().isEmpty()) {
+            if (endDate.length() <= 10) {
+                endDate += " 23:59:59";
+            }
+            wrapper.le(TranslationHistory::getCreateTime, LocalDateTime.parse(endDate, formatter));
+        }
+
+        // 按创建时间倒序（最新的在前）
+        wrapper.orderByDesc(TranslationHistory::getCreateTime);
+
+        // 分页查询
+        Page<TranslationHistory> page = new Page<>(
+                pageNo, pageSize);
+        this.page(page, wrapper);
+
+        // 构建返回结果
+        Map<String, Object> data = new HashMap<>();
+        data.put("total", page.getTotal());
+        data.put("rows", page.getRecords());
+
+        return data;
+    }
+
+    @Override
+    public List<String> getActivityDates(Integer userId, Integer year, Integer month) {
+        QueryWrapper<TranslationHistory> wrapper = new QueryWrapper<>();
+        wrapper.select("DISTINCT DATE_FORMAT(create_time, '%Y-%m-%d') as date_str");
+        wrapper.eq("user_id", userId);
+        wrapper.apply("YEAR(create_time) = {0}", year);
+        wrapper.apply("MONTH(create_time) = {0}", month);
+
+        // 由于返回的是 String 列表，我们需要提取
+        List<Object> objects = this.baseMapper.selectObjs(wrapper);
+        List<String> dates = new ArrayList<>();
+        if (objects != null) {
+            for (Object obj : objects) {
+                if (obj != null) {
+                    dates.add(obj.toString());
+                }
+            }
+        }
+        return dates;
     }
 }

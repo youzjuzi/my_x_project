@@ -45,10 +45,10 @@ const componentMap: Record<string, () => Promise<RouteComponent>> = {
 Object.keys(viewsModules).forEach((path) => {
   // import.meta.glob 返回的路径格式通常是 '@/views/xxx/yyy/index.vue'
   // 提取组件路径，例如: '@/views/sys/user/index.vue' -> 'sys/user'
-  
+
   // 移除开头的 '@/views/' 和结尾的 '/index.vue'
   let componentPath = path;
-  
+
   // 处理 '@/views/' 开头
   if (componentPath.startsWith('@/views/')) {
     componentPath = componentPath.substring(8); // 8 = '@/views/'.length
@@ -57,20 +57,20 @@ Object.keys(viewsModules).forEach((path) => {
     const viewsIndex = componentPath.indexOf('/views/');
     componentPath = componentPath.substring(viewsIndex + 7); // 7 = '/views/'.length
   }
-  
+
   // 移除结尾的 '/index.vue'
   if (componentPath.endsWith('/index.vue')) {
     componentPath = componentPath.substring(0, componentPath.length - 10); // 10 = '/index.vue'.length
   }
-  
+
   // 如果成功提取到组件路径，添加到映射表
   if (componentPath && componentPath !== path) {
     componentMap[componentPath] = viewsModules[path] as () => Promise<RouteComponent>;
-    
+
     // 开发环境输出调试信息
-      if (import.meta.env.DEV) {
+    if (import.meta.env.DEV) {
       console.log(`[动态路由] 自动发现组件: ${componentPath} <- ${path}`);
-      }
+    }
   } else {
     // 如果无法匹配，输出警告
     if (import.meta.env.DEV) {
@@ -113,7 +113,7 @@ function loadComponent(componentPath: string): () => Promise<RouteComponent> {
 
   // 从映射表中获取组件
   let componentLoader = componentMap[componentPath];
-  
+
   if (componentLoader) {
     return componentLoader;
   }
@@ -131,12 +131,12 @@ function loadComponent(componentPath: string): () => Promise<RouteComponent> {
   } catch (error) {
     // 如果动态导入也失败，输出错误信息
     console.error(`[动态路由] 组件路径 "${componentPath}" 未找到`);
-  console.error(`[动态路由] 可用的组件路径:`, Object.keys(componentMap).sort());
+    console.error(`[动态路由] 可用的组件路径:`, Object.keys(componentMap).sort());
     console.error(`[动态路由] 错误详情:`, error);
-  
-  return () => Promise.reject(
-    new Error(`组件 "${componentPath}" 未找到。请确保该组件存在于 @/views/${componentPath}/index.vue`)
-  ) as Promise<RouteComponent>;
+
+    return () => Promise.reject(
+      new Error(`组件 "${componentPath}" 未找到。请确保该组件存在于 @/views/${componentPath}/index.vue`)
+    ) as Promise<RouteComponent>;
   }
 }
 
@@ -151,7 +151,7 @@ function menuToRoute(menu: MenuItem): RouteRecordRaw {
     name: menu.name, // 名称
     component: loadComponent(menu.component), // 组件
     meta: {
-      title: menu.meta?.title || menu.title, // 标题
+      title: (menu.meta?.title || menu.title) === '手语翻译历史' ? '历史记录' : (menu.meta?.title || menu.title), // 标题
       icon: menu.meta?.icon || menu.icon || '', // 图标
       hidden: menu.hidden || false,
       ...menu.meta // 元数据
