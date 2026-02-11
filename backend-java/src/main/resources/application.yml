@@ -34,7 +34,8 @@ spring:
 # AI Configuration
 ai:
   deepseek:
-    api-key: "sk-c2ad64abd0584cb481024e3eb7701e15"
+    api-key: "a"
+    # api-key: "sk-c2ad64abd0584cb481024e3eb7701e15"
     url: https://api.deepseek.com/chat/completions
     model: deepseek-chat
 

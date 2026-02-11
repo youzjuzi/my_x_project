@@ -26,19 +26,19 @@ import java.util.Map;
 @RequestMapping("/challenge")
 @PreAuthorize("hasPermission('/learning/challenge', 'MENU')")
 public class ChallengeController {
-    
+
     @Autowired
     private IChallengeService challengeService;
 
     /**
      * 根据条件查询题目
      * 
-     * @param mode 挑战模式：random/questionSet
+     * @param mode          挑战模式：random/questionSet
      * @param questionSetId 题库ID（questionSet模式必填）
-     * @param types 题目类型列表（random模式必填，多个用逗号分隔）：1-单词，2-中文，3-数字
-     * @param difficulties 难度列表（可选，多个用逗号分隔）：1-简单，2-中等，3-困难
-     * @param count 题目数量（随机模式或题库随机模式）
-     * @param random 是否随机（questionSet模式，默认true）
+     * @param types         题目类型列表（random模式必填，多个用逗号分隔）：1-单词，2-中文，3-数字
+     * @param difficulties  难度列表（可选，多个用逗号分隔）：1-简单，2-中等，3-困难
+     * @param count         题目数量（随机模式或题库随机模式）
+     * @param random        是否随机（questionSet模式，默认true）
      * @return 题目列表
      */
     @Operation(summary = "根据条件查询题目", description = "支持随机挑战和题库模式，可筛选类型和难度")
@@ -50,48 +50,43 @@ public class ChallengeController {
             @RequestParam(value = "difficulties", required = false) String difficulties,
             @RequestParam(value = "count", required = false) Integer count,
             @RequestParam(value = "random", defaultValue = "true") Boolean random) {
-        try {
-            // 参数验证
-            if (!"random".equals(mode) && !"questionSet".equals(mode)) {
-                return Result.fail("挑战模式必须是 random 或 questionSet");
-            }
-            
-            if ("questionSet".equals(mode) && questionSetId == null) {
-                return Result.fail("题库模式必须提供 questionSetId");
-            }
-            
-            if ("random".equals(mode) && (types == null || types.trim().isEmpty())) {
-                return Result.fail("随机模式必须提供 types");
-            }
-
-            // 解析类型列表
-            List<Integer> typeList = null;
-            if (types != null && !types.trim().isEmpty()) {
-                String[] typeArray = types.split(",");
-                typeList = new java.util.ArrayList<>();
-                for (String type : typeArray) {
-                    typeList.add(Integer.parseInt(type.trim()));
-                }
-            }
-
-            // 解析难度列表
-            List<Integer> difficultyList = null;
-            if (difficulties != null && !difficulties.trim().isEmpty()) {
-                String[] difficultyArray = difficulties.split(",");
-                difficultyList = new java.util.ArrayList<>();
-                for (String difficulty : difficultyArray) {
-                    difficultyList.add(Integer.parseInt(difficulty.trim()));
-                }
-            }
-
-            Map<String, Object> data = challengeService.queryQuestions(
-                    mode, questionSetId, typeList, difficultyList, count, random);
-            
-            return Result.success(data, "查询成功");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Result.fail("查询失败：" + e.getMessage());
+        // 参数验证
+        if (!"random".equals(mode) && !"questionSet".equals(mode)) {
+            return Result.fail("挑战模式必须是 random 或 questionSet");
         }
+
+        if ("questionSet".equals(mode) && questionSetId == null) {
+            return Result.fail("题库模式必须提供 questionSetId");
+        }
+
+        if ("random".equals(mode) && (types == null || types.trim().isEmpty())) {
+            return Result.fail("随机模式必须提供 types");
+        }
+
+        // 解析类型列表
+        List<Integer> typeList = null;
+        if (types != null && !types.trim().isEmpty()) {
+            String[] typeArray = types.split(",");
+            typeList = new java.util.ArrayList<>();
+            for (String type : typeArray) {
+                typeList.add(Integer.parseInt(type.trim()));
+            }
+        }
+
+        // 解析难度列表
+        List<Integer> difficultyList = null;
+        if (difficulties != null && !difficulties.trim().isEmpty()) {
+            String[] difficultyArray = difficulties.split(",");
+            difficultyList = new java.util.ArrayList<>();
+            for (String difficulty : difficultyArray) {
+                difficultyList.add(Integer.parseInt(difficulty.trim()));
+            }
+        }
+
+        Map<String, Object> data = challengeService.queryQuestions(
+                mode, questionSetId, typeList, difficultyList, count, random);
+
+        return Result.success(data, "查询成功");
     }
 
     /**
@@ -108,37 +103,31 @@ public class ChallengeController {
     @PostMapping("/start")
     public Result<Map<String, Object>> startChallenge(
             @RequestBody Map<String, Object> requestBody) {
-        try {
-            // 从SecurityContext获取当前用户ID
-            Integer userId = SecurityUtils.getCurrentUserId();
-            if (userId == null) {
-                return Result.fail(20003, "无法获取用户信息，请重新登录");
-            }
-            String mode = (String) requestBody.get("mode");
-            Integer questionSetId = (Integer) requestBody.get("questionSetId");
-            @SuppressWarnings("unchecked")
-            List<Integer> questionIds = (List<Integer>) requestBody.get("questionIds");
-            Integer timeLimit = (Integer) requestBody.get("timeLimit");
-
-            // 参数验证
-            if (mode == null || (!"random".equals(mode) && !"questionSet".equals(mode))) {
-                return Result.fail("挑战模式必须是 random 或 questionSet");
-            }
-            if (questionIds == null || questionIds.isEmpty()) {
-                return Result.fail("题目ID列表不能为空");
-            }
-            if (timeLimit == null || timeLimit <= 0) {
-                return Result.fail("时间限制必须大于0");
-            }
-
-            Map<String, Object> data = challengeService.startChallenge(
-                    userId, mode, questionSetId, questionIds, timeLimit);
-            
-            return Result.success(data, "挑战开始成功");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Result.fail("开始挑战失败：" + e.getMessage());
+        Integer userId = SecurityUtils.getCurrentUserId();
+        if (userId == null) {
+            return Result.fail(20003, "无法获取用户信息，请重新登录");
         }
+        String mode = (String) requestBody.get("mode");
+        Integer questionSetId = (Integer) requestBody.get("questionSetId");
+        @SuppressWarnings("unchecked")
+        List<Integer> questionIds = (List<Integer>) requestBody.get("questionIds");
+        Integer timeLimit = (Integer) requestBody.get("timeLimit");
+
+        // 参数验证
+        if (mode == null || (!"random".equals(mode) && !"questionSet".equals(mode))) {
+            return Result.fail("挑战模式必须是 random 或 questionSet");
+        }
+        if (questionIds == null || questionIds.isEmpty()) {
+            return Result.fail("题目ID列表不能为空");
+        }
+        if (timeLimit == null || timeLimit <= 0) {
+            return Result.fail("时间限制必须大于0");
+        }
+
+        Map<String, Object> data = challengeService.startChallenge(
+                userId, mode, questionSetId, questionIds, timeLimit);
+
+        return Result.success(data, "挑战开始成功");
     }
 
     /**
@@ -155,51 +144,44 @@ public class ChallengeController {
     @PostMapping("/submit")
     public Result<Map<String, Object>> submitChallenge(
             @RequestBody Map<String, Object> requestBody) {
-        try {
-            // 从SecurityContext获取当前用户ID
-            Integer userId = SecurityUtils.getCurrentUserId();
-            if (userId == null) {
-                return Result.fail(20003, "无法获取用户信息，请重新登录");
-            }
-            String challengeId = (String) requestBody.get("challengeId");
-            Integer score = (Integer) requestBody.get("score");
-            Integer completedCount = (Integer) requestBody.get("completedCount");
-            Integer timeUsed = (Integer) requestBody.get("timeUsed");
-            Integer status = (Integer) requestBody.get("status"); // 可选：1-已完成，2-已放弃，默认为1
-
-            // 参数验证
-            if (challengeId == null || challengeId.trim().isEmpty()) {
-                return Result.fail("挑战ID不能为空");
-            }
-            if (score == null) {
-                return Result.fail("得分不能为空");
-            }
-            if (completedCount == null) {
-                return Result.fail("完成题目数不能为空");
-            }
-            if (timeUsed == null) {
-                return Result.fail("使用时间不能为空");
-            }
-
-            // 如果没有指定状态，默认为已完成（1）
-            if (status == null) {
-                status = 1;
-            }
-
-            Map<String, Object> data = challengeService.submitChallenge(
-                    userId, challengeId, score, completedCount, timeUsed, status);
-            
-            return Result.success(data, "提交成功");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Result.fail("提交失败：" + e.getMessage());
+        Integer userId = SecurityUtils.getCurrentUserId();
+        if (userId == null) {
+            return Result.fail(20003, "无法获取用户信息，请重新登录");
         }
+        String challengeId = (String) requestBody.get("challengeId");
+        Integer score = (Integer) requestBody.get("score");
+        Integer completedCount = (Integer) requestBody.get("completedCount");
+        Integer timeUsed = (Integer) requestBody.get("timeUsed");
+        Integer status = (Integer) requestBody.get("status");
+
+        // 参数验证
+        if (challengeId == null || challengeId.trim().isEmpty()) {
+            return Result.fail("挑战ID不能为空");
+        }
+        if (score == null) {
+            return Result.fail("得分不能为空");
+        }
+        if (completedCount == null) {
+            return Result.fail("完成题目数不能为空");
+        }
+        if (timeUsed == null) {
+            return Result.fail("使用时间不能为空");
+        }
+
+        if (status == null) {
+            status = 1;
+        }
+
+        Map<String, Object> data = challengeService.submitChallenge(
+                userId, challengeId, score, completedCount, timeUsed, status);
+
+        return Result.success(data, "提交成功");
     }
 
     /**
      * 获取挑战历史记录（分页）
      * 
-     * @param pageNo 页码
+     * @param pageNo   页码
      * @param pageSize 每页大小
      * @return 分页结果
      */
@@ -208,37 +190,29 @@ public class ChallengeController {
     public Result<Map<String, Object>> getChallengeHistory(
             @RequestParam("pageNo") Long pageNo,
             @RequestParam("pageSize") Long pageSize) {
-        try {
-            // 从SecurityContext获取当前用户ID
-            Integer userId = SecurityUtils.getCurrentUserId();
-            if (userId == null) {
-                return Result.fail(20003, "无法获取用户信息，请重新登录");
-            }
-
-            // 参数验证
-            if (pageNo == null || pageNo < 1) {
-                return Result.fail("页码必须大于0");
-            }
-            if (pageSize == null || pageSize < 1) {
-                return Result.fail("每页大小必须大于0");
-            }
-
-            Map<String, Object> data = challengeService.getChallengeHistory(userId, pageNo, pageSize);
-            
-            return Result.success(data, "查询成功");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Result.fail("查询失败：" + e.getMessage());
+        Integer userId = SecurityUtils.getCurrentUserId();
+        if (userId == null) {
+            return Result.fail(20003, "无法获取用户信息，请重新登录");
         }
+
+        if (pageNo == null || pageNo < 1) {
+            return Result.fail("页码必须大于0");
+        }
+        if (pageSize == null || pageSize < 1) {
+            return Result.fail("每页大小必须大于0");
+        }
+
+        Map<String, Object> data = challengeService.getChallengeHistory(userId, pageNo, pageSize);
+        return Result.success(data, "查询成功");
     }
 
     /**
      * 获取所有用户的挑战记录（管理员接口，分页）
      * 
-     * @param userId 用户ID（可选，用于筛选特定用户）
-     * @param mode 挑战模式（可选）：random/questionSet
-     * @param status 状态（可选）：0-进行中，1-已完成，2-已放弃
-     * @param pageNo 页码
+     * @param userId   用户ID（可选，用于筛选特定用户）
+     * @param mode     挑战模式（可选）：random/questionSet
+     * @param status   状态（可选）：0-进行中，1-已完成，2-已放弃
+     * @param pageNo   页码
      * @param pageSize 每页大小
      * @return 分页结果
      */
@@ -251,21 +225,15 @@ public class ChallengeController {
             @RequestParam(value = "status", required = false) Integer status,
             @RequestParam("pageNo") Long pageNo,
             @RequestParam("pageSize") Long pageSize) {
-        try {
-            // 参数验证
-            if (pageNo == null || pageNo < 1) {
-                return Result.fail("页码必须大于0");
-            }
-            if (pageSize == null || pageSize < 1) {
-                return Result.fail("每页大小必须大于0");
-            }
-
-            Map<String, Object> data = challengeService.getAllChallengeHistory(userId, mode, status, pageNo, pageSize);
-            return Result.success(data, "查询成功");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Result.fail("查询失败：" + e.getMessage());
+        if (pageNo == null || pageNo < 1) {
+            return Result.fail("页码必须大于0");
         }
+        if (pageSize == null || pageSize < 1) {
+            return Result.fail("每页大小必须大于0");
+        }
+
+        Map<String, Object> data = challengeService.getAllChallengeHistory(userId, mode, status, pageNo, pageSize);
+        return Result.success(data, "查询成功");
     }
 
     /**
@@ -277,12 +245,7 @@ public class ChallengeController {
     @PreAuthorize("hasPermission('/sys/challenge', 'MENU')")
     @GetMapping("/admin/users")
     public Result<List<User>> getUsersWithChallenges() {
-        try {
-            List<User> users = challengeService.getUsersWithChallenges();
-            return Result.success(users, "查询成功");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Result.fail("查询失败：" + e.getMessage());
-        }
+        List<User> users = challengeService.getUsersWithChallenges();
+        return Result.success(users, "查询成功");
     }
 }

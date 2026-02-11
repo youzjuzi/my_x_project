@@ -43,14 +43,9 @@ public class TranslationHistoryController {
             @RequestParam(value = "startDate", required = false) String startDate,
             @RequestParam(value = "endDate", required = false) String endDate,
             @RequestParam(value = "keyword", required = false) String keyword) {
-        try {
-            Map<String, Object> data = translationHistoryService.getHistoryList(userId, pageNo, pageSize, startDate,
-                    endDate, keyword);
-            return Result.success(data, "查询成功");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Result.fail("查询失败：" + e.getMessage());
-        }
+        Map<String, Object> data = translationHistoryService.getHistoryList(userId, pageNo, pageSize, startDate,
+                endDate, keyword);
+        return Result.success(data, "查询成功");
     }
 
     /**
@@ -67,12 +62,7 @@ public class TranslationHistoryController {
             @RequestParam("userId") Integer userId,
             @RequestParam("year") Integer year,
             @RequestParam("month") Integer month) {
-        try {
-            List<String> dates = translationHistoryService.getActivityDates(userId, year, month);
-            return Result.success(dates, "查询成功");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Result.fail("查询失败：" + e.getMessage());
-        }
+        List<String> dates = translationHistoryService.getActivityDates(userId, year, month);
+        return Result.success(dates, "查询成功");
     }
 }

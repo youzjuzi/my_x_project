@@ -9,6 +9,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
  * @author youzi
  * @since 2024
  */
+@Slf4j
 @Service
 public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistoryMapper, TranslationHistory>
         implements ITranslationHistoryService {
@@ -66,7 +68,7 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
                     String jsonStr = obj.toString();
                     messages.add(JSONObject.parseObject(jsonStr));
                 } catch (Exception e) {
-                    System.err.println("Error parsing chat history: " + e.getMessage());
+                    log.warn("解析聊天历史失败: {}", e.getMessage());
                 }
             }
         }
@@ -84,9 +86,8 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
     }
 
     @Override
-    @Async
+    @Async("asyncExecutor")
     public void saveTranslationAsync(Integer userId, String content) {
-        long startTime = System.currentTimeMillis();
         String resultSentence = content;
         int isAiPolished = 0;
 
@@ -126,18 +127,7 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
                 }
             }
         } catch (Exception e) {
-            System.err.println("DeepSeek API call failed: " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        // 2. 确保至少 5 秒耗时
-        long elapsed = System.currentTimeMillis() - startTime;
-        if (elapsed < 5000) {
-            try {
-                Thread.sleep(5000 - elapsed);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            log.error("DeepSeek API 调用失败: {}", e.getMessage(), e);
         }
 
         // 3. 存入数据库
@@ -155,8 +145,7 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
         String key = "sign:buffer:" + userId;
         redisTemplate.opsForList().remove(key, 1, content);
 
-        System.out.println(
-                "Async save translation completed for user: " + userId + ", AI polished: " + (isAiPolished == 1));
+        log.info("异步翻译完成 - 用户: {}, AI润色: {}", userId, isAiPolished == 1);
 
         // 5. 通知前端
         if (isAiPolished == 1) {
@@ -165,13 +154,13 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
     }
 
     private void notifyFrontend(Integer userId, String result) {
-        System.out.println("Preparing to notify frontend for user: " + userId);
+        log.info("准备通知前端 - 用户: {}", userId);
         try {
             JSONObject payload = new JSONObject();
             payload.put("userId", userId);
             payload.put("result", result);
             String jsonBody = payload.toString();
-            System.out.println("Sending notification payload: " + jsonBody);
+            log.debug("发送通知: {}", jsonBody);
 
             HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
@@ -184,14 +173,13 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
             HttpResponse<String> response = client.send(request,
                     HttpResponse.BodyHandlers.ofString());
 
-            System.out.println("Notification response: " + response.statusCode() + " " + response.body());
+            log.info("通知响应: {} {}", response.statusCode(), response.body());
 
             if (response.statusCode() != 200) {
-                System.err.println("Failed to notify frontend: " + response.statusCode());
+                log.error("通知前端失败: {}", response.statusCode());
             }
         } catch (Exception e) {
-            System.err.println("Error notifying frontend: " + e.getMessage());
-            e.printStackTrace();
+            log.error("通知前端异常: {}", e.getMessage(), e);
         }
     }
 
@@ -222,7 +210,7 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
                 return msg.getString("content");
             }
         } else {
-            System.err.println("DeepSeek API error: " + response.statusCode() + " " + response.body());
+            log.error("DeepSeek API 返回错误: {} {}", response.statusCode(), response.body());
         }
         return null;
     }

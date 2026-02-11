@@ -26,15 +26,8 @@ public class CaptchaController {
     @Operation(summary = "生成验证码")
     @GetMapping("/generate")
     public Result<Map<String, Object>> generate() {
-        System.out.println("CaptchaController: 接收到 generate 请求");
-        try {
-            Map<String, Object> data = captchaService.generate();
-            return Result.success(data);
-        } catch (Exception e) {
-            e.printStackTrace();
-            // 返回详细错误信息用于调试
-            return Result.fail(500, "生成验证码失败: " + e.getMessage());
-        }
+        Map<String, Object> data = captchaService.generate();
+        return Result.success(data);
     }
 
     @Operation(summary = "验证验证码")
@@ -43,8 +36,7 @@ public class CaptchaController {
         boolean valid = captchaService.verify(id, data);
         if (valid) {
             return Result.success(true, "验证成功");
-        } else {
-            return Result.fail(20004, "验证失败");
         }
+        return Result.fail(20004, "验证失败");
     }
 }

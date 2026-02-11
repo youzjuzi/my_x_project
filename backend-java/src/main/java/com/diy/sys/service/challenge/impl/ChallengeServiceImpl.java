@@ -13,6 +13,7 @@ import com.diy.sys.mapper.Question.QuestionSetQuestionMapper;
 import com.diy.sys.mapper.challenge.ChallengeMapper;
 import com.diy.sys.mapper.challenge.ChallengeQuestionMapper;
 import com.diy.sys.service.challenge.IChallengeService;
+import com.diy.common.exception.BusinessException;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -42,7 +43,7 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
 
     @Autowired
     private ChallengeQuestionMapper challengeQuestionMapper;
-    
+
     @Autowired
     private ChallengeMapper challengeMapper;
 
@@ -51,32 +52,32 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
      */
     @Override
     public Map<String, Object> queryQuestions(String mode, Integer questionSetId, List<Integer> types,
-                                              List<Integer> difficulties, Integer count, Boolean random) {
+            List<Integer> difficulties, Integer count, Boolean random) {
         List<QuestionBank> allQuestions = new ArrayList<>();
 
         if ("random".equals(mode)) {
             // 随机挑战模式：根据类型和难度筛选
             LambdaQueryWrapper<QuestionBank> wrapper = new LambdaQueryWrapper<>();
-            
+
             // 类型筛选
             if (types != null && !types.isEmpty()) {
                 wrapper.in(QuestionBank::getType, types);
             }
-            
+
             // 难度筛选
             if (difficulties != null && !difficulties.isEmpty()) {
                 wrapper.in(QuestionBank::getDifficulty, difficulties);
             }
-            
+
             // 只查询启用的题目
             wrapper.eq(QuestionBank::getStatus, 1);
-            
+
             allQuestions = questionBankMapper.selectList(wrapper);
-            
+
         } else if ("questionSet".equals(mode) && questionSetId != null) {
             // 题库模式：从题库中获取题目
             List<Integer> questionIds = questionSetQuestionMapper.getQuestionIdsByQuestionSetId(questionSetId);
-            
+
             if (questionIds != null && !questionIds.isEmpty()) {
                 LambdaQueryWrapper<QuestionBank> wrapper = new LambdaQueryWrapper<>();
                 wrapper.in(QuestionBank::getId, questionIds);
@@ -113,7 +114,7 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
     @Override
     @Transactional
     public Map<String, Object> startChallenge(Integer userId, String mode, Integer questionSetId,
-                                               List<Integer> questionIds, Integer timeLimit) {
+            List<Integer> questionIds, Integer timeLimit) {
         // 生成挑战ID（UUID）
         String challengeId = UUID.randomUUID().toString().replace("-", "");
 
@@ -149,7 +150,7 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
             LambdaQueryWrapper<QuestionBank> wrapper = new LambdaQueryWrapper<>();
             wrapper.in(QuestionBank::getId, questionIds);
             questions = questionBankMapper.selectList(wrapper);
-            
+
             // 按照 questionIds 的顺序排序
             Map<Integer, QuestionBank> questionMap = questions.stream()
                     .collect(Collectors.toMap(QuestionBank::getId, q -> q));
@@ -179,8 +180,8 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
      */
     @Override
     @Transactional
-    public Map<String, Object> submitChallenge(Integer userId, String challengeId, Integer score, 
-                                                Integer completedCount, Integer timeUsed, Integer status) {
+    public Map<String, Object> submitChallenge(Integer userId, String challengeId, Integer score,
+            Integer completedCount, Integer timeUsed, Integer status) {
         // 查询挑战记录
         LambdaQueryWrapper<Challenge> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Challenge::getChallengeId, challengeId);
@@ -188,32 +189,32 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
 
         // 验证1：挑战记录是否存在
         if (challenge == null) {
-            throw new RuntimeException("挑战记录不存在");
+            throw new BusinessException("挑战记录不存在");
         }
 
         // 验证2：用户身份验证（必须是挑战的创建者）
         if (!challenge.getUserId().equals(userId)) {
-            throw new RuntimeException("无权提交此挑战结果");
+            throw new BusinessException("无权提交此挑战结果");
         }
 
         // 验证3：挑战是否已经提交过（防止重复提交）
         if (challenge.getStatus() != null && challenge.getStatus() == 1) {
-            throw new RuntimeException("该挑战已经提交过，不能重复提交");
+            throw new BusinessException("该挑战已经提交过，不能重复提交");
         }
 
         // 验证4：分数不能为负数
         if (score < 0) {
-            throw new RuntimeException("分数不能为负数");
+            throw new BusinessException("分数不能为负数");
         }
 
         // 验证5：完成题目数不能超过总题目数
         if (completedCount < 0 || completedCount > challenge.getTotalCount()) {
-            throw new RuntimeException("完成题目数异常，不能超过总题目数 " + challenge.getTotalCount());
+            throw new BusinessException("完成题目数异常，不能超过总题目数 " + challenge.getTotalCount());
         }
 
         // 验证6：使用时间不能超过时间限制
         if (timeUsed < 0 || timeUsed > challenge.getTimeLimit()) {
-            throw new RuntimeException("使用时间异常，不能超过时间限制 " + challenge.getTimeLimit() + " 秒");
+            throw new BusinessException("使用时间异常，不能超过时间限制 " + challenge.getTimeLimit() + " 秒");
         }
 
         // 更新挑战记录
@@ -230,8 +231,8 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
         this.updateById(challenge);
 
         // 计算准确率
-        double accuracy = challenge.getTotalCount() > 0 
-                ? (double) completedCount / challenge.getTotalCount() 
+        double accuracy = challenge.getTotalCount() > 0
+                ? (double) completedCount / challenge.getTotalCount()
                 : 0.0;
 
         // 评级
@@ -246,7 +247,7 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
 
         Map<String, Object> result = new HashMap<>();
         result.put("challengeId", challengeId);
-        
+
         Map<String, Object> resultData = new HashMap<>();
         resultData.put("score", score);
         resultData.put("completedCount", completedCount);
@@ -254,7 +255,7 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
         resultData.put("timeUsed", timeUsed);
         resultData.put("accuracy", accuracy);
         resultData.put("rank", rank);
-        
+
         result.put("result", resultData);
 
         return result;
@@ -283,18 +284,19 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
      * 获取所有用户的挑战记录（管理员接口，分页）
      */
     @Override
-    public Map<String, Object> getAllChallengeHistory(Integer userId, String mode, Integer status, Long pageNo, Long pageSize) {
+    public Map<String, Object> getAllChallengeHistory(Integer userId, String mode, Integer status, Long pageNo,
+            Long pageSize) {
         // 使用自定义查询，包含用户信息
         List<ChallengeWithUser> allRecords = challengeMapper.getChallengeListWithUser(userId, mode, status);
-        
+
         // 手动分页
         long total = allRecords.size();
         int start = (int) ((pageNo - 1) * pageSize);
         int end = (int) Math.min(start + pageSize, total);
-        
-        List<ChallengeWithUser> pagedRecords = start < total 
-            ? allRecords.subList(start, end) 
-            : new ArrayList<>();
+
+        List<ChallengeWithUser> pagedRecords = start < total
+                ? allRecords.subList(start, end)
+                : new ArrayList<>();
 
         Map<String, Object> result = new HashMap<>();
         result.put("total", total);
@@ -302,7 +304,7 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
 
         return result;
     }
-    
+
     /**
      * 获取所有有过挑战的用户列表
      */
@@ -311,4 +313,3 @@ public class ChallengeServiceImpl extends ServiceImpl<ChallengeMapper, Challenge
         return challengeMapper.getUsersWithChallenges();
     }
 }
-
