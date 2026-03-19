@@ -1,9 +1,7 @@
 import math
 
-
 FINGER_STRAIGHT_THRESHOLD = 160
 TH_GAP = 0.55
-TH_MARGIN = 0.08
 TH_E = 0.45
 TH_SEG = 0.18
 TH_Z = 0.10
@@ -114,42 +112,92 @@ def get_gap_ids(best_name):
     return []
 
 
-def classify_mnt_robust(hand, fist_family, th_gap=TH_GAP, th_margin=TH_MARGIN, th_e=TH_E, th_seg=TH_SEG, th_z=TH_Z):
+def classify_mnt_robust(hand, fist_family, th_gap=TH_GAP, th_e=TH_E, th_seg=TH_SEG, th_z=TH_Z):
     if not fist_family:
         return "not_fist", {}
 
     thumb_tip = point_xy(hand[4])
     scale = palm_scale(hand)
 
+    # 1. 构建手掌横向参考系 (食指根部 5 -> 小指根部 17)
+    p5 = point_xy(hand[5])
+    p17 = point_xy(hand[17])
+    palm_vec = (p17[0] - p5[0], p17[1] - p5[1])
+    palm_len2 = dot2(palm_vec, palm_vec)
+
+    if palm_len2 < 1e-6:
+        return "uncertain", {}
+
+    # 投影辅助函数：计算拇指横向相对比例
+    def get_proj_t(p):
+        vec = (p[0] - p5[0], p[1] - p5[1])
+        return dot2(vec, palm_vec) / palm_len2
+
+    t_thumb = get_proj_t(thumb_tip)
+    t_middle = get_proj_t(point_xy(hand[9]))  # 中指根部边界
+    t_ring = get_proj_t(point_xy(hand[13]))   # 无名指根部边界
+
+    base_info = {
+        "t_thumb": t_thumb, "t_middle": t_middle, "t_ring": t_ring,
+        "best": None, "seg_dist": None, "seg_t": None,
+        "thumb_z": None, "gap_z": None, "z_diff": None,
+        "inserted_xy": False, "inserted_z": False,
+        "gap_t": None, "gap_n": None, "gap_m": None,
+        "seg_top": None, "seg_bottom": None
+    }
+
+    # --- 核心优化 1：三区域硬边界防线 ---
+    if t_thumb > t_ring - 0.02:
+        # 越过无名指，是 M
+        best_name = "M"
+    elif t_thumb > t_middle - 0.05:
+        # 在中指和无名指之间，是 N
+        best_name = "N"
+    elif t_thumb > -0.15:
+        # 在食指（投影起点为0）和中指之间，预留 -0.15 容差，是 T
+        best_name = "T"
+    else:
+        # 放在了食指外围太远的地方，直接拦截
+        base_info["best"] = "Out_of_bounds"
+        return "not_mnt", base_info
+
+    # 获取缝隙坐标，用于后续深度校验
     gap_t = gap_center(hand, 5, 9, 6, 10)
     gap_n = gap_center(hand, 9, 13, 10, 14)
     gap_m = gap_center(hand, 13, 17, 14, 18)
+    base_info["gap_t"] = gap_t
+    base_info["gap_n"] = gap_n
+    base_info["gap_m"] = gap_m
 
-    d_t = dist_xy(thumb_tip, gap_t) / scale
-    d_n = dist_xy(thumb_tip, gap_n) / scale
-    d_m = dist_xy(thumb_tip, gap_m) / scale
+    d_t_raw = dist_xy(thumb_tip, gap_t) / scale
+    d_n_raw = dist_xy(thumb_tip, gap_n) / scale
+    d_m_raw = dist_xy(thumb_tip, gap_m) / scale
 
-    tips_center = avg_multi_xy([point_xy(hand[8]), point_xy(hand[12]), point_xy(hand[16]), point_xy(hand[20])])
+    if best_name == "M":
+        raw_best_d = d_m_raw
+    elif best_name == "N":
+        raw_best_d = d_n_raw
+    else:
+        raw_best_d = d_t_raw
+
+    # 基础校验：大拇指是否收拢
+    tips_center = avg_multi_xy([
+        point_xy(hand[8]), point_xy(hand[12]),
+        point_xy(hand[16]), point_xy(hand[20])
+    ])
     d_e = dist_xy(thumb_tip, tips_center) / scale
+    base_info["dE"] = d_e
+    base_info["dT_raw"] = d_t_raw
+    base_info["dN_raw"] = d_n_raw
+    base_info["dM_raw"] = d_m_raw
 
     if d_e < th_e:
-        return "not_mnt", {"dT": d_t, "dN": d_n, "dM": d_m, "dE": d_e}
+        return "not_mnt", base_info
 
-    ranked = sorted([("T", d_t), ("N", d_n), ("M", d_m)], key=lambda x: x[1])
-    best_name, best_d = ranked[0]
-    second_name, second_d = ranked[1]
-    margin = second_d - best_d
+    if raw_best_d > th_gap * 1.2:
+        return "uncertain", base_info
 
-    if not (best_d < th_gap and margin > th_margin):
-        return "uncertain", {
-            "dT": d_t,
-            "dN": d_n,
-            "dM": d_m,
-            "dE": d_e,
-            "best": best_name,
-            "margin": margin,
-        }
-
+    # --- 核心优化 2：深度锁死 ---
     if best_name == "T":
         seg_top, seg_bottom = gap_segment(hand, 5, 9, 6, 10)
     elif best_name == "N":
@@ -159,32 +207,21 @@ def classify_mnt_robust(hand, fist_family, th_gap=TH_GAP, th_margin=TH_MARGIN, t
 
     seg_dist, t = point_to_segment_distance_and_t(thumb_tip, seg_top, seg_bottom)
     seg_dist_norm = seg_dist / scale
-    inserted_xy = (seg_dist_norm < th_seg) and (0.05 <= t <= 1.05)
+
+    # 逼迫大拇指必须“深插”到根部缝隙中 (-0.2 到 0.65)
+    inserted_xy = (seg_dist_norm < th_seg) and (-0.2 <= t <= 0.65)
 
     gap_ids = get_gap_ids(best_name)
     gap_z = avg_z(hand, gap_ids)
     thumb_z = hand[4].z
     z_diff = abs(thumb_z - gap_z)
-    inserted_z = z_diff < th_z
+    inserted_z = (z_diff < th_z)
+    
     inserted = inserted_xy and inserted_z
+    cls = best_name if inserted else "not_mnt"
 
-    if inserted:
-        cls = best_name
-    elif best_name == "T":
-        cls = "S_or_other"
-    else:
-        cls = "not_mnt"
-
-    return cls, {
-        "dT": d_t,
-        "dN": d_n,
-        "dM": d_m,
-        "dE": d_e,
+    base_info.update({
         "best": best_name,
-        "best_d": best_d,
-        "second": second_name,
-        "second_d": second_d,
-        "margin": margin,
         "seg_dist": seg_dist_norm,
         "seg_t": t,
         "thumb_z": thumb_z,
@@ -192,10 +229,13 @@ def classify_mnt_robust(hand, fist_family, th_gap=TH_GAP, th_margin=TH_MARGIN, t
         "z_diff": z_diff,
         "inserted_xy": inserted_xy,
         "inserted_z": inserted_z,
-    }
+        "seg_top": seg_top,
+        "seg_bottom": seg_bottom
+    })
+    return cls, base_info
 
 
-def classify_mn_only(hand):
+def classify_mnt_only(hand):
     index_ok, _, _ = is_finger_straight(hand, 5, 6, 7, 8)
     middle_ok, _, _ = is_finger_straight(hand, 9, 10, 11, 12)
     ring_ok, _, _ = is_finger_straight(hand, 13, 14, 15, 16)
@@ -203,8 +243,10 @@ def classify_mn_only(hand):
     fist_family, _ = is_fist_family(index_ok, middle_ok, ring_ok, pinky_ok)
 
     cls, info = classify_mnt_robust(hand, fist_family)
-    if cls not in ("M", "N"):
-        cls = "not_mn"
+    
+    if cls not in ("M", "N", "T"):
+        cls = "not_mnt"
+        
     info.update(
         {
             "index_ok": index_ok,

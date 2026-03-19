@@ -4,9 +4,8 @@ import math
 from collections import deque, Counter
 import mediapipe as mp
 
-
 # =========================
-# 可调参数
+# 可调参数 
 # =========================
 MODEL_PATH = "hand_landmarker.task"
 
@@ -17,12 +16,11 @@ MIN_TRACKING_CONFIDENCE = 0.30
 
 FINGER_STRAIGHT_THRESHOLD = 160
 TH_GAP = 0.55
-TH_MARGIN = 0.08
 TH_E = 0.45
 TH_SEG = 0.18
 TH_Z = 0.10
+
 TH_GAP_KEEP = 0.72
-TH_MARGIN_KEEP = 0.02
 TH_SEG_KEEP = 0.28
 TH_Z_KEEP = 0.18
 
@@ -39,20 +37,16 @@ VOTE_MIN = 3
 def point_xy(lm):
     return (lm.x, lm.y)
 
-
 def dist_xy(p1, p2):
     dx = p1[0] - p2[0]
     dy = p1[1] - p2[1]
     return math.sqrt(dx * dx + dy * dy)
 
-
 def midpoint_xy(a, b):
     return ((a.x + b.x) / 2, (a.y + b.y) / 2)
 
-
 def avg_xy(p1, p2):
     return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
-
 
 def avg_multi_xy(points):
     return (
@@ -60,15 +54,12 @@ def avg_multi_xy(points):
         sum(p[1] for p in points) / len(points)
     )
 
-
 def avg_z(hand, ids):
     return sum(hand[i].z for i in ids) / len(ids)
-
 
 def palm_scale(hand):
     scale = dist_xy(point_xy(hand[5]), point_xy(hand[17]))
     return max(scale, 1e-6)
-
 
 def angle_3points(a, b, c):
     abx = a.x - b.x
@@ -87,10 +78,8 @@ def angle_3points(a, b, c):
     cos_value = max(-1.0, min(1.0, cos_value))
     return math.degrees(math.acos(cos_value))
 
-
 def dot2(a, b):
     return a[0] * b[0] + a[1] * b[1]
-
 
 def point_to_segment_distance_and_t(p, a, b):
     ab = (b[0] - a[0], b[1] - a[1])
@@ -117,11 +106,9 @@ def is_finger_straight(hand, mcp_id, pip_id, dip_id, tip_id, threshold=160):
     ok = (angle1 > threshold) and (angle2 > threshold)
     return ok, angle1, angle2
 
-
 def is_fist_family(index_ok, middle_ok, ring_ok, pinky_ok):
     bent_count = int(not index_ok) + int(not middle_ok) + int(not ring_ok) + int(not pinky_ok)
     return bent_count >= 3, bent_count
-
 
 def is_fist_family_keep(index_ok, middle_ok, ring_ok, pinky_ok):
     bent_count = int(not index_ok) + int(not middle_ok) + int(not ring_ok) + int(not pinky_ok)
@@ -136,12 +123,10 @@ def gap_segment(hand, mcp_a, mcp_b, pip_a, pip_b):
     bottom = midpoint_xy(hand[mcp_a], hand[mcp_b])
     return top, bottom
 
-
 def gap_center(hand, mcp_a, mcp_b, pip_a, pip_b):
     root_mid = midpoint_xy(hand[mcp_a], hand[mcp_b])
     pip_mid = midpoint_xy(hand[pip_a], hand[pip_b])
     return avg_xy(root_mid, pip_mid)
-
 
 def get_gap_ids(best_name):
     if best_name == "T":
@@ -154,63 +139,87 @@ def get_gap_ids(best_name):
 
 
 # =========================
-# M/N/T 分类（XY + segment + Z）
+# M/N/T 分类（拓扑硬边界 + 深度锁死）
 # =========================
-def classify_mnt_robust(hand, fist_family, th_gap=0.55, th_margin=0.08, th_e=0.45, th_seg=0.18, th_z=0.10):
+def classify_mnt_robust(hand, fist_family, th_gap=0.55, th_e=0.45, th_seg=0.18, th_z=0.10):
     if not fist_family:
         return "not_fist", {}
 
     thumb_tip = point_xy(hand[4])
     scale = palm_scale(hand)
 
+    # 1. 构建手掌横向参考系 (食指根部 5 -> 小指根部 17)
+    p5 = point_xy(hand[5])
+    p17 = point_xy(hand[17])
+    palm_vec = (p17[0] - p5[0], p17[1] - p5[1])
+    palm_len2 = dot2(palm_vec, palm_vec)
+
+    if palm_len2 < 1e-6:
+        return "uncertain", {}
+
+    # 投影辅助函数：计算拇指横向相对比例
+    def get_proj_t(p):
+        vec = (p[0] - p5[0], p[1] - p5[1])
+        return dot2(vec, palm_vec) / palm_len2
+
+    t_thumb = get_proj_t(thumb_tip)
+    t_middle = get_proj_t(point_xy(hand[9]))  # 中指根部边界
+    t_ring = get_proj_t(point_xy(hand[13]))   # 无名指根部边界
+
+    base_info = {
+        "t_thumb": t_thumb, "t_middle": t_middle, "t_ring": t_ring,
+        "best": None, "seg_dist": None, "seg_t": None,
+        "thumb_z": None, "gap_z": None, "z_diff": None,
+        "inserted_xy": False, "inserted_z": False,
+        "gap_t": None, "gap_n": None, "gap_m": None,
+        "seg_top": None, "seg_bottom": None
+    }
+
+    # --- 核心优化 1：三区域硬边界防线 ---
+    if t_thumb > t_ring - 0.02:
+        best_name = "M"
+    elif t_thumb > t_middle - 0.05:
+        best_name = "N"
+    elif t_thumb > -0.15:
+        best_name = "T"
+    else:
+        base_info["best"] = "Out_of_bounds"
+        return "not_mnt", base_info
+
+    # 获取缝隙坐标，用于后续深度校验和画图
     gap_t = gap_center(hand, 5, 9, 6, 10)
     gap_n = gap_center(hand, 9, 13, 10, 14)
     gap_m = gap_center(hand, 13, 17, 14, 18)
+    base_info["gap_t"] = gap_t
+    base_info["gap_n"] = gap_n
+    base_info["gap_m"] = gap_m
 
-    d_t = dist_xy(thumb_tip, gap_t) / scale
-    d_n = dist_xy(thumb_tip, gap_n) / scale
-    d_m = dist_xy(thumb_tip, gap_m) / scale
+    d_t_raw = dist_xy(thumb_tip, gap_t) / scale
+    d_n_raw = dist_xy(thumb_tip, gap_n) / scale
+    d_m_raw = dist_xy(thumb_tip, gap_m) / scale
 
+    if best_name == "M":
+        raw_best_d = d_m_raw
+    elif best_name == "N":
+        raw_best_d = d_n_raw
+    else:
+        raw_best_d = d_t_raw
+
+    # 基础校验：大拇指是否收拢
     tips_center = avg_multi_xy([
-        point_xy(hand[8]),
-        point_xy(hand[12]),
-        point_xy(hand[16]),
-        point_xy(hand[20]),
+        point_xy(hand[8]), point_xy(hand[12]),
+        point_xy(hand[16]), point_xy(hand[20])
     ])
     d_e = dist_xy(thumb_tip, tips_center) / scale
+    base_info["dE"] = d_e
 
     if d_e < th_e:
-        return "not_mnt", {
-            "dT": d_t, "dN": d_n, "dM": d_m, "dE": d_e,
-            "best": None, "best_d": None,
-            "second": None, "second_d": None,
-            "margin": None,
-            "seg_dist": None, "seg_t": None,
-            "thumb_z": None, "gap_z": None, "z_diff": None,
-            "inserted_xy": False, "inserted_z": False,
-            "gap_t": gap_t, "gap_n": gap_n, "gap_m": gap_m,
-            "seg_top": None, "seg_bottom": None
-        }
+        return "not_mnt", base_info
 
-    ranked = sorted([("T", d_t), ("N", d_n), ("M", d_m)], key=lambda x: x[1])
+    if raw_best_d > th_gap * 1.2:
+        return "uncertain", base_info
 
-    best_name, best_d = ranked[0]
-    second_name, second_d = ranked[1]
-    margin = second_d - best_d
-
-    if not (best_d < th_gap and margin > th_margin):
-        return "uncertain", {
-            "dT": d_t, "dN": d_n, "dM": d_m, "dE": d_e,
-            "best": best_name, "best_d": best_d,
-            "second": second_name, "second_d": second_d,
-            "margin": margin,
-            "seg_dist": None, "seg_t": None,
-            "thumb_z": None, "gap_z": None, "z_diff": None,
-            "inserted_xy": False, "inserted_z": False,
-            "gap_t": gap_t, "gap_n": gap_n, "gap_m": gap_m,
-            "seg_top": None, "seg_bottom": None
-        }
-
+    # --- 核心优化 2：深度锁死 ---
     if best_name == "T":
         seg_top, seg_bottom = gap_segment(hand, 5, 9, 6, 10)
     elif best_name == "N":
@@ -220,32 +229,21 @@ def classify_mnt_robust(hand, fist_family, th_gap=0.55, th_margin=0.08, th_e=0.4
 
     seg_dist, t = point_to_segment_distance_and_t(thumb_tip, seg_top, seg_bottom)
     seg_dist_norm = seg_dist / scale
-    inserted_xy = (seg_dist_norm < th_seg) and (0.05 <= t <= 1.05)
+
+    # 逼迫大拇指必须“深插”到根部缝隙中 (-0.2 到 0.65)
+    inserted_xy = (seg_dist_norm < th_seg) and (-0.2 <= t <= 0.65)
 
     gap_ids = get_gap_ids(best_name)
     gap_z = avg_z(hand, gap_ids)
     thumb_z = hand[4].z
     z_diff = abs(thumb_z - gap_z)
     inserted_z = (z_diff < th_z)
+    
     inserted = inserted_xy and inserted_z
+    cls = best_name if inserted else "not_mnt"
 
-    if inserted:
-        cls = best_name
-    elif best_name == "T":
-        cls = "S_or_other"
-    else:
-        cls = "not_mnt"
-
-    return cls, {
-        "dT": d_t,
-        "dN": d_n,
-        "dM": d_m,
-        "dE": d_e,
+    base_info.update({
         "best": best_name,
-        "best_d": best_d,
-        "second": second_name,
-        "second_d": second_d,
-        "margin": margin,
         "seg_dist": seg_dist_norm,
         "seg_t": t,
         "thumb_z": thumb_z,
@@ -253,12 +251,10 @@ def classify_mnt_robust(hand, fist_family, th_gap=0.55, th_margin=0.08, th_e=0.4
         "z_diff": z_diff,
         "inserted_xy": inserted_xy,
         "inserted_z": inserted_z,
-        "gap_t": gap_t,
-        "gap_n": gap_n,
-        "gap_m": gap_m,
         "seg_top": seg_top,
         "seg_bottom": seg_bottom
-    }
+    })
+    return cls, base_info
 
 
 def to_mnt_or_yolo(cls):
@@ -271,7 +267,6 @@ def to_mnt_or_yolo(cls):
 def stabilize_cls(history, vote_min=3):
     if len(history) == 0:
         return "none"
-
     top_cls, top_count = Counter(history).most_common(1)[0]
     if top_count >= vote_min:
         return top_cls
@@ -279,7 +274,7 @@ def stabilize_cls(history, vote_min=3):
 
 
 # =========================
-# MediaPipe 初始化
+# MediaPipe 初始化与主循环
 # =========================
 BaseOptions = mp.tasks.BaseOptions
 HandLandmarker = mp.tasks.vision.HandLandmarker
@@ -366,11 +361,11 @@ with HandLandmarker.create_from_options(options) as landmarker:
             if tracking_active:
                 use_keep_thresholds = not fist_family_start
 
+                # 调用更新后的 MNT 识别逻辑
                 raw_cls_base, info = classify_mnt_robust(
                     hand,
                     True,
                     th_gap=TH_GAP_KEEP if use_keep_thresholds else TH_GAP,
-                    th_margin=TH_MARGIN_KEEP if use_keep_thresholds else TH_MARGIN,
                     th_e=TH_E,
                     th_seg=TH_SEG_KEEP if use_keep_thresholds else TH_SEG,
                     th_z=TH_Z_KEEP if use_keep_thresholds else TH_Z
@@ -394,6 +389,7 @@ with HandLandmarker.create_from_options(options) as landmarker:
                     last_raw_cls = raw_cls
                     last_stable_cls = stable_cls
 
+            # ---------------- 绘制部分 ----------------
             for lm in hand:
                 x = int(lm.x * w)
                 y = int(lm.y * h)
@@ -414,6 +410,7 @@ with HandLandmarker.create_from_options(options) as landmarker:
                 cv2.putText(frame, str(i), (x + 6, y - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
 
             if info:
+                # 绘制 T/N/M 的 gap 辅助点
                 for name, gap in [("T", info.get("gap_t")), ("N", info.get("gap_n")), ("M", info.get("gap_m"))]:
                     if gap is None:
                         continue
@@ -450,12 +447,11 @@ with HandLandmarker.create_from_options(options) as landmarker:
             )
 
             if info:
-                d_t = info.get("dT", -1)
-                d_n = info.get("dN", -1)
-                d_m = info.get("dM", -1)
+                t_thumb = info.get("t_thumb", -1)
+                t_middle = info.get("t_middle", -1)
+                t_ring = info.get("t_ring", -1)
                 d_e = info.get("dE", -1)
                 best = info.get("best")
-                margin = info.get("margin")
                 seg_dist = info.get("seg_dist")
                 seg_t = info.get("seg_t")
                 thumb_z = info.get("thumb_z")
@@ -464,13 +460,12 @@ with HandLandmarker.create_from_options(options) as landmarker:
                 inserted_xy = info.get("inserted_xy", False)
                 inserted_z = info.get("inserted_z", False)
 
-                cv2.putText(frame, f"dT={d_t:.3f} dN={d_n:.3f} dM={d_m:.3f} dE={d_e:.3f}", (20, 190), cv2.FONT_HERSHEY_SIMPLEX, 0.60, (255, 255, 255), 2)
-
-                margin_text = "None" if margin is None else f"{margin:.3f}"
-                cv2.putText(frame, f"best={best} margin={margin_text}", (20, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.60, (255, 255, 255), 2)
+                # 更新显示为新的拓扑特征指标
+                cv2.putText(frame, f"thumb={t_thumb:.2f} mid(N)={t_middle:.2f} ring(M)={t_ring:.2f} dE={d_e:.2f}", (20, 190), cv2.FONT_HERSHEY_SIMPLEX, 0.60, (255, 255, 255), 2)
+                cv2.putText(frame, f"best_zone={best}", (20, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.60, (255, 255, 255), 2)
 
                 if seg_dist is not None and seg_t is not None:
-                    cv2.putText(frame, f"seg_dist={seg_dist:.3f} seg_t={seg_t:.3f}", (20, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.60, (255, 255, 255), 2)
+                    cv2.putText(frame, f"seg_dist={seg_dist:.3f} seg_t={seg_t:.3f} (must < 0.65)", (20, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.60, (255, 255, 255), 2)
 
                 if thumb_z is not None and gap_z is not None and z_diff is not None:
                     cv2.putText(frame, f"thumb_z={thumb_z:.3f} gap_z={gap_z:.3f} z_diff={z_diff:.3f}", (20, 280), cv2.FONT_HERSHEY_SIMPLEX, 0.60, (255, 255, 255), 2)
@@ -488,7 +483,7 @@ with HandLandmarker.create_from_options(options) as landmarker:
                 )
                 cv2.putText(
                     frame,
-                    f"TH_GAP={TH_GAP:.2f}/{TH_GAP_KEEP:.2f} TH_MARGIN={TH_MARGIN:.2f}/{TH_MARGIN_KEEP:.2f} TH_SEG={TH_SEG:.2f}/{TH_SEG_KEEP:.2f} TH_Z={TH_Z:.2f}/{TH_Z_KEEP:.2f}",
+                    f"TH_GAP={TH_GAP:.2f} TH_SEG={TH_SEG:.2f} TH_Z={TH_Z:.2f}",
                     (20, 370),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.50,
@@ -511,7 +506,7 @@ with HandLandmarker.create_from_options(options) as landmarker:
                 last_raw_cls = "yolo"
                 last_stable_cls = "yolo"
 
-        cv2.imshow("MNT v3", frame)
+        cv2.imshow("MNT Vision Test", frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == 27:

@@ -8,7 +8,8 @@ import mediapipe as mp
 import numpy as np
 
 from .ij_dz_dynamic_detector import DynamicLetterSession
-from .mnt_hybrid_detector import classify_mn_only
+# 注意这里：根据你之前提供的代码，文件名如果是 mn_hybrid_detector.py，导入函数就是 classify_mnt_only
+from .mn_hybrid_detector import classify_mnt_only 
 from test_hand_letters import YOLOStage, clamp_box, cv2, draw_box, select_device
 
 
@@ -232,7 +233,8 @@ class PQHybridDetector:
             self.last_yolo_payload = yolo_payload
             yolo_text = yolo_payload["text"]
             special_candidate = self._pick_special_candidate(yolo_payload["hands"])
-            if special_candidate in ("P", "Q", "M", "N", "I", "D"):
+            # 修改点 1：把 T 加入到可以激活 MediaPipe 的候选列表中
+            if special_candidate in ("P", "Q", "M", "N", "T", "I", "D"):
                 self._activate_mediapipe(special_candidate)
 
         mp_payload = None
@@ -250,11 +252,13 @@ class PQHybridDetector:
             engine = "mediapipe"
             if self.expected_label in ("P", "Q") and mp_payload["stable"] in ("P", "Q"):
                 final_text = mp_payload["stable"]
-            elif self.expected_label in ("M", "N") and mp_payload["stable"] in ("M", "N"):
+            # 修改点 2：将 T 加入到 M/N 的预期和稳定判断中
+            elif self.expected_label in ("M", "N", "T") and mp_payload["stable"] in ("M", "N", "T"):
                 final_text = mp_payload["stable"]
             elif self.expected_label in ("I", "D") and mp_payload["stable"] in ("I", "J", "D", "Z"):
                 final_text = mp_payload["stable"]
-            elif self.expected_label in ("P", "Q", "M", "N"):
+            # 修改点 3：在 fallback 中加入 T
+            elif self.expected_label in ("P", "Q", "M", "N", "T"):
                 final_text = self.expected_label
 
         latency_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -374,8 +378,9 @@ class PQHybridDetector:
                 raw_cls, info = classify_pq_robust(hand, index_ok, middle_ok, ring_ok, pinky_ok)
                 self.cls_history.append(raw_cls)
                 stable_cls = stabilize_cls(self.cls_history, vote_min=VOTE_MIN)
-            elif self.expected_label in ("M", "N"):
-                raw_cls, info = classify_mn_only(hand)
+            # 修改点 4：将 T 加入到路由判断，并调用我们更新过的新函数名 classify_mnt_only
+            elif self.expected_label in ("M", "N", "T"):
+                raw_cls, info = classify_mnt_only(hand)
                 self.cls_history.append(raw_cls)
                 stable_cls = stabilize_cls(self.cls_history, vote_min=VOTE_MIN)
             elif self.expected_label == "I":
@@ -423,10 +428,16 @@ class PQHybridDetector:
                 (255, 255, 255),
                 2,
             )
-            if self.expected_label in ("M", "N"):
+            # 修改点 5：修改这里让 M, N, T 的相关辅助信息正确展示
+            if self.expected_label in ("M", "N", "T"):
                 cv2.putText(
                     output,
-                    "M/N dM={0:.3f} dN={1:.3f} best={2}".format(info.get("dM", -1), info.get("dN", -1), info.get("best", "-")),
+                    "M/N/T t_thumb={0:.2f} t_mid={1:.2f} t_ring={2:.2f} best={3}".format(
+                        info.get("t_thumb", -1),
+                        info.get("t_middle", -1),
+                        info.get("t_ring", -1),
+                        info.get("best", "-")
+                    ),
                     (20, 125),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.58,
@@ -475,7 +486,8 @@ class PQHybridDetector:
     def _pick_special_candidate(self, hands):
         for hand in hands:
             text = hand.get("text", "")
-            if text in ("P", "Q", "M", "N", "I", "D"):
+            # 修改点 6：确保 T 能被选中作为特殊候选者
+            if text in ("P", "Q", "M", "N", "T", "I", "D"):
                 return text
         return None
 
@@ -517,7 +529,8 @@ class PQHybridDetector:
         return round(max(0.0, remaining), 2)
 
     def _current_grace_seconds(self):
-        if self.expected_label in ("M", "N"):
+        # 修改点 7：把 T 的退出宽限时间加入
+        if self.expected_label in ("M", "N", "T"):
             return self.mn_exit_grace_seconds
         if self.expected_label in ("I", "D"):
             return self.ij_dz_exit_grace_seconds
