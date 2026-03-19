@@ -15,32 +15,26 @@ WINDOW_HEIGHT = 900
 
 NUM_HANDS = 1
 
-# 为了减少大幅动作时的断触，这里比之前更宽松
+# 为减少大幅动作时断触，设得更宽松
 MIN_HAND_DETECTION_CONFIDENCE = 0.35
 MIN_HAND_PRESENCE_CONFIDENCE = 0.30
 MIN_TRACKING_CONFIDENCE = 0.30
 
-# 手指 straight / bent
+# 四指 straight / bent 判断
 FINGER_STRAIGHT_THRESHOLD = 160
 
-# Z 动态检测
-TRAJ_WINDOW = 24          # 轨迹缓存长度，放大一点更适合画大范围 Z
+# Z 动态检测 (左右晃动)
+TRAJ_WINDOW = 24          # 轨迹缓存长度
 MIN_TRACK_FRAMES = 8      # 少于这个帧数时，先按 D 看
 
-TH_STILL_PATH = 0.35      # 静止时总路径阈值（掌宽归一化后）
-TH_STILL_END = 0.12       # 静止时首尾位移阈值
-
-TH_MOVE = 0.85            # 认为“明显在画 Z”的总路径阈值
-TH_HORIZ = 0.18           # 第一/三段横向位移阈值
-TH_DIAG_X = 0.12          # 第二段斜线 x 位移阈值
-TH_DIAG_Y = 0.12          # 第二段斜线 y 位移阈值
-TH_CURVE = 1.20           # 曲线度阈值
-TH_OVERALL_DOWN = 0.10    # 整体向下趋势
-HORIZ_RATIO = 1.20        # 横向段：|dx| > HORIZ_RATIO * |dy|
+# 移除了静止阈值，D 现在是默认状态
+TH_MOVE = 0.60            # 明显有动作的总路径阈值
+TH_WAVE_CURVE = 1.5       # 判断“来回晃动”的折返阈值 (路径总长/首尾距离)
+XY_RATIO = 1.5            # X轴运动量是Y轴的多少倍才算“左右”
 
 # 防断触关键参数
 NO_HAND_GRACE = 5         # 手完全丢失后允许保留的帧数
-FAMILY_GRACE = 6          # 家族判定失败后允许保留的帧数
+FAMILY_GRACE = 10         # 家族判定失败后允许保留的帧数
 
 # 多帧稳定
 VOTE_WINDOW = 5
@@ -62,7 +56,7 @@ def dist_xy(p1, p2):
 
 def palm_scale(hand):
     """
-    用掌宽归一化：5(食指根) 到 17(小指根)
+    用掌宽做归一化：5(食指根) 到 17(小指根)
     """
     scale = dist_xy(point_xy(hand[5]), point_xy(hand[17]))
     return max(scale, 1e-6)
@@ -121,54 +115,6 @@ def smooth_points(points, window=3):
     return smoothed
 
 
-def cumulative_lengths(points):
-    """
-    累积路径长度
-    """
-    if len(points) == 0:
-        return [0.0]
-
-    cum = [0.0]
-    for i in range(1, len(points)):
-        cum.append(cum[-1] + dist_xy(points[i - 1], points[i]))
-    return cum
-
-
-def point_at_fraction(points, frac):
-    """
-    按“路径长度比例”取点，比按帧数分段更稳
-    frac: 0~1
-    """
-    if len(points) == 0:
-        return (0.0, 0.0)
-    if len(points) == 1:
-        return points[0]
-
-    frac = max(0.0, min(1.0, frac))
-    cum = cumulative_lengths(points)
-    total = cum[-1]
-
-    if total == 0:
-        return points[0]
-
-    target = frac * total
-
-    for i in range(1, len(points)):
-        if cum[i] >= target:
-            prev_len = cum[i - 1]
-            seg_len = cum[i] - prev_len
-
-            if seg_len == 0:
-                return points[i]
-
-            t = (target - prev_len) / seg_len
-            x = points[i - 1][0] + t * (points[i][0] - points[i - 1][0])
-            y = points[i - 1][1] + t * (points[i][1] - points[i - 1][1])
-            return (x, y)
-
-    return points[-1]
-
-
 # =========================
 # 手指 straight / bent 判断
 # =========================
@@ -192,35 +138,28 @@ def is_dz_family(index_ok, middle_ok, ring_ok, pinky_ok):
 
 def is_dz_family_keep(index_ok, middle_ok, ring_ok, pinky_ok):
     """
-    跟踪已经开始后，续判更宽松一些，减少断触
+    跟踪开始后，续判放宽一些，减少断触。
+    【核心修复】：食指必须是伸直的，握拳绝对不行！
+    其余三指（中、无名、小）只要有两个以上弯曲即可（允许一个误判）。
     """
-    return index_ok and ((not ring_ok) or (not pinky_ok))
+    other_bent_count = (not middle_ok) + (not ring_ok) + (not pinky_ok)
+    return index_ok and (other_bent_count >= 2)
 
 
 # =========================
-# D / Z 动态分类
+# D / Z 动态分类 (D为绝对保底版)
 # =========================
 def classify_dz_dynamic(
     samples,
     min_track_frames=8,
-    th_still_path=0.35,
-    th_still_end=0.12,
-    th_move=0.85,
-    th_horiz=0.18,
-    th_diag_x=0.12,
-    th_diag_y=0.12,
-    th_curve=1.20,
-    th_overall_down=0.10,
-    horiz_ratio=1.20,
+    th_move=0.60,
+    th_wave_curve=1.5,
+    xy_ratio=1.5
 ):
     """
-    samples: [(x, y, scale), ...]
-    x/y 是整张图里的归一化坐标，不是相对 wrist 的坐标
-
-    逻辑：
-    - 静止 / 几乎不动 -> D
-    - 轨迹满足“横 -> 斜下反向 -> 横” -> Z
-    - 否则 -> uncertain
+    极简版动态分类：
+    1) 只要不满足 Z，怎么动默认都是 D
+    2) 左右明显晃动 -> Z
     """
     if len(samples) == 0:
         return "not_dz", {}
@@ -239,79 +178,37 @@ def classify_dz_dynamic(
     end_disp = dist_xy(traj[0], traj[-1])
     curve_ratio = total_len / max(end_disp, 1e-6)
 
-    # 用路径比例取三段关键点
-    p0 = traj[0]
-    p1 = point_at_fraction(traj, 1 / 3)
-    p2 = point_at_fraction(traj, 2 / 3)
-    p3 = traj[-1]
-
-    # 三段位移
-    s1x, s1y = p1[0] - p0[0], p1[1] - p0[1]
-    s2x, s2y = p2[0] - p1[0], p2[1] - p1[1]
-    s3x, s3y = p3[0] - p2[0], p3[1] - p2[1]
-
     not_enough_frames = len(traj) < min_track_frames
 
-    still_enough = (total_len < th_still_path) and (end_disp < th_still_end)
+    # 计算 X 和 Y 方向的累计绝对位移
+    sum_dx = 0.0
+    sum_dy = 0.0
+    for i in range(1, len(traj)):
+        sum_dx += abs(traj[i][0] - traj[i-1][0])
+        sum_dy += abs(traj[i][1] - traj[i-1][1])
+
+    # Z的三个条件
     moved_enough = total_len > th_move
-
-    # 第一段：横向
-    horiz1 = (abs(s1x) > th_horiz) and (abs(s1x) > horiz_ratio * abs(s1y))
-
-    # 第二段：斜向下，且 x/y 都要有明显分量
-    diag2 = (
-        abs(s2x) > th_diag_x and
-        s2y > th_diag_y and
-        abs(s2x) > 0.40 * abs(s2y) and
-        abs(s2x) < 3.00 * abs(s2y)
-    )
-
-    # 第三段：横向
-    horiz3 = (abs(s3x) > th_horiz) and (abs(s3x) > horiz_ratio * abs(s3y))
-
-    # Z 形方向关系：
-    # 第一段和第三段横向方向一致
-    # 第二段横向方向与它们相反
-    zigzag_dir = (s1x * s3x > 0) and (s1x * s2x < 0)
-
-    # 整体应有一点向下趋势
-    overall_down = (p3[1] - p0[1]) > th_overall_down
+    is_horizontal = sum_dx > (sum_dy * xy_ratio)
+    is_waving = curve_ratio > th_wave_curve
 
     if not_enough_frames:
         cls = "D"
-    elif still_enough:
-        cls = "D"
-    elif moved_enough and horiz1 and diag2 and horiz3 and zigzag_dir and overall_down and (curve_ratio > th_curve):
+    elif moved_enough and is_horizontal and is_waving:
         cls = "Z"
-    elif total_len < (th_move * 0.55):
-        cls = "D"
     else:
-        cls = "uncertain"
-
-    # 方便画图
-    disp_p1 = point_at_fraction(smoothed, 1 / 3)
-    disp_p2 = point_at_fraction(smoothed, 2 / 3)
+        cls = "D"  # 无论是在移动还是静止，只要姿势还在，统统都是 D
 
     return cls, {
         "num_points": len(traj),
         "total_len": total_len,
         "end_disp": end_disp,
         "curve_ratio": curve_ratio,
-
-        "s1x": s1x, "s1y": s1y,
-        "s2x": s2x, "s2y": s2y,
-        "s3x": s3x, "s3y": s3y,
-
-        "horiz1": horiz1,
-        "diag2": diag2,
-        "horiz3": horiz3,
-        "zigzag_dir": zigzag_dir,
-        "overall_down": overall_down,
-        "still_enough": still_enough,
+        "sum_dx": sum_dx,
+        "sum_dy": sum_dy,
         "moved_enough": moved_enough,
-
-        "disp_p1": disp_p1,
-        "disp_p2": disp_p2,
+        "is_horizontal": is_horizontal,
+        "is_waving": is_waving,
     }
 
 
@@ -376,6 +273,9 @@ with HandLandmarker.create_from_options(options) as landmarker:
         if not ret:
             print("读取摄像头画面失败")
             break
+            
+        # 镜像反转画面（操作更直观）
+        frame = cv2.flip(frame, 1)
 
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
@@ -406,16 +306,16 @@ with HandLandmarker.create_from_options(options) as landmarker:
             dz_family_start = is_dz_family(index_ok, middle_ok, ring_ok, pinky_ok)
             dz_family_keep = is_dz_family_keep(index_ok, middle_ok, ring_ok, pinky_ok)
 
-            # 当前帧食指尖
+            # 当前帧食指尖 (8)
             px = hand[8].x
             py = hand[8].y
             scale = palm_scale(hand)
 
+            # 控制跟踪生命周期
             if dz_family_start:
                 tracking_active = True
                 family_miss_count = 0
                 traj_buffer.append((px, py, scale))
-
             else:
                 if tracking_active:
                     if dz_family_keep:
@@ -441,15 +341,9 @@ with HandLandmarker.create_from_options(options) as landmarker:
                 raw_cls, info = classify_dz_dynamic(
                     list(traj_buffer),
                     min_track_frames=MIN_TRACK_FRAMES,
-                    th_still_path=TH_STILL_PATH,
-                    th_still_end=TH_STILL_END,
                     th_move=TH_MOVE,
-                    th_horiz=TH_HORIZ,
-                    th_diag_x=TH_DIAG_X,
-                    th_diag_y=TH_DIAG_Y,
-                    th_curve=TH_CURVE,
-                    th_overall_down=TH_OVERALL_DOWN,
-                    horiz_ratio=HORIZ_RATIO,
+                    th_wave_curve=TH_WAVE_CURVE,
+                    xy_ratio=XY_RATIO,
                 )
 
                 cls_history.append(raw_cls)
@@ -483,17 +377,6 @@ with HandLandmarker.create_from_options(options) as landmarker:
             if len(traj_px) > 0:
                 cv2.circle(frame, traj_px[0], 5, (0, 255, 0), -1)
                 cv2.circle(frame, traj_px[-1], 5, (0, 0, 255), -1)
-
-            # 画 1/3 和 2/3 分段点
-            if info:
-                disp_p1 = info.get("disp_p1", None)
-                disp_p2 = info.get("disp_p2", None)
-                if disp_p1 is not None:
-                    p1 = (int(disp_p1[0] * w), int(disp_p1[1] * h))
-                    cv2.circle(frame, p1, 5, (255, 255, 0), -1)
-                if disp_p2 is not None:
-                    p2 = (int(disp_p2[0] * w), int(disp_p2[1] * h))
-                    cv2.circle(frame, p2, 5, (255, 128, 0), -1)
 
             # ===== 标题信息 =====
             cls_color = (0, 0, 255) if stable_cls == "Z" else (0, 255, 255) if stable_cls == "D" else (200, 200, 200)
@@ -533,21 +416,14 @@ with HandLandmarker.create_from_options(options) as landmarker:
                 end_disp = info.get("end_disp", -1)
                 curve_ratio = info.get("curve_ratio", -1)
 
-                s1x = info.get("s1x", 0)
-                s1y = info.get("s1y", 0)
-                s2x = info.get("s2x", 0)
-                s2y = info.get("s2y", 0)
-                s3x = info.get("s3x", 0)
-                s3y = info.get("s3y", 0)
+                sum_dx = info.get("sum_dx", 0)
+                sum_dy = info.get("sum_dy", 0)
 
-                horiz1 = info.get("horiz1", False)
-                diag2 = info.get("diag2", False)
-                horiz3 = info.get("horiz3", False)
-                zigzag_dir = info.get("zigzag_dir", False)
-                overall_down = info.get("overall_down", False)
-                still_enough = info.get("still_enough", False)
                 moved_enough = info.get("moved_enough", False)
+                is_horizontal = info.get("is_horizontal", False)
+                is_waving = info.get("is_waving", False)
 
+                # 第一行数据：路径与折返率
                 cv2.putText(
                     frame,
                     f"path={total_len:.3f} end={end_disp:.3f} curve={curve_ratio:.3f}",
@@ -558,9 +434,10 @@ with HandLandmarker.create_from_options(options) as landmarker:
                     2
                 )
 
+                # 第二行数据：方向位移与判定标志
                 cv2.putText(
                     frame,
-                    f"s1=({s1x:.2f},{s1y:.2f}) s2=({s2x:.2f},{s2y:.2f}) s3=({s3x:.2f},{s3y:.2f})",
+                    f"dx={sum_dx:.2f} dy={sum_dy:.2f} horiz={is_horizontal} waving={is_waving}",
                     (20, 155),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.53,
@@ -568,9 +445,10 @@ with HandLandmarker.create_from_options(options) as landmarker:
                     2
                 )
 
+                # 第三行数据：综合状态
                 cv2.putText(
                     frame,
-                    f"h1={horiz1} d2={diag2} h3={horiz3} zigzag={zigzag_dir} down={overall_down}",
+                    f"move={moved_enough} miss_family={family_miss_count} miss_hand={no_hand_miss_count}",
                     (20, 185),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.53,
@@ -578,18 +456,8 @@ with HandLandmarker.create_from_options(options) as landmarker:
                     2
                 )
 
-                cv2.putText(
-                    frame,
-                    f"still={still_enough} move={moved_enough} miss_family={family_miss_count} miss_hand={no_hand_miss_count}",
-                    (20, 215),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.52,
-                    (255, 255, 255),
-                    2
-                )
-
         else:
-            # 当前帧没检测到手
+            # 当前帧完全没检测到手
             no_hand_miss_count += 1
 
             if tracking_active and no_hand_miss_count <= NO_HAND_GRACE:

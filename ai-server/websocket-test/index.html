@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Server WebSocket Tester</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero">
+      <p class="eyebrow">AI Server</p>
+      <h1>WebSocket 模型联调页</h1>
+      <p class="hero-copy">
+        用这个静态页面直接连接模型服务，发送测试消息，观察服务端返回。
+      </p>
+    </section>
+
+    <section class="panel connection-panel">
+      <div class="panel-header">
+        <h2>连接配置</h2>
+        <span id="statusBadge" class="badge idle">未连接</span>
+      </div>
+
+      <div class="field-grid">
+        <label class="field">
+          <span>WebSocket 地址</span>
+          <input id="wsUrl" type="text" value="ws://localhost:8000/ws" />
+        </label>
+
+        <label class="field">
+          <span>连接标签</span>
+          <input id="clientName" type="text" value="mediapipe-debug-client" />
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="connectBtn" class="btn btn-primary" type="button">连接</button>
+        <button id="disconnectBtn" class="btn btn-secondary" type="button" disabled>断开</button>
+        <button id="clearLogBtn" class="btn btn-ghost" type="button">清空日志</button>
+      </div>
+
+      <p class="hint">
+        当前页面是标准 WebSocket 测试页，适合 `ws://...` 接口。如果你后面要测 `Socket.IO`，需要单独接入 Socket.IO 客户端。
+      </p>
+    </section>
+
+    <section class="workspace">
+      <section class="panel composer-panel">
+        <div class="panel-header">
+          <h2>发送消息</h2>
+          <button id="useTemplateBtn" class="text-btn" type="button">填充示例</button>
+        </div>
+
+        <label class="field">
+          <span>消息内容</span>
+          <textarea id="messageInput" rows="10" spellcheck="false"></textarea>
+        </label>
+
+        <div class="actions">
+          <button id="sendTextBtn" class="btn btn-primary" type="button" disabled>发送文本</button>
+          <button id="sendJsonBtn" class="btn btn-secondary" type="button" disabled>发送 JSON</button>
+        </div>
+
+        <div class="template-box">
+          <p class="template-title">常用示例</p>
+          <div class="chips">
+            <button class="chip" type="button" data-template="ping">ping</button>
+            <button class="chip" type="button" data-template="start">start</button>
+            <button class="chip" type="button" data-template="frame">frame</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel log-panel">
+        <div class="panel-header">
+          <h2>消息日志</h2>
+          <span id="messageCount" class="meta">0 条</span>
+        </div>
+
+        <div id="logOutput" class="log-output" aria-live="polite"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

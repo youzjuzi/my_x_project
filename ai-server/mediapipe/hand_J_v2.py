@@ -22,23 +22,21 @@ MIN_TRACKING_CONFIDENCE = 0.30
 
 # 四指 straight / bent 判断
 FINGER_STRAIGHT_THRESHOLD = 160
-PINKY_STRAIGHT_THRESHOLD = 145
+# 专门为小拇指放宽阈值，允许手腕转动时产生的 2D 角度形变
+PINKY_STRAIGHT_THRESHOLD = 110 
 
-# J 动态检测
-TRAJ_WINDOW = 24          # 稍大一点，适合画大一点的 J
+# J 动态检测 (上下晃动)
+TRAJ_WINDOW = 24          # 轨迹缓存长度
 MIN_TRACK_FRAMES = 8      # 少于这个帧数时，先按 I 看
 
-TH_STILL_PATH = 0.35      # 静止时总路径阈值（掌宽归一化后）
-TH_STILL_END = 0.10       # 静止时首尾位移阈值
-TH_MOVE = 0.65            # 明显有动作
-TH_DOWN = 0.20            # 前半段向下位移阈值
-TH_HOOK = 0.12            # 后半段横向勾位移阈值
-TH_CURVE = 1.15           # 曲线度阈值
-TH_END_FOR_CURVE = 0.20   # 末端位移足够大时，curve 才有意义
+# 移除了静止阈值对分类的限制，I 现在是默认状态
+TH_MOVE = 0.60            # 明显有动作的总路径阈值
+TH_WAVE_CURVE = 1.5       # 判断“来回晃动”的折返阈值 (路径总长/首尾距离)
+YX_RATIO = 1.5            # Y轴运动量是X轴的多少倍才算“上下”
 
 # 防断触关键参数
 NO_HAND_GRACE = 5         # 手完全丢失后允许保留的帧数
-FAMILY_GRACE = 10         # 家族判定失败后允许保留的帧数
+FAMILY_GRACE = 10         # 家族判定失败后允许保留的帧数（握拳后约等待10帧消失）
 
 # 多帧稳定
 VOTE_WINDOW = 5
@@ -143,35 +141,27 @@ def is_ij_family(index_ok, middle_ok, ring_ok, pinky_ok):
 def is_ij_family_keep(index_ok, middle_ok, ring_ok, pinky_ok):
     """
     跟踪开始后，续判放宽一些，减少断触。
-    小拇指正对摄像头时，2D 角度会明显变小，所以续判不再强依赖 pinky_ok。
+    【核心修复】：小拇指必须是伸直的，握拳绝对不行！
+    其余三指（食、中、无名）只要有两个以上弯曲即可（允许一个误判）。
     """
-    return (pinky_ok and ((not middle_ok) or (not ring_ok))) or (
-        (not index_ok) and (not middle_ok) and (not ring_ok)
-    )
+    other_bent_count = (not index_ok) + (not middle_ok) + (not ring_ok)
+    return pinky_ok and (other_bent_count >= 2)
 
 
 # =========================
-# I / J 动态分类
+# I / J 动态分类 (I为绝对保底版)
 # =========================
 def classify_ij_dynamic(
     samples,
     min_track_frames=8,
-    th_still_path=0.35,
-    th_still_end=0.10,
-    th_move=0.65,
-    th_down=0.20,
-    th_hook=0.12,
-    th_curve=1.15,
-    th_end_for_curve=0.20,
+    th_move=0.60,
+    th_wave_curve=1.5,
+    yx_ratio=1.5
 ):
     """
-    samples: [(x, y, scale), ...]
-    x/y 是整张图里的归一化坐标，不是相对 wrist 的坐标
-
-    逻辑：
-    1) 轨迹很短 / 基本不动 -> I
-    2) 轨迹足够长，前半段向下，后半段横向勾，且整体不是直线 -> J
-    3) 其他 -> uncertain
+    极简版动态分类：
+    1) 只要不满足 J，怎么动默认都是 I
+    2) 上下明显晃动 -> J
     """
     if len(samples) == 0:
         return "not_ij", {}
@@ -190,70 +180,37 @@ def classify_ij_dynamic(
     end_disp = dist_xy(traj[0], traj[-1])
     curve_ratio = total_len / max(end_disp, 1e-6)
 
-    if len(traj) < 2:
-        return "I", {
-            "num_points": len(traj),
-            "total_len": total_len,
-            "end_disp": end_disp,
-            "curve_ratio": curve_ratio,
-            "first_dx": 0.0,
-            "first_dy": 0.0,
-            "second_dx": 0.0,
-            "second_dy": 0.0,
-            "still_enough": True,
-            "moved_enough": False,
-            "down_first": False,
-            "hook_later": False,
-            "curved_enough": False,
-        }
-
-    k = min(max(1, len(traj) // 2), len(traj) - 1)
-
-    first_dx = traj[k][0] - traj[0][0]
-    first_dy = traj[k][1] - traj[0][1]
-
-    second_dx = traj[-1][0] - traj[k][0]
-    second_dy = traj[-1][1] - traj[k][1]
-
     not_enough_frames = len(traj) < min_track_frames
 
-    still_enough = (total_len < th_still_path) and (end_disp < th_still_end)
+    # 计算 X 和 Y 方向的累计绝对位移
+    sum_dx = 0.0
+    sum_dy = 0.0
+    for i in range(1, len(traj)):
+        sum_dx += abs(traj[i][0] - traj[i-1][0])
+        sum_dy += abs(traj[i][1] - traj[i-1][1])
+
+    # J的三个条件
     moved_enough = total_len > th_move
-
-    # 前半段向下
-    down_first = (first_dy > th_down) and (abs(first_dy) > 0.60 * abs(first_dx))
-
-    # 后半段有横向钩
-    hook_later = (abs(second_dx) > th_hook) and (abs(second_dx) > 0.40 * abs(second_dy))
-
-    # 只有末端位移足够大时，curve 才有意义
-    curved_enough = (end_disp > th_end_for_curve) and (curve_ratio > th_curve)
+    is_vertical = sum_dy > (sum_dx * yx_ratio)
+    is_waving = curve_ratio > th_wave_curve
 
     if not_enough_frames:
         cls = "I"
-    elif still_enough:
-        cls = "I"
-    elif moved_enough and down_first and hook_later and curved_enough:
+    elif moved_enough and is_vertical and is_waving:
         cls = "J"
-    elif total_len < (th_move * 0.5):
-        cls = "I"
     else:
-        cls = "uncertain"
+        cls = "I"  # 无论你是在移动、还是静止，只要姿势还在，统统都是 I
 
     return cls, {
         "num_points": len(traj),
         "total_len": total_len,
         "end_disp": end_disp,
         "curve_ratio": curve_ratio,
-        "first_dx": first_dx,
-        "first_dy": first_dy,
-        "second_dx": second_dx,
-        "second_dy": second_dy,
-        "still_enough": still_enough,
+        "sum_dx": sum_dx,
+        "sum_dy": sum_dy,
         "moved_enough": moved_enough,
-        "down_first": down_first,
-        "hook_later": hook_later,
-        "curved_enough": curved_enough,
+        "is_vertical": is_vertical,
+        "is_waving": is_waving,
     }
 
 
@@ -318,6 +275,9 @@ with HandLandmarker.create_from_options(options) as landmarker:
         if not ret:
             print("读取摄像头画面失败")
             break
+            
+        # 镜像反转画面（操作更直观）
+        frame = cv2.flip(frame, 1)
 
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
@@ -348,16 +308,16 @@ with HandLandmarker.create_from_options(options) as landmarker:
             ij_family_start = is_ij_family(index_ok, middle_ok, ring_ok, pinky_ok)
             ij_family_keep = is_ij_family_keep(index_ok, middle_ok, ring_ok, pinky_ok)
 
-            # 当前帧小拇指尖
+            # 当前帧小拇指尖 (20)
             px = hand[20].x
             py = hand[20].y
             scale = palm_scale(hand)
 
+            # 控制跟踪生命周期
             if ij_family_start:
                 tracking_active = True
                 family_miss_count = 0
                 traj_buffer.append((px, py, scale))
-
             else:
                 if tracking_active:
                     if ij_family_keep:
@@ -383,13 +343,9 @@ with HandLandmarker.create_from_options(options) as landmarker:
                 raw_cls, info = classify_ij_dynamic(
                     list(traj_buffer),
                     min_track_frames=MIN_TRACK_FRAMES,
-                    th_still_path=TH_STILL_PATH,
-                    th_still_end=TH_STILL_END,
                     th_move=TH_MOVE,
-                    th_down=TH_DOWN,
-                    th_hook=TH_HOOK,
-                    th_curve=TH_CURVE,
-                    th_end_for_curve=TH_END_FOR_CURVE,
+                    th_wave_curve=TH_WAVE_CURVE,
+                    yx_ratio=YX_RATIO,
                 )
 
                 cls_history.append(raw_cls)
@@ -462,17 +418,14 @@ with HandLandmarker.create_from_options(options) as landmarker:
                 end_disp = info.get("end_disp", -1)
                 curve_ratio = info.get("curve_ratio", -1)
 
-                first_dx = info.get("first_dx", 0)
-                first_dy = info.get("first_dy", 0)
-                second_dx = info.get("second_dx", 0)
-                second_dy = info.get("second_dy", 0)
+                sum_dx = info.get("sum_dx", 0)
+                sum_dy = info.get("sum_dy", 0)
 
-                still_enough = info.get("still_enough", False)
                 moved_enough = info.get("moved_enough", False)
-                down_first = info.get("down_first", False)
-                hook_later = info.get("hook_later", False)
-                curved_enough = info.get("curved_enough", False)
+                is_vertical = info.get("is_vertical", False)
+                is_waving = info.get("is_waving", False)
 
+                # 第一行数据：路径与折返率
                 cv2.putText(
                     frame,
                     f"path={total_len:.3f} end={end_disp:.3f} curve={curve_ratio:.3f}",
@@ -483,9 +436,10 @@ with HandLandmarker.create_from_options(options) as landmarker:
                     2
                 )
 
+                # 第二行数据：方向位移与判定标志
                 cv2.putText(
                     frame,
-                    f"first=({first_dx:.2f},{first_dy:.2f}) second=({second_dx:.2f},{second_dy:.2f})",
+                    f"dx={sum_dx:.2f} dy={sum_dy:.2f} vertical={is_vertical} waving={is_waving}",
                     (20, 155),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.53,
@@ -493,22 +447,13 @@ with HandLandmarker.create_from_options(options) as landmarker:
                     2
                 )
 
+                # 第三行数据：综合状态
                 cv2.putText(
                     frame,
-                    f"still={still_enough} move={moved_enough} down={down_first} hook={hook_later} curved={curved_enough}",
+                    f"move={moved_enough} miss_family={family_miss_count} miss_hand={no_hand_miss_count}",
                     (20, 185),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.53,
-                    (255, 255, 255),
-                    2
-                )
-
-                cv2.putText(
-                    frame,
-                    f"miss_family={family_miss_count} miss_hand={no_hand_miss_count}",
-                    (20, 215),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.52,
                     (255, 255, 255),
                     2
                 )
