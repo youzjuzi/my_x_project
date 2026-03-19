@@ -1,5 +1,6 @@
 import argparse
 import sys
+import pathlib
 from pathlib import Path
 
 import torch
@@ -8,6 +9,21 @@ FILE = Path(__file__).resolve()
 ROOT = FILE.parent
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
+
+DEFAULT_HAND_WEIGHTS = ROOT / "runs/hand_detect_yolov5s_b32/weights/best.pt"
+DEFAULT_DIGIT_WEIGHTS = ROOT / "runs/digits_detect_yolov5b64/weights/best.pt"
+DEFAULT_SOURCE = "0"
+DEFAULT_IMGSZ = 640
+DEFAULT_HAND_CONF = 0.25
+DEFAULT_DIGIT_CONF = 0.25
+DEFAULT_IOU_THRES = 0.45
+DEFAULT_DEVICE = "cpu"
+DEFAULT_VIEW_SCALE = 1.0
+DEFAULT_MAX_DET = 100
+DEFAULT_MARGIN = 10
+
+if sys.platform.startswith("win"):
+    pathlib.PosixPath = pathlib.WindowsPath
 
 from models.common import DetectMultiBackend
 from utils.augmentations import letterbox
@@ -20,24 +36,24 @@ def parse_args():
     parser.add_argument(
         "--hand-weights",
         type=str,
-        default="ai-server/runs/hand_detect_yolov5s_b32/weights/best.pt",
+        default=str(DEFAULT_HAND_WEIGHTS),
         help="hand detector weights",
     )
     parser.add_argument(
         "--digit-weights",
         type=str,
-        default="ai-server/runs/digits_detect_yolov5b64/weights/best.pt",
+        default=str(DEFAULT_DIGIT_WEIGHTS),
         help="digit detector weights",
     )
-    parser.add_argument("--source", type=str, default="0", help="camera index or video path")
-    parser.add_argument("--imgsz", type=int, default=640, help="inference size")
-    parser.add_argument("--hand-conf", type=float, default=0.25, help="hand confidence threshold")
-    parser.add_argument("--digit-conf", type=float, default=0.25, help="digit confidence threshold")
-    parser.add_argument("--iou-thres", type=float, default=0.45, help="NMS IoU threshold")
-    parser.add_argument("--device", default="cpu", help="cuda device, i.e. 0 or cpu")
-    parser.add_argument("--view-scale", type=float, default=1.0, help="display scale")
-    parser.add_argument("--max-det", type=int, default=100, help="max detections per stage")
-    parser.add_argument("--margin", type=int, default=10, help="extra pixels around hand ROI")
+    parser.add_argument("--source", type=str, default=DEFAULT_SOURCE, help="camera index or video path")
+    parser.add_argument("--imgsz", type=int, default=DEFAULT_IMGSZ, help="inference size")
+    parser.add_argument("--hand-conf", type=float, default=DEFAULT_HAND_CONF, help="hand confidence threshold")
+    parser.add_argument("--digit-conf", type=float, default=DEFAULT_DIGIT_CONF, help="digit confidence threshold")
+    parser.add_argument("--iou-thres", type=float, default=DEFAULT_IOU_THRES, help="NMS IoU threshold")
+    parser.add_argument("--device", default=DEFAULT_DEVICE, help="cuda device, i.e. 0 or cpu")
+    parser.add_argument("--view-scale", type=float, default=DEFAULT_VIEW_SCALE, help="display scale")
+    parser.add_argument("--max-det", type=int, default=DEFAULT_MAX_DET, help="max detections per stage")
+    parser.add_argument("--margin", type=int, default=DEFAULT_MARGIN, help="extra pixels around hand ROI")
     return parser.parse_args()
 
 
