@@ -15,7 +15,6 @@ class SessionState:
         process_items_limit: int = 8,
         command_recognizer=None,
         command_mode_timeout_seconds: float = 2.5,
-        switch_cooldown_seconds: float = 1.8,
         stable_token_duration_seconds: float = 1.5,
     ) -> None:
         self.pc = pc
@@ -40,8 +39,7 @@ class SessionState:
         self.command_mode_started_at: Optional[float] = None
         self.command_mode_last_seen_at: Optional[float] = None
         self.command_mode_last_command_at: Optional[float] = None
-        self.switch_cooldown_seconds = switch_cooldown_seconds
-        self.last_switch_at: Optional[float] = None
+        self.switch_ready = True
 
     async def send_json(self, payload: Dict[str, object]) -> None:
         if self.channel is None or self.channel.readyState != "open":
@@ -170,6 +168,7 @@ class SessionState:
         self.command_mode_started_at = now
         self.command_mode_last_seen_at = now
         self.command_mode_last_command_at = None
+        self.switch_ready = True
         self.reset_display_state()
         if self.command_recognizer is not None:
             self.command_recognizer.reset()
@@ -210,6 +209,7 @@ class SessionState:
         self.command_mode_started_at = None
         self.command_mode_last_seen_at = None
         self.command_mode_last_command_at = None
+        self.switch_ready = True
         if self.command_recognizer is not None:
             self.command_recognizer.reset()
 
@@ -219,14 +219,16 @@ class SessionState:
             "switchToast": "",
         }
         command_gesture = str(command_result.get("commandGesture") or "").strip()
-        if command_gesture != "SWITCH":
+        command_candidate = str(command_result.get("commandCandidate") or "").strip()
+
+        if command_gesture != "SWITCH" and command_candidate != "SWITCH":
+            self.switch_ready = True
             return metadata
 
-        now = time.perf_counter()
-        if self.last_switch_at is not None and now - self.last_switch_at < self.switch_cooldown_seconds:
+        if command_gesture != "SWITCH" or not self.switch_ready:
             return metadata
 
-        self.last_switch_at = now
+        self.switch_ready = False
         self.mode = "letters" if self.mode == "digits" else "digits"
         self.reset_display_state(clear_cached=True)
         self.deactivate_command_mode()

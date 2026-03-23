@@ -6,7 +6,13 @@
           <video ref="videoRef" autoplay muted playsinline class="camera-feed"></video>
           <canvas ref="overlayCanvasRef" class="overlay-canvas"></canvas>
           <div v-if="isRecognitionReady && switchToast" class="switch-toast">
-            <div class="switch-toast-card">{{ switchToast }}</div>
+            <div class="switch-toast-backdrop"></div>
+            <div class="switch-scan-line"></div>
+            <div class="switch-toast-card">
+              <div class="switch-toast-ring"></div>
+              <div class="switch-toast-title">模式切换</div>
+              <div class="switch-toast-text">{{ switchToast }}</div>
+            </div>
           </div>
           <div v-if="!isRecognitionReady" class="startup-state">
             <div class="startup-card">
@@ -289,21 +295,74 @@ watch(
   justify-content: center;
   padding: 24px;
   pointer-events: none;
+  overflow: hidden;
+}
+
+.switch-toast-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at center, rgba(30, 122, 82, 0.22) 0%, rgba(30, 122, 82, 0.08) 32%, rgba(9, 18, 14, 0.56) 100%);
+  animation: switchBackdropPulse 1.5s ease forwards;
+}
+
+.switch-scan-line {
+  position: absolute;
+  left: -12%;
+  right: -12%;
+  top: 50%;
+  height: 96px;
+  transform: translateY(-50%) rotate(-8deg);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(121, 237, 176, 0.1) 28%,
+    rgba(121, 237, 176, 0.5) 50%,
+    rgba(121, 237, 176, 0.1) 72%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  filter: blur(10px);
+  animation: switchScanSweep 1.5s ease forwards;
 }
 
 .switch-toast-card {
+  position: relative;
+  z-index: 1;
   min-width: 220px;
   max-width: 80%;
-  padding: 16px 24px;
-  border-radius: 18px;
-  background: rgba(18, 93, 62, 0.92);
+  padding: 22px 28px 20px;
+  border-radius: 24px;
+  background: rgba(18, 93, 62, 0.9);
   color: #ffffff;
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1.2;
   text-align: center;
-  box-shadow: 0 18px 42px rgba(10, 38, 28, 0.24);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 24px 50px rgba(10, 38, 28, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  animation: switchCardReveal 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.switch-toast-ring {
+  position: absolute;
+  inset: -18px;
+  border-radius: 30px;
+  border: 1px solid rgba(132, 244, 191, 0.3);
+  animation: switchRingPulse 1.5s ease-out forwards;
+}
+
+.switch-toast-title {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(226, 255, 240, 0.8);
+}
+
+.switch-toast-text {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-shadow: 0 6px 20px rgba(5, 23, 16, 0.32);
 }
 
 .startup-card {
@@ -474,6 +533,83 @@ watch(
   }
 }
 
+@keyframes switchBackdropPulse {
+  0% {
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  85% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes switchScanSweep {
+  0% {
+    opacity: 0;
+    transform: translate(-24%, -50%) rotate(-8deg);
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(24%, -50%) rotate(-8deg);
+  }
+}
+
+@keyframes switchCardReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.92);
+  }
+
+  16% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  82% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(1.03);
+  }
+}
+
+@keyframes switchRingPulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  18% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
 @media (max-width: 992px) {
   .video-panel {
     padding: 16px;
@@ -498,7 +634,11 @@ watch(
   .switch-toast-card {
     min-width: 0;
     width: 100%;
-    font-size: 20px;
+    padding: 18px 20px 16px;
+  }
+
+  .switch-toast-text {
+    font-size: 24px;
   }
 
   .strip-main,
