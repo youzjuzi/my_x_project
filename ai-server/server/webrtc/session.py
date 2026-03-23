@@ -193,6 +193,10 @@ class SessionState:
             self.command_recognizer.reset()
 
     def build_command_result(self, command_result: Dict[str, object], image_shape) -> Dict[str, object]:
+        command_gesture = str(command_result.get("commandGesture") or "").strip()
+        command_candidate = str(command_result.get("commandCandidate") or "").strip()
+        display_text = command_gesture or command_candidate
+
         return {
             "type": "result",
             "mode": self.mode,
@@ -201,12 +205,12 @@ class SessionState:
             "imageWidth": int(image_shape[1]),
             "imageHeight": int(image_shape[0]),
             "handCount": int(command_result.get("commandHandCount") or 0),
-            "text": "",
+            "text": display_text,
             "hands": [],
             "commandModeActive": self.command_mode_active,
-            "commandGesture": str(command_result.get("commandGesture") or ""),
+            "commandGesture": command_gesture,
             "commandHandCount": int(command_result.get("commandHandCount") or 0),
-            "commandCandidate": str(command_result.get("commandCandidate") or ""),
+            "commandCandidate": command_candidate,
             "commandCounters": dict(command_result.get("commandCounters") or {}),
             "commandThreshold": int(command_result.get("commandThreshold") or 0),
         }
