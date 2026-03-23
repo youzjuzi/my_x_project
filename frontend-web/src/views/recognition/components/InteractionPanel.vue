@@ -21,7 +21,7 @@
           </div>
         </transition-group>
         <div v-if="gestureStream.length === 0" class="empty-tip">
-          开启摄像头后，这里会显示最近识别到的片段。
+          开启摄像头后，识别到的字符会按顺序显示在这里。
         </div>
       </div>
     </div>
@@ -32,16 +32,37 @@
           <el-icon><EditPen /></el-icon>
           <span>当前拼写</span>
         </div>
+        <span class="section-meta">{{ stabilityPercent }}%</span>
       </div>
 
       <div class="input-display">
-        <span class="pinyin-text">{{ pinyinBuffer || '等待输入' }}</span>
+        <div
+          class="pinyin-track"
+          :style="trackStyle"
+        ></div>
+        <span
+          class="pinyin-text"
+          :class="{ animating: hasInput }"
+          :style="pinyinStyle"
+        >
+          {{ pinyinBuffer || '等待输入' }}
+        </span>
+      </div>
+
+      <div class="cache-display">
+        <div class="cache-header">
+          <span class="label">稳定缓存</span>
+          <span class="tip">字符持续稳定一段时间后，会自动追加到这里。</span>
+        </div>
+        <div class="cache-value" :class="{ empty: !cachedBuffer }">
+          {{ cachedBuffer || '暂无已锁定字符' }}
+        </div>
       </div>
 
       <div class="candidates-area">
         <div class="candidates-header">
-          <span class="label">候选词</span>
-          <span class="tip">本阶段先只做展示，暂不接候选词逻辑</span>
+          <span class="label">候选内容</span>
+          <span class="tip">后续可在这里扩展候选词或拼写建议。</span>
         </div>
         <div class="tags-wrapper">
           <el-tag
@@ -55,7 +76,7 @@
           >
             {{ word }}
           </el-tag>
-          <span v-if="candidates.length === 0" class="no-candidate">暂无候选词</span>
+          <span v-if="candidates.length === 0" class="no-candidate">暂无候选内容</span>
         </div>
       </div>
     </div>
@@ -78,8 +99,8 @@
 
       <div class="final-result-card" :class="{ empty: !finalSentence }">
         <div class="result-content">
-          <p class="result-label">输出内容</p>
-          <div class="result-text">{{ finalSentence || '识别后的完整文字会显示在这里。' }}</div>
+          <p class="result-label">已确认内容</p>
+          <div class="result-text">{{ finalSentence || '已确认的内容会显示在这里。' }}</div>
         </div>
 
         <div class="result-toolbar">
@@ -94,9 +115,10 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { Aim, ChatLineSquare, EditPen, Microphone } from '@element-plus/icons-vue'
 
-defineProps({
+const props = defineProps({
   gestureStream: {
     type: Array,
     default: () => [],
@@ -104,6 +126,14 @@ defineProps({
   pinyinBuffer: {
     type: String,
     default: '',
+  },
+  cachedBuffer: {
+    type: String,
+    default: '',
+  },
+  stabilityProgress: {
+    type: Number,
+    default: 0,
   },
   candidates: {
     type: Array,
@@ -116,6 +146,31 @@ defineProps({
 })
 
 defineEmits(['select-candidate', 'copy', 'clear', 'speak'])
+
+const normalizedProgress = computed(() => {
+  const value = Number(props.stabilityProgress || 0)
+  return Math.max(0, Math.min(1, value))
+})
+
+const stabilityPercent = computed(() => Math.round(normalizedProgress.value * 100))
+const hasInput = computed(() => Boolean(props.pinyinBuffer))
+
+const pinyinStyle = computed(() => {
+  const progress = normalizedProgress.value
+  const hue = Math.round(140 - progress * 140)
+  const translateY = Math.round(progress * -8)
+  const scale = 1 + progress * 0.08
+  const glow = 10 + progress * 18
+  return {
+    color: `hsl(${hue} 72% 42%)`,
+    transform: `translateY(${translateY}px) scale(${scale})`,
+    textShadow: `0 0 ${glow}px rgba(221, 76, 76, ${0.12 + progress * 0.28})`,
+  }
+})
+
+const trackStyle = computed(() => ({
+  transform: `scaleX(${normalizedProgress.value})`,
+}))
 </script>
 
 <style lang="scss" scoped>
@@ -203,17 +258,72 @@ defineEmits(['select-candidate', 'copy', 'clear', 'speak'])
 }
 
 .input-display {
+  position: relative;
   margin-bottom: 10px;
   padding: 12px 14px;
   border-radius: 16px;
   background: #f4f7f5;
   border: 1px solid #e3ece7;
+  overflow: hidden;
+}
+
+.pinyin-track {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 4px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #2f9f68 0%, #f0b54b 55%, #d74a4a 100%);
+  transition: transform 0.12s linear;
 }
 
 .pinyin-text {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 800;
   color: #17312b;
+  transition: color 0.12s linear, transform 0.12s linear, text-shadow 0.12s linear;
+
+  &.animating {
+    will-change: transform, color, text-shadow;
+  }
+}
+
+.cache-display {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: #fbfcfb;
+  border: 1px solid #e3ece7;
+}
+
+.cache-header {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cache-value {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ecf4ef;
+  color: #226145;
+  font-size: 18px;
+  font-weight: 800;
+  word-break: break-all;
+
+  &.empty {
+    color: #8a9893;
+    font-weight: 600;
+  }
 }
 
 .candidates-area {
@@ -317,7 +427,8 @@ defineEmits(['select-candidate', 'copy', 'clear', 'speak'])
   }
 
   .section-header,
-  .candidates-header {
+  .candidates-header,
+  .cache-header {
     flex-direction: column;
     align-items: flex-start;
   }

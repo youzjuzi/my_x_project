@@ -17,9 +17,12 @@ async def run_inference_loop(session: SessionState, get_detector: Callable[[str]
                     session.command_recognizer.process_frame,
                     image,
                 )
+                command_metadata = session.apply_command_actions(command_result)
                 session.update_command_mode(command_result)
                 if session.command_mode_active:
-                    result = session.build_command_result(command_result, image.shape)
+                    result = session.build_command_result(command_result, image.shape, command_metadata)
+                elif command_metadata.get("modeChangedByCommand"):
+                    result = session.build_command_result(command_result, image.shape, command_metadata)
                 else:
                     detector = get_detector(session.mode)
                     func = functools.partial(
@@ -46,9 +49,12 @@ async def run_inference_loop(session: SessionState, get_detector: Callable[[str]
                         session.command_recognizer.process_frame,
                         image,
                     )
+                    command_metadata = session.apply_command_actions(command_result)
                     session.update_command_mode(command_result)
                     if session.command_mode_active:
-                        result = session.build_command_result(command_result, image.shape)
+                        result = session.build_command_result(command_result, image.shape, command_metadata)
+                    elif command_metadata.get("modeChangedByCommand"):
+                        result = session.build_command_result(command_result, image.shape, command_metadata)
 
             session.mark_processed()
             result["inputFps"] = session.input_fps()

@@ -15,6 +15,8 @@ class SessionState:
         process_items_limit: int = 8,
         command_recognizer=None,
         command_mode_timeout_seconds: float = 2.5,
+        switch_cooldown_seconds: float = 1.8,
+        stable_token_duration_seconds: float = 1.5,
     ) -> None:
         self.pc = pc
         self.mode = mode if mode in ("digits", "letters") else "digits"
@@ -29,10 +31,17 @@ class SessionState:
         self.processed_timestamps: Deque[float] = deque()
         self.process_items: Deque[str] = deque(maxlen=process_items_limit)
         self.spelling_buffer = ""
+        self.cached_buffer = ""
+        self.stable_token_duration_seconds = stable_token_duration_seconds
+        self.pending_stable_text = ""
+        self.pending_stable_started_at: Optional[float] = None
+        self.last_cached_token = ""
         self.command_mode_active = False
         self.command_mode_started_at: Optional[float] = None
         self.command_mode_last_seen_at: Optional[float] = None
         self.command_mode_last_command_at: Optional[float] = None
+        self.switch_cooldown_seconds = switch_cooldown_seconds
+        self.last_switch_at: Optional[float] = None
 
     async def send_json(self, payload: Dict[str, object]) -> None:
         if self.channel is None or self.channel.readyState != "open":
@@ -67,7 +76,8 @@ class SessionState:
                 await self.send_json({"type": "error", "message": f"Unsupported mode: {requested_mode}"})
                 return
             self.mode = requested_mode
-            self.reset_display_state()
+            self.reset_display_state(clear_cached=True)
+            self.deactivate_command_mode()
             await self.send_json({"type": "mode_changed", "mode": self.mode})
             return
 
@@ -118,6 +128,9 @@ class SessionState:
         spelling_text = str(result.get("text") or "").strip()
         self.spelling_buffer = spelling_text
 
+        if result.get("engine") != "mediapipe-command":
+            self._update_cached_buffer(spelling_text)
+
         hand_texts = []
         for hand in result.get("hands", []):
             if not isinstance(hand, dict):
@@ -137,11 +150,19 @@ class SessionState:
         return {
             "processItems": list(self.process_items),
             "spellingBuffer": self.spelling_buffer,
+            "cachedBuffer": self.cached_buffer,
+            "stabilityProgress": self.stability_progress(),
+            "stabilityDurationMs": int(self.stable_token_duration_seconds * 1000),
         }
 
-    def reset_display_state(self) -> None:
+    def reset_display_state(self, clear_cached: bool = False) -> None:
         self.process_items.clear()
         self.spelling_buffer = ""
+        self.pending_stable_text = ""
+        self.pending_stable_started_at = None
+        if clear_cached:
+            self.cached_buffer = ""
+            self.last_cached_token = ""
 
     def activate_command_mode(self) -> None:
         now = time.perf_counter()
@@ -192,10 +213,41 @@ class SessionState:
         if self.command_recognizer is not None:
             self.command_recognizer.reset()
 
-    def build_command_result(self, command_result: Dict[str, object], image_shape) -> Dict[str, object]:
+    def apply_command_actions(self, command_result: Dict[str, object]) -> Dict[str, object]:
+        metadata: Dict[str, object] = {
+            "modeChangedByCommand": False,
+            "switchToast": "",
+        }
+        command_gesture = str(command_result.get("commandGesture") or "").strip()
+        if command_gesture != "SWITCH":
+            return metadata
+
+        now = time.perf_counter()
+        if self.last_switch_at is not None and now - self.last_switch_at < self.switch_cooldown_seconds:
+            return metadata
+
+        self.last_switch_at = now
+        self.mode = "letters" if self.mode == "digits" else "digits"
+        self.reset_display_state(clear_cached=True)
+        self.deactivate_command_mode()
+        metadata["modeChangedByCommand"] = True
+        metadata["switchToast"] = self.mode
+        return metadata
+
+    def build_command_result(
+        self,
+        command_result: Dict[str, object],
+        image_shape,
+        metadata: Optional[Dict[str, object]] = None,
+    ) -> Dict[str, object]:
+        metadata = metadata or {}
         command_gesture = str(command_result.get("commandGesture") or "").strip()
         command_candidate = str(command_result.get("commandCandidate") or "").strip()
         display_text = command_gesture or command_candidate
+        mode_changed = bool(metadata.get("modeChangedByCommand"))
+
+        if mode_changed:
+            display_text = ""
 
         return {
             "type": "result",
@@ -213,6 +265,10 @@ class SessionState:
             "commandCandidate": command_candidate,
             "commandCounters": dict(command_result.get("commandCounters") or {}),
             "commandThreshold": int(command_result.get("commandThreshold") or 0),
+            "modeChangedByCommand": mode_changed,
+            "switchToast": str(metadata.get("switchToast") or ""),
+            "resetDisplayState": mode_changed,
+            "suppressDisplayStateUpdate": mode_changed,
         }
 
     def _mark_timestamp(self, bucket: Deque[float]) -> None:
@@ -238,7 +294,7 @@ class SessionState:
             task.cancel()
         self.track_tasks.clear()
         self.frame_ready.set()
-        self.reset_display_state()
+        self.reset_display_state(clear_cached=True)
         if self.command_recognizer is not None:
             self.command_recognizer.close()
             self.command_recognizer = None
@@ -246,3 +302,38 @@ class SessionState:
             self.channel.close()
         if self.pc.connectionState != "closed":
             await self.pc.close()
+
+    def _update_cached_buffer(self, spelling_text: str) -> None:
+        if not spelling_text:
+            self.pending_stable_text = ""
+            self.pending_stable_started_at = None
+            self.last_cached_token = ""
+            return
+
+        now = time.perf_counter()
+
+        if spelling_text != self.pending_stable_text:
+            self.pending_stable_text = spelling_text
+            self.pending_stable_started_at = now
+            return
+
+        if self.pending_stable_started_at is None:
+            self.pending_stable_started_at = now
+            return
+
+        if self.last_cached_token == spelling_text:
+            return
+
+        if now - self.pending_stable_started_at < self.stable_token_duration_seconds:
+            return
+
+        self.cached_buffer += spelling_text
+        self.last_cached_token = spelling_text
+
+    def stability_progress(self) -> float:
+        if not self.pending_stable_text or self.pending_stable_started_at is None:
+            return 0.0
+        elapsed = time.perf_counter() - self.pending_stable_started_at
+        if self.stable_token_duration_seconds <= 0:
+            return 1.0
+        return round(min(1.0, max(0.0, elapsed / self.stable_token_duration_seconds)), 3)

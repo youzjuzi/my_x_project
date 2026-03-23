@@ -5,6 +5,16 @@
         <template v-if="isCameraActive">
           <video ref="videoRef" autoplay muted playsinline class="camera-feed"></video>
           <canvas ref="overlayCanvasRef" class="overlay-canvas"></canvas>
+          <div v-if="isRecognitionReady && switchToast" class="switch-toast">
+            <div class="switch-toast-card">{{ switchToast }}</div>
+          </div>
+          <div v-if="!isRecognitionReady" class="startup-state">
+            <div class="startup-card">
+              <div class="startup-dot"></div>
+              <p class="startup-title">正在连接识别服务</p>
+              <p class="startup-text">摄像头已开启，正在等待后端启动推理，请保持手势在画面中。</p>
+            </div>
+          </div>
         </template>
 
         <template v-else>
@@ -51,6 +61,10 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  isRecognitionReady: {
+    type: Boolean,
+    default: false
+  },
   inputFps: {
     type: Number,
     default: 0
@@ -70,6 +84,10 @@ const props = defineProps({
   overlayResult: {
     type: Object,
     default: null
+  },
+  switchToast: {
+    type: String,
+    default: ''
   }
 })
 
@@ -250,6 +268,77 @@ watch(
   text-align: center;
 }
 
+.startup-state {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(11, 20, 16, 0.42);
+  backdrop-filter: blur(6px);
+}
+
+.switch-toast {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.switch-toast-card {
+  min-width: 220px;
+  max-width: 80%;
+  padding: 16px 24px;
+  border-radius: 18px;
+  background: rgba(18, 93, 62, 0.92);
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  box-shadow: 0 18px 42px rgba(10, 38, 28, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.startup-card {
+  max-width: 360px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 40px rgba(18, 42, 35, 0.16);
+  text-align: center;
+}
+
+.startup-dot {
+  width: 12px;
+  height: 12px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: #2b8f61;
+  box-shadow: 0 0 0 8px rgba(43, 143, 97, 0.14);
+  animation: startupPulse 1.2s ease-in-out infinite;
+}
+
+.startup-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #17312b;
+}
+
+.startup-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #5f746c;
+}
+
 .illustration-circle {
   width: 68px;
   height: 68px;
@@ -372,6 +461,19 @@ watch(
   color: #6f817a;
 }
 
+@keyframes startupPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.12);
+    opacity: 0.72;
+  }
+}
+
 @media (max-width: 992px) {
   .video-panel {
     padding: 16px;
@@ -391,6 +493,12 @@ watch(
   .status-strip {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .switch-toast-card {
+    min-width: 0;
+    width: 100%;
+    font-size: 20px;
   }
 
   .strip-main,

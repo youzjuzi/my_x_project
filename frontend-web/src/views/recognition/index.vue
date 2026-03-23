@@ -70,11 +70,13 @@
         <el-col :span="16" :xs="24">
           <VideoPanel
             :is-camera-active="isCameraActive"
+            :is-recognition-ready="isRecognitionReady"
             :input-fps="inputFps"
             :processed-fps="processedFps"
             :latency="latency"
             :video-stream="localStream"
             :overlay-result="overlayResult"
+            :switch-toast="switchToast"
             @start="startCamera"
             @stop="stopCamera"
           />
@@ -84,6 +86,8 @@
           <InteractionPanel
             :gesture-stream="gestureStream"
             :pinyin-buffer="pinyinBuffer"
+            :cached-buffer="cachedBuffer"
+            :stability-progress="stabilityProgress"
             :candidates="candidates"
             :final-sentence="finalSentence"
             @select-candidate="selectCandidate"
@@ -123,13 +127,18 @@ const processedFps = ref(0)
 const latency = ref(0)
 const gestureStream = ref([])
 const pinyinBuffer = ref('')
+const cachedBuffer = ref('')
+const stabilityProgress = ref(0)
 const candidates = ref([])
 const finalSentence = ref('')
 const exitDialogVisible = ref(false)
 const localStream = ref(null)
 const overlayResult = ref(null)
+const isRecognitionReady = ref(false)
+const switchToast = ref('')
 
 let webrtcClient = null
+let switchToastTimer = null
 
 const modeLabelMap = {
   digits: '数字',
@@ -157,6 +166,27 @@ const resetDisplayState = () => {
   overlayResult.value = null
   gestureStream.value = []
   pinyinBuffer.value = ''
+  cachedBuffer.value = ''
+  stabilityProgress.value = 0
+  isRecognitionReady.value = false
+}
+
+const clearSwitchToast = () => {
+  if (switchToastTimer) {
+    window.clearTimeout(switchToastTimer)
+    switchToastTimer = null
+  }
+  switchToast.value = ''
+}
+
+const showSwitchToast = (mode) => {
+  const modeLabel = modeLabelMap[mode] || mode
+  clearSwitchToast()
+  switchToast.value = `已切换到${modeLabel}模式`
+  switchToastTimer = window.setTimeout(() => {
+    switchToast.value = ''
+    switchToastTimer = null
+  }, 1500)
 }
 
 const mapProcessItems = (items) => {
@@ -181,6 +211,7 @@ const handleServerMessage = (payload) => {
   }
 
   if (payload.type === 'mode_changed') {
+    selectedMode.value = payload.mode || selectedMode.value
     resetDisplayState()
     return
   }
@@ -189,12 +220,32 @@ const handleServerMessage = (payload) => {
     return
   }
 
+  if (payload.modeChangedByCommand) {
+    isRecognitionReady.value = true
+    inputFps.value = Number(payload.inputFps || 0)
+    processedFps.value = Number(payload.processedFps || 0)
+    latency.value = Number(payload.latencyMs || 0)
+    selectedMode.value = payload.mode || selectedMode.value
+    gestureStream.value = []
+    pinyinBuffer.value = ''
+    cachedBuffer.value = ''
+    stabilityProgress.value = 0
+    candidates.value = []
+    finalSentence.value = ''
+    overlayResult.value = null
+    showSwitchToast(selectedMode.value)
+    return
+  }
+
   overlayResult.value = payload
+  isRecognitionReady.value = true
   inputFps.value = Number(payload.inputFps || 0)
   processedFps.value = Number(payload.processedFps || 0)
   latency.value = Number(payload.latencyMs || 0)
   gestureStream.value = mapProcessItems(payload.processItems)
   pinyinBuffer.value = String(payload.spellingBuffer || '')
+  cachedBuffer.value = String(payload.cachedBuffer || '')
+  stabilityProgress.value = Number(payload.stabilityProgress || 0)
 }
 
 const disconnectWebRtc = () => {
@@ -267,6 +318,7 @@ const stopCamera = () => {
   disconnectWebRtc()
   isCameraActive.value = false
   resetDisplayState()
+  clearSwitchToast()
 
   if (localStream.value) {
     localStream.value.getTracks().forEach((track) => {
@@ -325,12 +377,14 @@ const selectCandidate = (word) => {
   pinyinBuffer.value = ''
   candidates.value = []
   gestureStream.value = []
+  stabilityProgress.value = 0
 }
 
 const clearAll = () => {
   finalSentence.value = ''
   pinyinBuffer.value = ''
   gestureStream.value = []
+  stabilityProgress.value = 0
 }
 
 const copyResult = async () => {
@@ -347,6 +401,7 @@ const speakResult = () => {
 }
 
 onBeforeUnmount(() => {
+  clearSwitchToast()
   stopCamera()
 })
 </script>
