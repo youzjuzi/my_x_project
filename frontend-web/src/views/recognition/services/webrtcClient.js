@@ -38,6 +38,7 @@ export function createRecognitionWebRtcClient(options) {
   let peerConnection = null
   let dataChannel = null
   let closed = false
+  let currentMode = mode
 
   const safeOnClose = () => {
     if (closed) {
@@ -98,7 +99,7 @@ export function createRecognitionWebRtcClient(options) {
         if (typeof onOpen === 'function') {
           onOpen()
         }
-        dataChannel.send(`mode:${mode}`)
+        dataChannel.send(`mode:${currentMode}`)
       }
 
       dataChannel.onclose = () => {
@@ -141,7 +142,7 @@ export function createRecognitionWebRtcClient(options) {
         body: JSON.stringify({
           sdp: peerConnection.localDescription?.sdp,
           type: peerConnection.localDescription?.type,
-          mode
+          mode: currentMode
         })
       })
 
@@ -163,6 +164,12 @@ export function createRecognitionWebRtcClient(options) {
 
   return {
     connect,
-    disconnect
+    disconnect,
+    setMode(nextMode) {
+      currentMode = nextMode
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(`mode:${currentMode}`)
+      }
+    },
   }
 }

@@ -23,6 +23,10 @@ const video = document.getElementById("video");
 const overlayCanvas = document.getElementById("overlayCanvas");
 const captureCanvas = document.getElementById("captureCanvas");
 const resultText = document.getElementById("resultText");
+const commandGestureText = document.getElementById("commandGestureText");
+const commandCandidateText = document.getElementById("commandCandidateText");
+const commandCounterText = document.getElementById("commandCounterText");
+const engineText = document.getElementById("engineText");
 const modeText = document.getElementById("modeText");
 const handCountText = document.getElementById("handCountText");
 const inputFpsText = document.getElementById("inputFpsText");
@@ -57,11 +61,16 @@ function summarizeResultPayload(data) {
   return {
     type: data.type,
     mode: data.mode,
+    engine: data.engine,
     latencyMs: data.latencyMs,
     imageWidth: data.imageWidth,
     imageHeight: data.imageHeight,
     handCount: data.handCount,
     text: data.text,
+    commandGesture: data.commandGesture,
+    commandCandidate: data.commandCandidate,
+    commandCounters: data.commandCounters,
+    commandThreshold: data.commandThreshold,
     inputFps: data.inputFps,
     processedFps: data.processedFps,
     hands: data.hands
@@ -70,6 +79,10 @@ function summarizeResultPayload(data) {
 
 function resetResultView() {
   resultText.textContent = "-";
+  commandGestureText.textContent = "-";
+  commandCandidateText.textContent = "-";
+  commandCounterText.textContent = "-";
+  engineText.textContent = "-";
   handCountText.textContent = "0";
   inputFpsText.textContent = "-";
   processedFpsText.textContent = "-";
@@ -272,13 +285,31 @@ function handleServerMessage(data) {
     latestResult = data;
     updateModeUi(data.mode || currentMode);
     latencyMeta.textContent = `Latency ${data.latencyMs} ms`;
+    engineText.textContent = data.engine || "-";
     resultText.textContent = data.text || "-";
+    commandGestureText.textContent = data.commandGesture || "-";
+    commandCandidateText.textContent = data.commandCandidate || "-";
+    commandCounterText.textContent = formatCommandCounter(
+      data.commandCandidate,
+      data.commandCounters,
+      data.commandThreshold
+    );
     handCountText.textContent = String(data.handCount ?? 0);
     inputFpsText.textContent = data.inputFps ?? "-";
     processedFpsText.textContent = data.processedFps ?? "-";
     renderOverlay(data);
     jsonOutput.textContent = JSON.stringify(summarizeResultPayload(data), null, 2);
   }
+}
+
+function formatCommandCounter(candidate, counters, threshold) {
+  if (!candidate) {
+    return "-";
+  }
+  const safeCounters = counters && typeof counters === "object" ? counters : {};
+  const value = safeCounters[candidate] ?? 0;
+  const safeThreshold = threshold ?? "-";
+  return `${value}/${safeThreshold}`;
 }
 
 function stopStreaming() {

@@ -15,11 +15,30 @@
             <p class="eyebrow">手势识别</p>
             <h1>通过摄像头实时识别手势内容</h1>
             <p class="description">
-              当前页面已接入 WebRTC 推理服务，现阶段优先展示实时摄像头画面、识别框，以及最基础的识别过程与当前拼写。
+              当前页面已接入 WebRTC 推理服务，支持数字与字母两种模式切换，现阶段优先展示实时摄像头画面、识别框，以及最基础的识别过程与当前拼写。
             </p>
           </div>
 
           <div class="intro-actions">
+            <div class="mode-switch">
+              <el-button
+                :type="selectedMode === 'digits' ? 'primary' : 'default'"
+                plain
+                class="mode-button"
+                @click="changeMode('digits')"
+              >
+                数字模式
+              </el-button>
+              <el-button
+                :type="selectedMode === 'letters' ? 'primary' : 'default'"
+                plain
+                class="mode-button"
+                @click="changeMode('letters')"
+              >
+                字母模式
+              </el-button>
+            </div>
+
             <div class="intro-badge">
               <span class="status-dot" :class="{ active: isCameraActive }"></span>
               {{ isCameraActive ? connectionText : '等待开启摄像头' }}
@@ -98,6 +117,7 @@ const router = useRouter()
 
 const isCameraActive = ref(false)
 const connectionState = ref('idle')
+const selectedMode = ref('digits')
 const inputFps = ref(0)
 const processedFps = ref(0)
 const latency = ref(0)
@@ -111,17 +131,33 @@ const overlayResult = ref(null)
 
 let webrtcClient = null
 
+const modeLabelMap = {
+  digits: '数字',
+  letters: '字母',
+}
+
 const connectionText = computed(() => {
+  const modeLabel = modeLabelMap[selectedMode.value] || selectedMode.value
+
   if (connectionState.value === 'connected') {
-    return 'WebRTC 已连接'
+    return `WebRTC 已连接 · ${modeLabel}模式`
   }
 
   if (connectionState.value === 'connecting') {
-    return 'WebRTC 连接中'
+    return `WebRTC 连接中 · ${modeLabel}模式`
   }
 
-  return '摄像头已开启'
+  return `摄像头已开启 · ${modeLabel}模式`
 })
+
+const resetDisplayState = () => {
+  inputFps.value = 0
+  processedFps.value = 0
+  latency.value = 0
+  overlayResult.value = null
+  gestureStream.value = []
+  pinyinBuffer.value = ''
+}
 
 const mapProcessItems = (items) => {
   if (!Array.isArray(items)) {
@@ -141,6 +177,11 @@ const handleServerMessage = (payload) => {
 
   if (payload.type === 'error') {
     ElMessage.error(payload.message || '识别服务返回错误')
+    return
+  }
+
+  if (payload.type === 'mode_changed') {
+    resetDisplayState()
     return
   }
 
@@ -173,7 +214,7 @@ const connectWebRtc = async (stream) => {
 
   webrtcClient = createRecognitionWebRtcClient({
     mediaStream: stream,
-    mode: 'digits',
+    mode: selectedMode.value,
     onResult: handleServerMessage,
     onOpen: () => {
       connectionState.value = 'connected'
@@ -204,12 +245,7 @@ const startCamera = async () => {
 
     localStream.value = stream
     isCameraActive.value = true
-    inputFps.value = 0
-    processedFps.value = 0
-    latency.value = 0
-    overlayResult.value = null
-    gestureStream.value = []
-    pinyinBuffer.value = ''
+    resetDisplayState()
 
     await connectWebRtc(stream)
   } catch (error) {
@@ -221,9 +257,7 @@ const startCamera = async () => {
     }
     isCameraActive.value = false
     localStream.value = null
-    overlayResult.value = null
-    gestureStream.value = []
-    pinyinBuffer.value = ''
+    resetDisplayState()
     connectionState.value = 'idle'
     ElMessage.error(error?.message || '无法开启摄像头或连接 WebRTC 服务')
   }
@@ -232,18 +266,33 @@ const startCamera = async () => {
 const stopCamera = () => {
   disconnectWebRtc()
   isCameraActive.value = false
-  inputFps.value = 0
-  processedFps.value = 0
-  latency.value = 0
-  overlayResult.value = null
-  gestureStream.value = []
-  pinyinBuffer.value = ''
+  resetDisplayState()
 
   if (localStream.value) {
     localStream.value.getTracks().forEach((track) => {
       track.stop()
     })
     localStream.value = null
+  }
+}
+
+const changeMode = async (mode) => {
+  if (selectedMode.value === mode) {
+    return
+  }
+
+  selectedMode.value = mode
+  resetDisplayState()
+
+  if (!webrtcClient) {
+    return
+  }
+
+  try {
+    webrtcClient.setMode(mode)
+  } catch (error) {
+    console.error(error)
+    ElMessage.error(error?.message || '模式切换失败')
   }
 }
 
@@ -381,6 +430,18 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mode-button {
+  min-width: 92px;
 }
 
 .eyebrow {
@@ -494,12 +555,17 @@ onBeforeUnmount(() => {
     align-items: stretch;
   }
 
-  .intro-badge {
-    justify-content: center;
+  .mode-switch {
+    width: 100%;
   }
 
+  .mode-button,
   .hero-action {
     width: 100%;
+  }
+
+  .intro-badge {
+    justify-content: center;
   }
 }
 </style>

@@ -11,6 +11,7 @@ import uvicorn
 
 from . import config
 from .detector import DetectorRegistry
+from .hand_command import HandCommandRecognizer
 from .pq_hybrid_detector import PQHybridDetector
 from .webrtc import OfferPayload, SessionState, receive_video_track, run_inference_loop, wait_for_ice_gathering
 
@@ -112,7 +113,11 @@ async def health() -> Dict[str, object]:
 @app.post("/webrtc/offer")
 async def create_offer(payload: OfferPayload) -> Dict[str, str]:
     pc = RTCPeerConnection()
-    session = SessionState(pc, payload.mode)
+    session = SessionState(
+        pc,
+        payload.mode,
+        command_recognizer=HandCommandRecognizer(config.MEDIAPIPE_TASK),
+    )
     peer_connections.add(pc)
     session.add_track_task(asyncio.create_task(run_inference_loop(session, get_detector)))
 
