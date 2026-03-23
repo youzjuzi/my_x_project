@@ -6,7 +6,7 @@
           <el-icon><Aim /></el-icon>
           <span>识别过程</span>
         </div>
-        <span class="section-meta">{{ gestureStream.length }} 条记录</span>
+        <span class="section-meta">{{ gestureStream.length }} 条</span>
       </div>
 
       <div class="gesture-stream">
@@ -21,7 +21,7 @@
           </div>
         </transition-group>
         <div v-if="gestureStream.length === 0" class="empty-tip">
-          开启摄像头后，这里会显示实时识别到的字母序列。
+          开启摄像头后，这里会显示实时识别片段。
         </div>
       </div>
     </div>
@@ -41,7 +41,7 @@
       <div class="candidates-area">
         <div class="candidates-header">
           <span class="label">候选词</span>
-          <span class="tip">点击任一候选词可加入结果</span>
+          <span class="tip">点击候选词可加入结果</span>
         </div>
         <div class="tags-wrapper">
           <el-tag
@@ -50,11 +50,12 @@
             class="candidate-tag"
             effect="plain"
             round
+            size="small"
             @click="$emit('select-candidate', word)"
           >
             {{ word }}
           </el-tag>
-          <span v-if="candidates.length === 0" class="no-candidate">当前暂无候选词</span>
+          <span v-if="candidates.length === 0" class="no-candidate">暂无候选词</span>
         </div>
       </div>
     </div>
@@ -66,20 +67,10 @@
           <span>识别结果</span>
         </div>
         <div class="actions">
-          <el-button
-            link
-            type="primary"
-            @click="$emit('copy')"
-            :disabled="!finalSentence"
-          >
+          <el-button link type="primary" size="small" @click="$emit('copy')" :disabled="!finalSentence">
             复制
           </el-button>
-          <el-button
-            link
-            type="danger"
-            @click="$emit('clear')"
-            :disabled="!finalSentence"
-          >
+          <el-button link type="danger" size="small" @click="$emit('clear')" :disabled="!finalSentence">
             清空
           </el-button>
         </div>
@@ -88,17 +79,11 @@
       <div class="final-result-card" :class="{ empty: !finalSentence }">
         <div class="result-content">
           <p class="result-label">输出内容</p>
-          <div class="result-text">{{ finalSentence || '识别后的文字会显示在这里，方便直接查看、复制或朗读。' }}</div>
+          <div class="result-text">{{ finalSentence || '识别后的文字会显示在这里。' }}</div>
         </div>
 
         <div class="result-toolbar">
-          <el-button
-            type="primary"
-            plain
-            round
-            @click="$emit('speak')"
-            :disabled="!finalSentence"
-          >
+          <el-button type="primary" plain size="small" round @click="$emit('speak')" :disabled="!finalSentence">
             <el-icon><Microphone /></el-icon>
             朗读结果
           </el-button>
@@ -135,23 +120,17 @@ defineEmits(['select-candidate', 'copy', 'clear', 'speak'])
 
 <style lang="scss" scoped>
 .interaction-panel {
-  height: 680px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 10px;
 }
 
 .panel-section {
-  padding: 22px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.92);
+  padding: 14px 16px;
+  border-radius: 22px;
+  background: #ffffff;
   border: 1px solid rgba(18, 42, 35, 0.08);
-  box-shadow: 0 18px 40px rgba(28, 43, 36, 0.06);
-}
-
-.capture-section,
-.sequence-section {
-  flex-shrink: 0;
+  box-shadow: 0 14px 32px rgba(28, 43, 36, 0.05);
 }
 
 .result-section {
@@ -161,127 +140,117 @@ defineEmits(['select-candidate', 'copy', 'clear', 'speak'])
 }
 
 .section-header {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .header-title {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 16px;
+  gap: 7px;
+  font-size: 15px;
   font-weight: 700;
-  color: #17312b;
+  color: #18342c;
 
   .el-icon {
-    color: #23654b;
+    color: #266c54;
   }
 }
 
 .section-meta,
 .tip,
 .label {
-  font-size: 12px;
-  color: #6f817a;
+  font-size: 11px;
+  color: #76867f;
 }
 
 .gesture-stream {
-  min-height: 72px;
+  min-height: 52px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
 }
 
 .gesture-bubble {
-  width: 46px;
-  height: 46px;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
-  border-radius: 14px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #ecf4ef;
-  color: #225d46;
-  font-size: 18px;
+  color: #226145;
+  font-size: 16px;
   font-weight: 800;
-  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
 
   &.latest {
-    background: #1f6c4a;
+    background: #216d4b;
     color: #fff;
-    transform: translateY(-2px);
-    box-shadow: 0 12px 24px rgba(31, 108, 74, 0.22);
+    box-shadow: 0 10px 20px rgba(33, 109, 75, 0.18);
   }
 }
 
 .empty-tip {
-  font-size: 13px;
-  line-height: 1.6;
-  color: #8c9a95;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #879690;
 }
 
 .input-display {
-  margin-bottom: 16px;
-  padding: 16px 18px;
-  border-radius: 18px;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
   background: #f4f7f5;
-  border: 1px solid #e2ebe6;
+  border: 1px solid #e3ece7;
 }
 
 .pinyin-text {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   color: #17312b;
-  letter-spacing: 0.03em;
 }
 
 .candidates-area {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .candidates-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .tags-wrapper {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .candidate-tag {
   cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
-
-  &:hover {
-    transform: translateY(-1px);
-    color: #1f6c4a;
-    border-color: #1f6c4a;
-  }
 }
 
 .no-candidate {
-  font-size: 13px;
-  color: #98a5a0;
+  font-size: 12px;
+  color: #97a5a0;
 }
 
 .result-header {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .final-result-card {
@@ -289,85 +258,67 @@ defineEmits(['select-candidate', 'copy', 'clear', 'speak'])
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 24px;
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, #f8fbf9 0%, #ffffff 100%);
-  border: 1px solid #e1ebe5;
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f9fbfa 0%, #ffffff 100%);
+  border: 1px solid #e1ebe6;
 
   &.empty {
-    background:
-      linear-gradient(180deg, #f6f8f7 0%, #ffffff 100%);
+    background: linear-gradient(180deg, #f6f8f7 0%, #ffffff 100%);
   }
 }
 
 .result-label {
-  margin: 0 0 10px;
-  font-size: 12px;
+  margin: 0 0 6px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #72837c;
+  color: #74857e;
 }
 
 .result-text {
-  font-size: 24px;
-  line-height: 1.7;
-  color: #18332c;
+  font-size: 20px;
+  line-height: 1.55;
+  color: #19342d;
   font-weight: 700;
 }
 
 .result-toolbar {
   display: flex;
   justify-content: flex-end;
-  padding-top: 16px;
+  padding-top: 12px;
 }
 
 .list-enter-active,
 .list-leave-active {
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
 }
 
 .list-enter-from {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(10px);
 }
 
 .list-leave-to {
   opacity: 0;
-  transform: translateY(-12px);
-}
-
-@media (max-width: 1200px) {
-  .interaction-panel {
-    height: 640px;
-  }
+  transform: translateY(-10px);
 }
 
 @media (max-width: 767px) {
   .interaction-panel {
-    height: auto;
-    margin-top: 16px;
+    margin-top: 12px;
   }
 
   .panel-section {
-    padding: 18px;
-    border-radius: 20px;
+    padding: 14px;
+    border-radius: 18px;
   }
 
   .section-header,
   .candidates-header {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .final-result-card {
-    padding: 20px;
-    border-radius: 20px;
-  }
-
-  .result-text {
-    font-size: 20px;
   }
 
   .result-toolbar {

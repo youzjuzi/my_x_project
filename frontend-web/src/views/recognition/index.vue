@@ -1,33 +1,50 @@
 <template>
   <div class="recognition-container">
     <div class="page-shell">
-      <div class="nav-header">
-        <div class="back-capsule" @click="handleExit">
-          <div class="icon-wrap">
-            <el-icon><ArrowLeft /></el-icon>
+      <div class="hero-row">
+        <div class="nav-header">
+          <div class="back-capsule" @click="handleExit" aria-label="返回上一页">
+            <div class="icon-wrap">
+              <el-icon><ArrowLeft /></el-icon>
+            </div>
           </div>
-          <div class="text-content">
-            <span class="title">结束识别</span>
-            <span class="sub">返回上一页</span>
+        </div>
+
+        <div class="page-intro">
+          <div class="intro-main">
+            <p class="eyebrow">手势识别</p>
+            <h1>通过摄像头实时识别手势内容</h1>
+            <p class="description">
+              开启摄像头后即可开始识别。左侧显示实时画面与追踪反馈，右侧同步展示识别过程、拼写状态和最终结果。
+            </p>
+          </div>
+          <div class="intro-actions">
+            <div class="intro-badge">
+              <span class="status-dot" :class="{ active: isCameraActive }"></span>
+              {{ isCameraActive ? '摄像头已开启' : '等待开启摄像头' }}
+            </div>
+            <el-button
+              v-if="!isCameraActive"
+              type="primary"
+              class="hero-action"
+              @click="startCamera"
+            >
+              开启摄像头
+            </el-button>
+            <el-button
+              v-else
+              type="danger"
+              plain
+              class="hero-action"
+              @click="stopCamera"
+            >
+              关闭摄像头
+            </el-button>
           </div>
         </div>
       </div>
 
-      <div class="page-intro">
-        <div>
-          <p class="eyebrow">手势识别</p>
-          <h1>通过摄像头实时识别手势内容</h1>
-          <p class="description">
-            开启摄像头后即可开始识别。页面右侧会同步展示识别过程、候选结果和最终输出内容。
-          </p>
-        </div>
-        <div class="intro-badge">
-          <span class="status-dot" :class="{ active: isCameraActive }"></span>
-          {{ isCameraActive ? '摄像头已开启' : '等待开启摄像头' }}
-        </div>
-      </div>
-
-      <el-row :gutter="24" class="main-layout">
+      <el-row :gutter="18" class="main-layout">
         <el-col :span="16" :xs="24">
           <VideoPanel
             :is-camera-active="isCameraActive"
@@ -116,6 +133,7 @@ const handleExit = () => {
     exitDialogVisible.value = true
     return
   }
+
   navigateBack()
 }
 
@@ -130,6 +148,7 @@ const navigateBack = () => {
     router.go(-1)
     return
   }
+
   router.push('/')
 }
 
@@ -150,6 +169,7 @@ const copyResult = async () => {
   if (!finalSentence.value) {
     return
   }
+
   await navigator.clipboard.writeText(finalSentence.value)
   ElMessage.success('识别结果已复制')
 }
@@ -166,10 +186,9 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .recognition-container {
   min-height: calc(100vh - 84px);
-  padding: 28px;
-  background:
-    radial-gradient(circle at top left, rgba(12, 92, 70, 0.08), transparent 28%),
-    linear-gradient(180deg, #f4f7f2 0%, #eef2ec 100%);
+  padding: 16px 20px 18px;
+  background: #f8faf9;
+  overflow: hidden;
 }
 
 .page-shell {
@@ -177,122 +196,125 @@ onBeforeUnmount(() => {
   margin: 0 auto;
 }
 
+.hero-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
 .nav-header {
-  margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .back-capsule {
-  width: fit-content;
+  height: 100%;
   display: flex;
   align-items: center;
-  padding: 8px 20px 8px 8px;
+  justify-content: center;
+  min-width: 48px;
+  padding: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(18, 42, 35, 0.08);
-  box-shadow: 0 12px 30px rgba(28, 43, 36, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(26, 64, 50, 0.08);
+  box-shadow: 0 6px 18px rgba(28, 43, 36, 0.05);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   user-select: none;
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 16px 36px rgba(28, 43, 36, 0.12);
-  }
-
-  &:active {
-    transform: scale(0.98);
+    box-shadow: 0 12px 28px rgba(28, 43, 36, 0.1);
   }
 }
 
 .icon-wrap {
-  width: 38px;
-  height: 38px;
-  margin-right: 12px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: #edf3ee;
-  color: #24433b;
-  font-size: 18px;
-}
-
-.text-content {
-  display: flex;
-  flex-direction: column;
-}
-
-.title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #17312b;
-  line-height: 1.2;
-}
-
-.sub {
-  font-size: 12px;
-  color: #6d7f78;
+  background: #edf4f1;
+  color: #22463b;
+  font-size: 15px;
 }
 
 .page-intro {
-  margin-bottom: 24px;
-  padding: 28px 32px;
-  border-radius: 28px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(247, 250, 248, 0.94) 100%);
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 20px;
+  background: #ffffff;
   border: 1px solid rgba(18, 42, 35, 0.08);
-  box-shadow: 0 20px 50px rgba(28, 43, 36, 0.08);
+  box-shadow: 0 10px 26px rgba(28, 43, 36, 0.05);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 14px;
+}
 
-  h1 {
-    margin: 8px 0 10px;
-    font-size: 34px;
-    line-height: 1.2;
-    color: #132e28;
-  }
+.intro-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.intro-main {
+  min-width: 0;
 }
 
 .eyebrow {
   margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  color: #6b7f77;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: #688178;
+}
+
+.page-intro h1 {
+  margin: 4px 0 4px;
+  font-size: 24px;
+  line-height: 1.15;
+  color: #16312a;
 }
 
 .description {
   margin: 0;
-  max-width: 720px;
-  font-size: 15px;
-  line-height: 1.7;
-  color: #5c6f68;
+  max-width: 760px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #5d7169;
 }
 
 .intro-badge {
-  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 7px 10px;
   border-radius: 999px;
-  background: #eef5f0;
-  color: #23463d;
-  font-size: 14px;
-  font-weight: 600;
+  background: #eef5f1;
+  color: #24463d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hero-action {
+  min-width: 124px;
+  height: 36px;
+  border-radius: 999px;
 }
 
 .status-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: #c2cbc7;
+  background: #c7d0cc;
 
   &.active {
-    background: #28a36a;
-    box-shadow: 0 0 0 6px rgba(40, 163, 106, 0.12);
+    background: #25a165;
+    box-shadow: 0 0 0 4px rgba(37, 161, 101, 0.12);
   }
 }
 
@@ -302,45 +324,64 @@ onBeforeUnmount(() => {
 
 @media (max-width: 992px) {
   .recognition-container {
-    padding: 20px;
+    padding: 16px;
+    overflow: auto;
+  }
+
+  .hero-row {
+    flex-direction: column;
+    gap: 10px;
   }
 
   .page-intro {
-    padding: 24px;
     flex-direction: column;
+    align-items: stretch;
+  }
 
-    h1 {
-      font-size: 28px;
-    }
+  .intro-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .page-intro h1 {
+    font-size: 22px;
   }
 }
 
 @media (max-width: 767px) {
   .recognition-container {
-    padding: 16px;
+    min-height: auto;
+    padding: 14px;
   }
 
   .nav-header {
-    margin-bottom: 16px;
+    align-self: flex-start;
   }
 
   .page-intro {
-    margin-bottom: 16px;
-    padding: 20px;
-    border-radius: 22px;
+    padding: 14px;
+    border-radius: 18px;
+  }
 
-    h1 {
-      font-size: 24px;
-    }
+  .page-intro h1 {
+    font-size: 20px;
   }
 
   .description {
-    font-size: 14px;
+    font-size: 13px;
   }
 
   .intro-badge {
-    width: 100%;
     justify-content: center;
+  }
+
+  .intro-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-action {
+    width: 100%;
   }
 }
 </style>

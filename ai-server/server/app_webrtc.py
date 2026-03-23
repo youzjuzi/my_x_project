@@ -34,8 +34,6 @@ MODEL_SETTINGS = {
 }
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-ANNOTATED_FRAME_INTERVAL = 4
-
 app = FastAPI(
     title="Hand Recognition WebRTC Server",
     description="FastAPI WebRTC service for browser camera streaming and mode-switchable hand recognition.",
@@ -201,10 +199,6 @@ class SessionState:
             if image is not None:
                 return image
 
-    def should_include_annotated(self) -> bool:
-        self.result_counter += 1
-        return self.result_counter % ANNOTATED_FRAME_INTERVAL == 1
-
     def mark_processed(self) -> None:
         self._mark_timestamp(self.processed_timestamps)
 
@@ -260,11 +254,10 @@ async def run_inference_loop(session: SessionState) -> None:
         while True:
             image = await session.take_latest_frame()
             detector = get_detector(session.mode)
-            include_annotated = session.should_include_annotated()
             func = functools.partial(
                 detector.process_frame,
                 image,
-                include_annotated=include_annotated,
+                include_annotated=False,
             )
             result = await loop.run_in_executor(None, func)
             session.mark_processed()

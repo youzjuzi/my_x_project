@@ -1,39 +1,27 @@
 <template>
   <div class="video-panel">
-    <div class="panel-header">
-      <div>
-        <p class="label">识别画面</p>
-        <h2>{{ isCameraActive ? '正在采集摄像头画面' : '请先开启摄像头' }}</h2>
-      </div>
-      <div class="camera-state" :class="{ active: isCameraActive }">
-        <span class="state-dot"></span>
-        {{ isCameraActive ? '识别进行中' : '未开启' }}
-      </div>
-    </div>
-
-    <div class="video-stage">
-      <div v-if="!isCameraActive" class="placeholder-state">
-        <div class="illustration-card">
-          <div class="illustration-circle">
-            <el-icon><VideoCameraFilled /></el-icon>
+    <div class="stage-shell">
+      <div class="video-stage">
+        <template v-if="isCameraActive">
+          <video ref="videoRef" autoplay muted playsinline class="camera-feed"></video>
+        </template>
+        <template v-else>
+          <div class="placeholder-state">
+            <div class="illustration-circle">
+              <el-icon><VideoCameraFilled /></el-icon>
+            </div>
+            <p class="placeholder-title">开启摄像头后开始识别</p>
+            <p class="placeholder-text">系统会在此区域实时显示识别画面与反馈效果。</p>
+            <button class="text-trigger" type="button" @click="$emit('start')">
+              开启摄像头
+            </button>
           </div>
-          <h3>开启摄像头后开始识别</h3>
-          <p>请保持环境光线稳定，并将手部放在画面中央区域，识别结果会实时显示在右侧。</p>
-          <el-button class="primary-action" round size="large" @click="$emit('start')">
-            <el-icon><VideoPlay /></el-icon>
-            开启摄像头
-          </el-button>
-        </div>
-      </div>
+        </template>
 
-      <div v-else class="active-state">
-        <video ref="videoRef" autoplay muted playsinline class="camera-feed"></video>
-        <div class="focus-frame"></div>
-
-        <div class="status-strip">
+        <div v-if="isCameraActive" class="status-strip">
           <div class="strip-main">
             <span class="live-chip">实时识别</span>
-            <span class="strip-text">请保持手势稳定，识别结果将同步更新</span>
+            <span class="strip-text">摄像头画面已开启</span>
           </div>
           <div class="strip-metrics">
             <span>帧率 {{ fps > 0 ? fps : '--' }}</span>
@@ -43,25 +31,17 @@
       </div>
     </div>
 
-    <div class="control-footer">
-      <div class="footer-tip">
-        {{ isCameraActive ? '识别完成后可直接关闭摄像头，页面内容会保留。' : '开启后可在当前页面持续进行识别。' }}
-      </div>
-      <div class="footer-actions">
-        <el-button v-if="!isCameraActive" type="primary" round @click="$emit('start')">
-          开启摄像头
-        </el-button>
-        <el-button v-else type="danger" plain round @click="$emit('stop')">
-          关闭摄像头
-        </el-button>
-      </div>
+    <div class="control-zone">
+      <p class="footer-tip">
+        {{ isCameraActive ? '关闭后会停止当前采集，页面中的识别信息会继续保留。' : '可在顶部标题栏右侧开启摄像头并开始识别。' }}
+      </p>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, watch, nextTick } from 'vue'
-import { VideoPlay, VideoCameraFilled } from '@element-plus/icons-vue'
+import { VideoCameraFilled } from '@element-plus/icons-vue'
 
 const props = defineProps({
   isCameraActive: {
@@ -70,11 +50,11 @@ const props = defineProps({
   },
   fps: {
     type: Number,
-    default: 30
+    default: 0
   },
   latency: {
     type: Number,
-    default: 24
+    default: 0
   },
   videoStream: {
     type: MediaStream,
@@ -86,21 +66,28 @@ defineEmits(['start', 'stop'])
 
 const videoRef = ref(null)
 
+const syncVideoStream = async () => {
+  await nextTick()
+
+  if (!videoRef.value) {
+    return
+  }
+
+  videoRef.value.srcObject = props.videoStream || null
+}
+
 watch(
   () => props.videoStream,
-  (stream) => {
-    if (stream && videoRef.value) {
-      nextTick(() => {
-        if (videoRef.value) {
-          videoRef.value.srcObject = stream
-        }
-      })
-      return
-    }
+  () => {
+    syncVideoStream()
+  },
+  { immediate: true }
+)
 
-    if (videoRef.value) {
-      videoRef.value.srcObject = null
-    }
+watch(
+  () => props.isCameraActive,
+  () => {
+    syncVideoStream()
   },
   { immediate: true }
 )
@@ -108,276 +95,186 @@ watch(
 
 <style lang="scss" scoped>
 .video-panel {
-  height: 680px;
   display: flex;
   flex-direction: column;
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 24px;
+  background: #ffffff;
   border: 1px solid rgba(18, 42, 35, 0.08);
-  box-shadow: 0 24px 60px rgba(28, 43, 36, 0.08);
-  overflow: hidden;
+  box-shadow: 0 14px 32px rgba(28, 43, 36, 0.06);
 }
 
-.panel-header {
-  padding: 24px 28px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-
-  h2 {
-    margin: 6px 0 0;
-    font-size: 24px;
-    color: #152f29;
-  }
-}
-
-.label {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #6e837b;
-}
-
-.camera-state {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: #f1f4f2;
-  color: #71817a;
-  font-size: 13px;
-  font-weight: 700;
-
-  &.active {
-    background: #edf7f0;
-    color: #1b6a47;
-  }
-}
-
-.state-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
+.stage-shell {
+  width: 100%;
 }
 
 .video-stage {
-  flex: 1;
-  margin: 0 20px;
-  border-radius: 24px;
-  overflow: hidden;
-  background:
-    linear-gradient(180deg, #f6f8f7 0%, #eaf0ec 100%);
   position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 22px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #eff4f1 0%, #e7eeea 100%);
 }
 
 .placeholder-state {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px;
-}
-
-.illustration-card {
-  max-width: 460px;
+  padding: 24px;
   text-align: center;
-
-  h3 {
-    margin: 0 0 10px;
-    font-size: 28px;
-    color: #16312a;
-  }
-
-  p {
-    margin: 0 auto 28px;
-    font-size: 15px;
-    line-height: 1.7;
-    color: #5f7069;
-  }
+  z-index: 1;
 }
 
 .illustration-circle {
-  width: 110px;
-  height: 110px;
-  margin: 0 auto 24px;
+  width: 68px;
+  height: 68px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 32px;
-  background: linear-gradient(135deg, #dff0e8 0%, #f4f8f6 100%);
-  color: #1d6a4a;
-  font-size: 44px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border-radius: 22px;
+  background: linear-gradient(135deg, #dceee4 0%, #f5f8f6 100%);
+  color: #206846;
+  font-size: 30px;
 }
 
-.primary-action {
-  min-width: 180px;
-  height: 48px;
+.placeholder-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #18332c;
 }
 
-.active-state {
-  width: 100%;
-  height: 100%;
-  position: relative;
+.placeholder-text {
+  margin: 0 0 10px;
+  max-width: 360px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #648078;
+}
+
+.text-trigger {
+  appearance: none;
+  border: none;
+  background: rgba(255, 255, 255, 0.86);
+  color: #24584b;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(18, 42, 35, 0.08);
 }
 
 .camera-feed {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-  background: #101614;
-}
-
-.focus-frame {
-  position: absolute;
-  inset: 11% 14%;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 28px;
-  box-shadow:
-    0 0 0 999px rgba(8, 15, 13, 0.14),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  pointer-events: none;
+  background: #0e1512;
 }
 
 .status-strip {
   position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: 20px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(18, 25, 23, 0.68);
-  color: #f8fbf9;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(17, 26, 22, 0.62);
+  color: #f6fbf8;
+  z-index: 3;
   backdrop-filter: blur(10px);
 }
 
 .strip-main {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .live-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 10px;
+  padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(43, 182, 108, 0.16);
-  color: #8af0b7;
-  font-size: 12px;
+  background: rgba(73, 188, 118, 0.18);
+  color: #99f0bc;
+  font-size: 11px;
   font-weight: 700;
 }
 
-.strip-text {
-  font-size: 13px;
-  color: rgba(248, 251, 249, 0.88);
+.strip-text,
+.strip-metrics {
+  font-size: 12px;
+  color: rgba(246, 251, 248, 0.86);
 }
 
 .strip-metrics {
   display: flex;
   align-items: center;
-  gap: 14px;
-  font-size: 12px;
-  color: rgba(248, 251, 249, 0.72);
+  gap: 12px;
+  color: rgba(246, 251, 248, 0.72);
 }
 
-.control-footer {
-  min-height: 86px;
-  padding: 18px 28px 24px;
+.control-zone {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .footer-tip {
-  font-size: 14px;
-  line-height: 1.6;
-  color: #6a7b74;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6f817a;
 }
 
-.footer-actions {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-@media (max-width: 1200px) {
+@media (max-width: 992px) {
   .video-panel {
-    height: 640px;
+    padding: 16px;
   }
 }
 
 @media (max-width: 767px) {
   .video-panel {
-    height: auto;
-    border-radius: 22px;
-  }
-
-  .panel-header {
-    padding: 20px 20px 16px;
-    flex-direction: column;
-    align-items: flex-start;
-
-    h2 {
-      font-size: 20px;
-    }
-  }
-
-  .video-stage {
-    margin: 0 16px;
-    min-height: 420px;
+    padding: 16px;
     border-radius: 20px;
   }
 
-  .placeholder-state {
-    padding: 24px 20px;
+  .panel-header h2 {
+    font-size: 20px;
   }
 
-  .illustration-card h3 {
-    font-size: 24px;
+  .video-stage {
+    border-radius: 18px;
   }
 
   .status-strip {
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
     flex-direction: column;
     align-items: flex-start;
   }
 
   .strip-main,
   .strip-metrics {
-    width: 100%;
     flex-wrap: wrap;
   }
 
-  .control-footer {
-    padding: 16px 20px 20px;
-    flex-direction: column;
+  .control-zone {
     align-items: stretch;
-  }
-
-  .footer-actions {
-    width: 100%;
-  }
-
-  .footer-actions :deep(.el-button) {
-    width: 100%;
   }
 }
 </style>

@@ -20,9 +20,8 @@ const sentMeta = document.getElementById("sentMeta");
 const latencyMeta = document.getElementById("latencyMeta");
 
 const video = document.getElementById("video");
+const overlayCanvas = document.getElementById("overlayCanvas");
 const captureCanvas = document.getElementById("captureCanvas");
-const resultImage = document.getElementById("resultImage");
-const resultPlaceholder = document.getElementById("resultPlaceholder");
 const resultText = document.getElementById("resultText");
 const modeText = document.getElementById("modeText");
 const handCountText = document.getElementById("handCountText");
@@ -40,6 +39,7 @@ let currentMode = "digits";
 let currentTransport = "ws";
 let peerConnection = null;
 let dataChannel = null;
+let latestResult = null;
 
 function setPill(element, state, text) {
   element.className = `pill ${state}`;
@@ -62,6 +62,8 @@ function summarizeResultPayload(data) {
     imageHeight: data.imageHeight,
     handCount: data.handCount,
     text: data.text,
+    inputFps: data.inputFps,
+    processedFps: data.processedFps,
     hands: data.hands
   };
 }
@@ -71,10 +73,100 @@ function resetResultView() {
   handCountText.textContent = "0";
   inputFpsText.textContent = "-";
   processedFpsText.textContent = "-";
-  resultImage.removeAttribute("src");
-  resultPlaceholder.hidden = false;
+  latestResult = null;
+  clearOverlay();
   jsonOutput.textContent = "";
   latencyMeta.textContent = "Latency -";
+}
+
+function resizeOverlay() {
+  const width = video.clientWidth || video.videoWidth || 0;
+  const height = video.clientHeight || video.videoHeight || 0;
+  if (!width || !height) {
+    return;
+  }
+  if (overlayCanvas.width !== width || overlayCanvas.height !== height) {
+    overlayCanvas.width = width;
+    overlayCanvas.height = height;
+  }
+}
+
+function clearOverlay() {
+  const ctx = overlayCanvas.getContext("2d");
+  ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+}
+
+function mapBoxToCanvas(box, sourceWidth, sourceHeight, displayWidth, displayHeight) {
+  const scale = Math.max(displayWidth / sourceWidth, displayHeight / sourceHeight);
+  const renderedWidth = sourceWidth * scale;
+  const renderedHeight = sourceHeight * scale;
+  const offsetX = (displayWidth - renderedWidth) / 2;
+  const offsetY = (displayHeight - renderedHeight) / 2;
+  return [
+    offsetX + box[0] * scale,
+    offsetY + box[1] * scale,
+    (box[2] - box[0]) * scale,
+    (box[3] - box[1]) * scale,
+  ];
+}
+
+function drawLabel(ctx, x, y, text, color) {
+  ctx.font = "800 18px Segoe UI";
+  const drawY = Math.max(18, y - 8);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.85)";
+  ctx.strokeText(text, x, drawY);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, drawY);
+}
+
+function renderOverlay(result) {
+  resizeOverlay();
+  clearOverlay();
+
+  if (!result || !result.hands || !result.imageWidth || !result.imageHeight) {
+    return;
+  }
+
+  const ctx = overlayCanvas.getContext("2d");
+  const displayWidth = overlayCanvas.width;
+  const displayHeight = overlayCanvas.height;
+
+  ctx.lineWidth = 4;
+  ctx.textBaseline = "top";
+
+  result.hands.forEach((hand, handIndex) => {
+    if (!hand.box || hand.box.length < 4) {
+      return;
+    }
+    const [x, y, w, h] = mapBoxToCanvas(
+      hand.box,
+      result.imageWidth,
+      result.imageHeight,
+      displayWidth,
+      displayHeight
+    );
+
+    ctx.strokeStyle = "#3ddc97";
+    ctx.strokeRect(x, y, w, h);
+
+    (hand.detections || []).forEach((item) => {
+      if (!item.box || item.box.length < 4) {
+        return;
+      }
+      const [dx, dy, dw, dh] = mapBoxToCanvas(
+        item.box,
+        result.imageWidth,
+        result.imageHeight,
+        displayWidth,
+        displayHeight
+      );
+      ctx.strokeStyle = "#ffb347";
+      ctx.strokeRect(dx, dy, dw, dh);
+      const confidence = typeof item.confidence === "number" ? ` ${item.confidence.toFixed(2)}` : "";
+      drawLabel(ctx, dx, dy, `${item.label || "det"}${confidence}`, "#ffb347");
+    });
+  });
 }
 
 function updateModeUi(nextMode) {
@@ -148,6 +240,7 @@ function closeCamera() {
   mediaStream.getTracks().forEach((track) => track.stop());
   mediaStream = null;
   video.srcObject = null;
+  clearOverlay();
   setPill(cameraStatus, "idle", "Camera Offline");
   updateControls();
 }
@@ -176,16 +269,14 @@ function handleServerMessage(data) {
     return;
   }
   if (data.type === "result") {
+    latestResult = data;
     updateModeUi(data.mode || currentMode);
     latencyMeta.textContent = `Latency ${data.latencyMs} ms`;
     resultText.textContent = data.text || "-";
     handCountText.textContent = String(data.handCount ?? 0);
     inputFpsText.textContent = data.inputFps ?? "-";
     processedFpsText.textContent = data.processedFps ?? "-";
-    if (data.annotatedFrame) {
-      resultImage.src = data.annotatedFrame;
-      resultPlaceholder.hidden = true;
-    }
+    renderOverlay(data);
     jsonOutput.textContent = JSON.stringify(summarizeResultPayload(data), null, 2);
   }
 }
@@ -207,6 +298,7 @@ function disconnectSocket() {
   }
   stopStreaming();
   setPill(socketStatus, "idle", "Disconnected");
+  clearOverlay();
   updateControls();
 }
 
@@ -432,6 +524,7 @@ function disconnectWebRtc() {
   }
   setPill(socketStatus, "idle", "Disconnected");
   setPill(streamStatus, "idle", "Idle");
+  clearOverlay();
   updateControls();
 }
 
@@ -502,6 +595,16 @@ window.addEventListener("beforeunload", () => {
   disconnectSocket();
   disconnectWebRtc();
   closeCamera();
+});
+
+video.addEventListener("loadedmetadata", () => {
+  resizeOverlay();
+  renderOverlay(latestResult);
+});
+
+window.addEventListener("resize", () => {
+  resizeOverlay();
+  renderOverlay(latestResult);
 });
 
 setPill(socketStatus, "idle", "Disconnected");

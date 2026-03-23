@@ -71,6 +71,7 @@
         </div>
         <div class="media-stage">
           <video id="video" autoplay playsinline muted></video>
+          <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
         </div>
         <canvas id="captureCanvas" class="hidden"></canvas>
       </section>
@@ -79,10 +80,6 @@
         <div class="panel-header">
           <h2>Detection Result</h2>
           <span id="latencyMeta" class="meta">Latency -</span>
-        </div>
-        <div class="media-stage">
-          <img id="resultImage" alt="annotated frame" />
-          <div id="resultPlaceholder" class="media-placeholder">Waiting for server frame</div>
         </div>
         <div class="result-box">
           <p><strong>Mode:</strong> <span id="modeText">digits</span></p>
