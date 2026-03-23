@@ -42,11 +42,11 @@ class TwoStageDetector:
         self.margin = margin
         self.jpeg_quality = jpeg_quality
 
-    def process_jpeg_bytes(self, payload: bytes) -> Dict[str, Any]:
+    def process_jpeg_bytes(self, payload: bytes, include_annotated: bool = True) -> Dict[str, Any]:
         frame = self._decode_jpeg(payload)
-        return self.process_frame(frame)
+        return self.process_frame(frame, include_annotated=include_annotated)
 
-    def process_frame(self, frame: np.ndarray) -> Dict[str, Any]:
+    def process_frame(self, frame: np.ndarray, include_annotated: bool = True) -> Dict[str, Any]:
         started = time.perf_counter()
         output = frame.copy()
         clamp_box = self._helpers["clamp_box"]
@@ -120,9 +120,8 @@ class TwoStageDetector:
             )
 
         latency_ms = round((time.perf_counter() - started) * 1000, 2)
-        encoded = self._encode_jpeg(output)
         combined_text = " | ".join(item for item in all_texts if item)
-        return {
+        result = {
             "type": "result",
             "mode": self.mode,
             "latencyMs": latency_ms,
@@ -131,8 +130,11 @@ class TwoStageDetector:
             "handCount": len(hands),
             "text": combined_text,
             "hands": hands,
-            "annotatedFrame": "data:image/jpeg;base64,{0}".format(encoded),
         }
+        if include_annotated:
+            encoded = self._encode_jpeg(output)
+            result["annotatedFrame"] = "data:image/jpeg;base64,{0}".format(encoded)
+        return result
 
     def _decode_jpeg(self, payload: bytes) -> np.ndarray:
         cv2 = self._helpers["cv2"]

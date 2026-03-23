@@ -7,6 +7,7 @@ AI_ROOT = ROOT.parent
 
 HOST = "127.0.0.1"
 PORT = 8001
+WEBRTC_PORT = 8002
 
 HAND_WEIGHTS = str(AI_ROOT / "runs/hand_detect_yolov5s_b32/weights/best.pt")
 DIGIT_WEIGHTS = str(AI_ROOT / "runs/digits_detect_yolov5b64/weights/best.pt")

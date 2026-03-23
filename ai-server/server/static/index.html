@@ -1,78 +1,95 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hand Recognition WebSocket Demo</title>
+  <title>Hand Recognition Streaming Demo</title>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
   <main class="shell">
     <section class="hero">
-      <p class="eyebrow">FastAPI + WebSocket</p>
-      <h1>摄像头手势识别调试页</h1>
+      <p class="eyebrow">FastAPI + WebSocket / WebRTC</p>
+      <h1>Hand Recognition Debug Console</h1>
       <p class="subcopy">
-        浏览器采集摄像头帧，通过 WebSocket 发送到服务端。你可以在数字识别和字母识别之间切换，后端会复用不同的两阶段 YOLO 推理逻辑。
+        Compare the existing WebSocket JPEG upload flow with a new WebRTC media-track flow on the same debug page.
       </p>
     </section>
 
     <section class="panel controls">
       <div class="row">
         <label class="field grow">
-          <span>WebSocket 地址</span>
+          <span>WebSocket URL</span>
           <input id="wsUrl" type="text" value="ws://127.0.0.1:8001/ws/hand-digits" />
         </label>
+        <label class="field grow">
+          <span>WebRTC Offer URL</span>
+          <input id="webrtcUrl" type="text" value="http://127.0.0.1:8002/webrtc/offer" />
+        </label>
         <label class="field small">
-          <span>发送 FPS</span>
+          <span>Send FPS</span>
           <input id="fpsInput" type="number" min="1" max="20" value="3" />
         </label>
         <label class="field small">
-          <span>JPEG 质量</span>
+          <span>JPEG Quality</span>
           <input id="qualityInput" type="number" min="0.3" max="1" step="0.05" value="0.7" />
         </label>
       </div>
 
+      <div class="mode-switch" role="group" aria-label="transport mode">
+        <button class="transport-btn active" type="button" data-transport="ws">WebSocket</button>
+        <button class="transport-btn" type="button" data-transport="webrtc">WebRTC</button>
+      </div>
+
       <div class="actions">
-        <button id="connectBtn" class="btn primary" type="button">连接服务</button>
-        <button id="disconnectBtn" class="btn secondary" type="button" disabled>断开连接</button>
-        <button id="cameraBtn" class="btn primary" type="button">打开摄像头</button>
-        <button id="startBtn" class="btn secondary" type="button" disabled>开始推流</button>
-        <button id="stopBtn" class="btn ghost" type="button" disabled>停止推流</button>
+        <button id="connectBtn" class="btn primary" type="button">Connect WebSocket</button>
+        <button id="disconnectBtn" class="btn secondary" type="button" disabled>Disconnect</button>
+        <button id="cameraBtn" class="btn primary" type="button">Open Camera</button>
+        <button id="startBtn" class="btn secondary" type="button" disabled>Start Streaming</button>
+        <button id="stopBtn" class="btn ghost" type="button" disabled>Stop Streaming</button>
       </div>
 
       <div class="mode-switch" role="group" aria-label="recognition mode">
-        <button class="mode-btn active" type="button" data-mode="digits">数字识别</button>
-        <button class="mode-btn" type="button" data-mode="letters">字母识别</button>
+        <button class="mode-btn active" type="button" data-mode="digits">Digits</button>
+        <button class="mode-btn" type="button" data-mode="letters">Letters</button>
       </div>
 
       <div class="status-bar">
-        <span id="socketStatus" class="pill idle">未连接</span>
-        <span id="cameraStatus" class="pill idle">摄像头未启动</span>
-        <span id="streamStatus" class="pill idle">未推流</span>
-        <span id="modeStatus" class="pill warn">当前模式 digits</span>
+        <span id="socketStatus" class="pill idle">Disconnected</span>
+        <span id="transportStatus" class="pill warn">Transport WebSocket</span>
+        <span id="cameraStatus" class="pill idle">Camera Offline</span>
+        <span id="streamStatus" class="pill idle">Idle</span>
+        <span id="modeStatus" class="pill warn">Mode digits</span>
       </div>
     </section>
 
     <section class="grid">
       <section class="panel">
         <div class="panel-header">
-          <h2>本地摄像头</h2>
-          <span id="sentMeta" class="meta">0 帧</span>
+          <h2>Camera Feed</h2>
+          <span id="sentMeta" class="meta">0 frames</span>
         </div>
-        <video id="video" autoplay playsinline muted></video>
+        <div class="media-stage">
+          <video id="video" autoplay playsinline muted></video>
+        </div>
         <canvas id="captureCanvas" class="hidden"></canvas>
       </section>
 
       <section class="panel">
         <div class="panel-header">
-          <h2>服务端识别结果</h2>
-          <span id="latencyMeta" class="meta">延迟 -</span>
+          <h2>Detection Result</h2>
+          <span id="latencyMeta" class="meta">Latency -</span>
         </div>
-        <img id="resultImage" alt="annotated frame" />
+        <div class="media-stage">
+          <img id="resultImage" alt="annotated frame" />
+          <div id="resultPlaceholder" class="media-placeholder">Waiting for server frame</div>
+        </div>
         <div class="result-box">
-          <p><strong>当前模式：</strong><span id="modeText">digits</span></p>
-          <p><strong>识别结果：</strong><span id="resultText">-</span></p>
-          <p><strong>检测到手数：</strong><span id="handCountText">0</span></p>
+          <p><strong>Mode:</strong> <span id="modeText">digits</span></p>
+          <p><strong>Text:</strong> <span id="resultText">-</span></p>
+          <p><strong>Hands:</strong> <span id="handCountText">0</span></p>
+          <p><strong>Input FPS:</strong> <span id="inputFpsText">-</span></p>
+          <p><strong>Processed FPS:</strong> <span id="processedFpsText">-</span></p>
           <pre id="jsonOutput"></pre>
         </div>
       </section>
@@ -80,8 +97,8 @@
 
     <section class="panel">
       <div class="panel-header">
-        <h2>事件日志</h2>
-        <button id="clearLogBtn" class="link-btn" type="button">清空</button>
+        <h2>Runtime Log</h2>
+        <button id="clearLogBtn" class="link-btn" type="button">Clear</button>
       </div>
       <div id="logOutput" class="log"></div>
     </section>

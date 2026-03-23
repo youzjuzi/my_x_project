@@ -218,11 +218,11 @@ class PQHybridDetector:
             "text": "",
         }
 
-    def process_jpeg_bytes(self, payload):
+    def process_jpeg_bytes(self, payload, include_annotated=True):
         frame = self._decode_jpeg(payload)
-        return self.process_frame(frame)
+        return self.process_frame(frame, include_annotated=include_annotated)
 
-    def process_frame(self, frame):
+    def process_frame(self, frame, include_annotated=True):
         started = time.perf_counter()
         output = frame.copy()
         yolo_payload = self.last_yolo_payload
@@ -262,7 +262,7 @@ class PQHybridDetector:
                 final_text = self.expected_label
 
         latency_ms = round((time.perf_counter() - started) * 1000, 2)
-        return {
+        result = {
             "type": "result",
             "mode": "letters",
             "engine": engine,
@@ -276,8 +276,10 @@ class PQHybridDetector:
             "mediapipeGraceRemaining": self._grace_remaining(),
             "hands": yolo_payload["hands"] if engine == "yolo" else [],
             "mediapipe": mp_payload or {},
-            "annotatedFrame": "data:image/jpeg;base64,{0}".format(self._encode_jpeg(output)),
         }
+        if include_annotated:
+            result["annotatedFrame"] = "data:image/jpeg;base64,{0}".format(self._encode_jpeg(output))
+        return result
 
     def _run_yolo_letters(self, frame, output):
         hand_det = self.hand_stage.infer(frame, self.hand_conf, self.iou_thres, self.max_det)
