@@ -21,7 +21,7 @@
           </div>
         </transition-group>
         <div v-if="gestureStream.length === 0" class="empty-tip">
-          开启摄像头后，这里会显示实时识别片段。
+          开启摄像头后，这里会显示最近识别到的片段。
         </div>
       </div>
     </div>
@@ -41,7 +41,7 @@
       <div class="candidates-area">
         <div class="candidates-header">
           <span class="label">候选词</span>
-          <span class="tip">点击候选词可加入结果</span>
+          <span class="tip">本阶段先只做展示，暂不接候选词逻辑</span>
         </div>
         <div class="tags-wrapper">
           <el-tag
@@ -79,7 +79,7 @@
       <div class="final-result-card" :class="{ empty: !finalSentence }">
         <div class="result-content">
           <p class="result-label">输出内容</p>
-          <div class="result-text">{{ finalSentence || '识别后的文字会显示在这里。' }}</div>
+          <div class="result-text">{{ finalSentence || '识别后的完整文字会显示在这里。' }}</div>
         </div>
 
         <div class="result-toolbar">
@@ -94,25 +94,25 @@
 </template>
 
 <script setup>
-import { Aim, EditPen, ChatLineSquare, Microphone } from '@element-plus/icons-vue'
+import { Aim, ChatLineSquare, EditPen, Microphone } from '@element-plus/icons-vue'
 
 defineProps({
   gestureStream: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   pinyinBuffer: {
     type: String,
-    default: ''
+    default: '',
   },
   candidates: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   finalSentence: {
     type: String,
-    default: ''
-  }
+    default: '',
+  },
 })
 
 defineEmits(['select-candidate', 'copy', 'clear', 'speak'])
@@ -176,8 +176,9 @@ defineEmits(['select-candidate', 'copy', 'clear', 'speak'])
 }
 
 .gesture-bubble {
-  width: 38px;
+  min-width: 38px;
   height: 38px;
+  padding: 0 12px;
   flex-shrink: 0;
   border-radius: 12px;
   display: flex;

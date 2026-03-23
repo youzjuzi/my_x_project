@@ -4,14 +4,16 @@
       <div class="video-stage">
         <template v-if="isCameraActive">
           <video ref="videoRef" autoplay muted playsinline class="camera-feed"></video>
+          <canvas ref="overlayCanvasRef" class="overlay-canvas"></canvas>
         </template>
+
         <template v-else>
           <div class="placeholder-state">
             <div class="illustration-circle">
               <el-icon><VideoCameraFilled /></el-icon>
             </div>
             <p class="placeholder-title">开启摄像头后开始识别</p>
-            <p class="placeholder-text">系统会在此区域实时显示识别画面与反馈效果。</p>
+            <p class="placeholder-text">实时画面和识别框会显示在这里。</p>
             <button class="text-trigger" type="button" @click="$emit('start')">
               开启摄像头
             </button>
@@ -21,10 +23,11 @@
         <div v-if="isCameraActive" class="status-strip">
           <div class="strip-main">
             <span class="live-chip">实时识别</span>
-            <span class="strip-text">摄像头画面已开启</span>
+            <span class="strip-text">当前正在显示后端返回的识别框</span>
           </div>
           <div class="strip-metrics">
-            <span>帧率 {{ fps > 0 ? fps : '--' }}</span>
+            <span>输入帧率 {{ inputFps > 0 ? inputFps : '--' }}</span>
+            <span>识别帧率 {{ processedFps > 0 ? processedFps : '--' }}</span>
             <span>延迟 {{ latency > 0 ? `${latency}ms` : '--' }}</span>
           </div>
         </div>
@@ -33,14 +36,14 @@
 
     <div class="control-zone">
       <p class="footer-tip">
-        {{ isCameraActive ? '关闭后会停止当前采集，页面中的识别信息会继续保留。' : '可在顶部标题栏右侧开启摄像头并开始识别。' }}
+        {{ isCameraActive ? '识别框来自 app_webrtc 返回结果。' : '可通过顶部右侧按钮开启摄像头。' }}
       </p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { VideoCameraFilled } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -48,7 +51,11 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  fps: {
+  inputFps: {
+    type: Number,
+    default: 0
+  },
+  processedFps: {
     type: Number,
     default: 0
   },
@@ -59,12 +66,17 @@ const props = defineProps({
   videoStream: {
     type: MediaStream,
     default: null
+  },
+  overlayResult: {
+    type: Object,
+    default: null
   }
 })
 
 defineEmits(['start', 'stop'])
 
 const videoRef = ref(null)
+const overlayCanvasRef = ref(null)
 
 const syncVideoStream = async () => {
   await nextTick()
@@ -74,6 +86,103 @@ const syncVideoStream = async () => {
   }
 
   videoRef.value.srcObject = props.videoStream || null
+}
+
+const resizeOverlay = () => {
+  const canvas = overlayCanvasRef.value
+  const video = videoRef.value
+
+  if (!canvas || !video) {
+    return
+  }
+
+  const width = video.clientWidth || video.videoWidth || 0
+  const height = video.clientHeight || video.videoHeight || 0
+
+  if (!width || !height) {
+    return
+  }
+
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width
+    canvas.height = height
+  }
+}
+
+const clearOverlay = () => {
+  const canvas = overlayCanvasRef.value
+  if (!canvas) {
+    return
+  }
+
+  const context = canvas.getContext('2d')
+  context.clearRect(0, 0, canvas.width, canvas.height)
+}
+
+const mapBoxToCanvas = (box, sourceWidth, sourceHeight, displayWidth, displayHeight) => {
+  const scale = Math.max(displayWidth / sourceWidth, displayHeight / sourceHeight)
+  const renderedWidth = sourceWidth * scale
+  const renderedHeight = sourceHeight * scale
+  const offsetX = (displayWidth - renderedWidth) / 2
+  const offsetY = (displayHeight - renderedHeight) / 2
+  const x = offsetX + box[0] * scale
+  const y = offsetY + box[1] * scale
+  const width = (box[2] - box[0]) * scale
+  const height = (box[3] - box[1]) * scale
+
+  return [displayWidth - x - width, y, width, height]
+}
+
+const drawLabel = (context, x, y, text, color) => {
+  const labelY = Math.max(16, y - 6)
+  context.font = '700 14px "Microsoft YaHei", "Segoe UI", sans-serif'
+  context.lineWidth = 3
+  context.strokeStyle = 'rgba(0, 0, 0, 0.9)'
+  context.strokeText(text, x, labelY)
+  context.fillStyle = color
+  context.fillText(text, x, labelY)
+}
+
+const renderOverlay = async () => {
+  await nextTick()
+  resizeOverlay()
+  clearOverlay()
+
+  const result = props.overlayResult
+  const canvas = overlayCanvasRef.value
+
+  if (!result || !canvas || !result.hands || !result.imageWidth || !result.imageHeight) {
+    return
+  }
+
+  const context = canvas.getContext('2d')
+  const displayWidth = canvas.width
+  const displayHeight = canvas.height
+
+  context.lineWidth = 3
+  context.textBaseline = 'top'
+
+  result.hands.forEach((hand) => {
+    if (!hand.box || hand.box.length < 4) {
+      return
+    }
+
+    const [x, y, width, height] = mapBoxToCanvas(
+      hand.box,
+      result.imageWidth,
+      result.imageHeight,
+      displayWidth,
+      displayHeight
+    )
+
+    context.strokeStyle = '#3ddc97'
+    context.strokeRect(x, y, width, height)
+
+    const confidence =
+      typeof hand.confidence === 'number' ? ` ${hand.confidence.toFixed(2)}` : ''
+    const labelText = `${hand.text || '手势'}${confidence}`
+    drawLabel(context, x, y, labelText, '#3ddc97')
+  })
 }
 
 watch(
@@ -88,8 +197,19 @@ watch(
   () => props.isCameraActive,
   () => {
     syncVideoStream()
+    if (!props.isCameraActive) {
+      clearOverlay()
+    }
   },
   { immediate: true }
+)
+
+watch(
+  () => props.overlayResult,
+  () => {
+    renderOverlay()
+  },
+  { deep: true }
 )
 </script>
 
@@ -121,13 +241,13 @@ watch(
 .placeholder-state {
   position: absolute;
   inset: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 24px;
   text-align: center;
-  z-index: 1;
 }
 
 .illustration-circle {
@@ -171,14 +291,23 @@ watch(
   box-shadow: 0 4px 14px rgba(18, 42, 35, 0.08);
 }
 
-.camera-feed {
+.camera-feed,
+.overlay-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.camera-feed {
   object-fit: cover;
   transform: scaleX(-1);
   background: #0e1512;
+}
+
+.overlay-canvas {
+  z-index: 2;
+  pointer-events: none;
 }
 
 .status-strip {
@@ -186,6 +315,7 @@ watch(
   left: 12px;
   right: 12px;
   bottom: 12px;
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -194,7 +324,6 @@ watch(
   border-radius: 16px;
   background: rgba(17, 26, 22, 0.62);
   color: #f6fbf8;
-  z-index: 3;
   backdrop-filter: blur(10px);
 }
 
@@ -253,10 +382,6 @@ watch(
   .video-panel {
     padding: 16px;
     border-radius: 20px;
-  }
-
-  .panel-header h2 {
-    font-size: 20px;
   }
 
   .video-stage {

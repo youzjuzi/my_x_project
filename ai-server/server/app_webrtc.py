@@ -1,22 +1,18 @@
 import asyncio
-from collections import deque
-import functools
-import json
 from pathlib import Path
-import time
-from typing import Deque, Dict, Set
+from typing import Dict, Set
 
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 import uvicorn
 
 from . import config
 from .detector import DetectorRegistry
 from .pq_hybrid_detector import PQHybridDetector
+from .webrtc import OfferPayload, SessionState, receive_video_track, run_inference_loop, wait_for_ice_gathering
 
 
 MODEL_SETTINGS = {
@@ -60,12 +56,6 @@ pq_detector_error = None
 peer_connections: Set[RTCPeerConnection] = set()
 
 
-class OfferPayload(BaseModel):
-    sdp: str
-    type: str
-    mode: str = "digits"
-
-
 def get_pq_detector():
     global pq_detector
     global pq_detector_error
@@ -103,173 +93,6 @@ def get_detector(mode: str):
     return registry.get("digits")
 
 
-async def wait_for_ice_gathering(pc: RTCPeerConnection) -> None:
-    if pc.iceGatheringState == "complete":
-        return
-
-    completed = asyncio.Event()
-
-    @pc.on("icegatheringstatechange")
-    async def on_ice_gathering_state_change() -> None:
-        if pc.iceGatheringState == "complete":
-            completed.set()
-
-    await completed.wait()
-
-
-class SessionState:
-    def __init__(self, pc: RTCPeerConnection, mode: str) -> None:
-        self.pc = pc
-        self.mode = mode if mode in ("digits", "letters") else "digits"
-        self.channel = None
-        self.track_tasks: Set[asyncio.Task] = set()
-        self.latest_frame = None
-        self.latest_frame_lock = asyncio.Lock()
-        self.frame_ready = asyncio.Event()
-        self.result_counter = 0
-        self.input_timestamps: Deque[float] = deque()
-        self.processed_timestamps: Deque[float] = deque()
-
-    async def send_json(self, payload: Dict[str, object]) -> None:
-        if self.channel is None or self.channel.readyState != "open":
-            return
-        if getattr(self.channel, "bufferedAmount", 0) > 1_000_000:
-            return
-        self.channel.send(json.dumps(payload, ensure_ascii=False))
-
-    async def send_ready(self) -> None:
-        await self.send_json(
-            {
-                "type": "ready",
-                "transport": "webrtc",
-                "message": "WebRTC connected. Browser media track is streaming.",
-                "modes": ["digits", "letters"],
-                "defaultMode": self.mode,
-            }
-        )
-
-    async def handle_channel_message(self, message: object) -> None:
-        if not isinstance(message, str):
-            return
-
-        text = message.strip()
-        if text == "ping":
-            await self.send_json({"type": "pong"})
-            return
-        if text.startswith("mode:"):
-            requested_mode = text.split(":", 1)[1].strip()
-            if requested_mode not in ("digits", "letters"):
-                await self.send_json({"type": "error", "message": f"Unsupported mode: {requested_mode}"})
-                return
-            self.mode = requested_mode
-            await self.send_json({"type": "mode_changed", "mode": self.mode})
-            return
-
-        await self.send_json({"type": "info", "message": "Send mode:<digits|letters> or ping on the data channel."})
-
-    def attach_channel(self, channel) -> None:
-        self.channel = channel
-
-        @channel.on("open")
-        def on_open() -> None:
-            asyncio.create_task(self.send_ready())
-
-        @channel.on("message")
-        def on_message(message: object) -> None:
-            asyncio.create_task(self.handle_channel_message(message))
-
-    def add_track_task(self, task: asyncio.Task) -> None:
-        self.track_tasks.add(task)
-        task.add_done_callback(lambda finished: self.track_tasks.discard(finished))
-
-    async def publish_frame(self, frame) -> None:
-        self._mark_timestamp(self.input_timestamps)
-        image = frame.to_ndarray(format="bgr24")
-        async with self.latest_frame_lock:
-            self.latest_frame = image
-            self.frame_ready.set()
-
-    async def take_latest_frame(self):
-        while True:
-            await self.frame_ready.wait()
-            async with self.latest_frame_lock:
-                image = self.latest_frame
-                self.latest_frame = None
-                self.frame_ready.clear()
-            if image is not None:
-                return image
-
-    def mark_processed(self) -> None:
-        self._mark_timestamp(self.processed_timestamps)
-
-    def input_fps(self) -> float:
-        return self._calculate_fps(self.input_timestamps)
-
-    def processed_fps(self) -> float:
-        return self._calculate_fps(self.processed_timestamps)
-
-    def _mark_timestamp(self, bucket: Deque[float]) -> None:
-        now = time.perf_counter()
-        bucket.append(now)
-        cutoff = now - 1.0
-        while bucket and bucket[0] < cutoff:
-            bucket.popleft()
-
-    def _calculate_fps(self, bucket: Deque[float]) -> float:
-        cutoff = time.perf_counter() - 1.0
-        while bucket and bucket[0] < cutoff:
-            bucket.popleft()
-        if len(bucket) <= 1:
-            return float(len(bucket))
-        duration = bucket[-1] - bucket[0]
-        if duration <= 0:
-            return float(len(bucket))
-        return round(len(bucket) / duration, 2)
-
-    async def close(self) -> None:
-        for task in list(self.track_tasks):
-            task.cancel()
-        self.track_tasks.clear()
-        self.frame_ready.set()
-        if self.channel is not None and self.channel.readyState != "closed":
-            self.channel.close()
-        if self.pc.connectionState != "closed":
-            await self.pc.close()
-
-
-async def receive_video_track(track, session: SessionState) -> None:
-    try:
-        while True:
-            frame = await track.recv()
-            await session.publish_frame(frame)
-    except asyncio.CancelledError:
-        raise
-    except Exception as exc:
-        await session.send_json({"type": "error", "message": str(exc)})
-
-
-async def run_inference_loop(session: SessionState) -> None:
-    try:
-        loop = asyncio.get_running_loop()
-        while True:
-            image = await session.take_latest_frame()
-            detector = get_detector(session.mode)
-            func = functools.partial(
-                detector.process_frame,
-                image,
-                include_annotated=False,
-            )
-            result = await loop.run_in_executor(None, func)
-            session.mark_processed()
-            result["inputFps"] = session.input_fps()
-            result["processedFps"] = session.processed_fps()
-            await session.send_json(result)
-    except asyncio.CancelledError:
-        raise
-    except Exception as exc:
-        await session.send_json({"type": "error", "message": str(exc)})
-
-
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
@@ -291,7 +114,7 @@ async def create_offer(payload: OfferPayload) -> Dict[str, str]:
     pc = RTCPeerConnection()
     session = SessionState(pc, payload.mode)
     peer_connections.add(pc)
-    session.add_track_task(asyncio.create_task(run_inference_loop(session)))
+    session.add_track_task(asyncio.create_task(run_inference_loop(session, get_detector)))
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange() -> None:

@@ -3,7 +3,7 @@
     <div class="page-shell">
       <div class="hero-row">
         <div class="nav-header">
-          <div class="back-capsule" @click="handleExit" aria-label="返回上一页">
+          <div class="back-capsule" @click="handleExit" aria-label="返回">
             <div class="icon-wrap">
               <el-icon><ArrowLeft /></el-icon>
             </div>
@@ -15,14 +15,16 @@
             <p class="eyebrow">手势识别</p>
             <h1>通过摄像头实时识别手势内容</h1>
             <p class="description">
-              开启摄像头后即可开始识别。左侧显示实时画面与追踪反馈，右侧同步展示识别过程、拼写状态和最终结果。
+              当前页面已接入 WebRTC 推理服务，现阶段优先展示实时摄像头画面、识别框，以及最基础的识别过程与当前拼写。
             </p>
           </div>
+
           <div class="intro-actions">
             <div class="intro-badge">
               <span class="status-dot" :class="{ active: isCameraActive }"></span>
-              {{ isCameraActive ? '摄像头已开启' : '等待开启摄像头' }}
+              {{ isCameraActive ? connectionText : '等待开启摄像头' }}
             </div>
+
             <el-button
               v-if="!isCameraActive"
               type="primary"
@@ -31,6 +33,7 @@
             >
               开启摄像头
             </el-button>
+
             <el-button
               v-else
               type="danger"
@@ -48,9 +51,11 @@
         <el-col :span="16" :xs="24">
           <VideoPanel
             :is-camera-active="isCameraActive"
-            :fps="fps"
+            :input-fps="inputFps"
+            :processed-fps="processedFps"
             :latency="latency"
             :video-stream="localStream"
+            :overlay-result="overlayResult"
             @start="startCamera"
             @stop="stopCamera"
           />
@@ -80,18 +85,21 @@
 </template>
 
 <script setup>
-import { ref, onBeforeUnmount } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import VideoPanel from './components/VideoPanel.vue'
 import InteractionPanel from './components/InteractionPanel.vue'
 import ExitConfirmDialog from './components/ExitConfirmDialog.vue'
+import { createRecognitionWebRtcClient } from './services/webrtcClient'
 
 const router = useRouter()
 
 const isCameraActive = ref(false)
-const fps = ref(0)
+const connectionState = ref('idle')
+const inputFps = ref(0)
+const processedFps = ref(0)
 const latency = ref(0)
 const gestureStream = ref([])
 const pinyinBuffer = ref('')
@@ -99,26 +107,137 @@ const candidates = ref([])
 const finalSentence = ref('')
 const exitDialogVisible = ref(false)
 const localStream = ref(null)
+const overlayResult = ref(null)
+
+let webrtcClient = null
+
+const connectionText = computed(() => {
+  if (connectionState.value === 'connected') {
+    return 'WebRTC 已连接'
+  }
+
+  if (connectionState.value === 'connecting') {
+    return 'WebRTC 连接中'
+  }
+
+  return '摄像头已开启'
+})
+
+const mapProcessItems = (items) => {
+  if (!Array.isArray(items)) {
+    return []
+  }
+
+  return items.map((item, index) => ({
+    id: `${index}-${item}`,
+    char: item,
+  }))
+}
+
+const handleServerMessage = (payload) => {
+  if (!payload || typeof payload !== 'object') {
+    return
+  }
+
+  if (payload.type === 'error') {
+    ElMessage.error(payload.message || '识别服务返回错误')
+    return
+  }
+
+  if (payload.type !== 'result') {
+    return
+  }
+
+  overlayResult.value = payload
+  inputFps.value = Number(payload.inputFps || 0)
+  processedFps.value = Number(payload.processedFps || 0)
+  latency.value = Number(payload.latencyMs || 0)
+  gestureStream.value = mapProcessItems(payload.processItems)
+  pinyinBuffer.value = String(payload.spellingBuffer || '')
+}
+
+const disconnectWebRtc = () => {
+  if (!webrtcClient) {
+    connectionState.value = 'idle'
+    return
+  }
+
+  webrtcClient.disconnect()
+  webrtcClient = null
+  connectionState.value = 'idle'
+}
+
+const connectWebRtc = async (stream) => {
+  disconnectWebRtc()
+  connectionState.value = 'connecting'
+
+  webrtcClient = createRecognitionWebRtcClient({
+    mediaStream: stream,
+    mode: 'digits',
+    onResult: handleServerMessage,
+    onOpen: () => {
+      connectionState.value = 'connected'
+    },
+    onClose: () => {
+      connectionState.value = 'idle'
+      webrtcClient = null
+    },
+    onConnectionStateChange: (state) => {
+      connectionState.value = state
+    },
+    onError: (error) => {
+      console.error(error)
+    },
+  })
+
+  await webrtcClient.connect()
+}
 
 const startCamera = async () => {
+  let stream = null
+
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, facingMode: 'user' },
+      audio: false,
+    })
+
     localStream.value = stream
     isCameraActive.value = true
-    fps.value = 0
+    inputFps.value = 0
+    processedFps.value = 0
     latency.value = 0
-  } catch (err) {
-    console.error(err)
-    ElMessage.error('无法开启摄像头，请检查浏览器权限和设备是否可用。')
+    overlayResult.value = null
+    gestureStream.value = []
+    pinyinBuffer.value = ''
+
+    await connectWebRtc(stream)
+  } catch (error) {
+    console.error(error)
+    if (stream) {
+      stream.getTracks().forEach((track) => {
+        track.stop()
+      })
+    }
     isCameraActive.value = false
     localStream.value = null
+    overlayResult.value = null
+    gestureStream.value = []
+    pinyinBuffer.value = ''
+    connectionState.value = 'idle'
+    ElMessage.error(error?.message || '无法开启摄像头或连接 WebRTC 服务')
   }
 }
 
 const stopCamera = () => {
+  disconnectWebRtc()
   isCameraActive.value = false
-  fps.value = 0
+  inputFps.value = 0
+  processedFps.value = 0
   latency.value = 0
+  overlayResult.value = null
+  gestureStream.value = []
+  pinyinBuffer.value = ''
 
   if (localStream.value) {
     localStream.value.getTracks().forEach((track) => {
@@ -175,7 +294,7 @@ const copyResult = async () => {
 }
 
 const speakResult = () => {
-  ElMessage.success('正在朗读识别结果')
+  ElMessage.info('朗读功能暂未接入')
 }
 
 onBeforeUnmount(() => {
@@ -209,10 +328,10 @@ onBeforeUnmount(() => {
 
 .back-capsule {
   height: 100%;
+  min-width: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 48px;
   padding: 4px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.96);
@@ -253,15 +372,15 @@ onBeforeUnmount(() => {
   gap: 14px;
 }
 
+.intro-main {
+  min-width: 0;
+}
+
 .intro-actions {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.intro-main {
-  min-width: 0;
 }
 
 .eyebrow {
@@ -274,7 +393,7 @@ onBeforeUnmount(() => {
 }
 
 .page-intro h1 {
-  margin: 4px 0 4px;
+  margin: 4px 0;
   font-size: 24px;
   line-height: 1.15;
   color: #16312a;
@@ -300,12 +419,6 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
-.hero-action {
-  min-width: 124px;
-  height: 36px;
-  border-radius: 999px;
-}
-
 .status-dot {
   width: 8px;
   height: 8px;
@@ -316,6 +429,12 @@ onBeforeUnmount(() => {
     background: #25a165;
     box-shadow: 0 0 0 4px rgba(37, 161, 101, 0.12);
   }
+}
+
+.hero-action {
+  min-width: 124px;
+  height: 36px;
+  border-radius: 999px;
 }
 
 .main-layout {
@@ -330,7 +449,6 @@ onBeforeUnmount(() => {
 
   .hero-row {
     flex-direction: column;
-    gap: 10px;
   }
 
   .page-intro {
@@ -371,13 +489,13 @@ onBeforeUnmount(() => {
     font-size: 13px;
   }
 
-  .intro-badge {
-    justify-content: center;
-  }
-
   .intro-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .intro-badge {
+    justify-content: center;
   }
 
   .hero-action {
