@@ -6,7 +6,6 @@
         :is-camera-active="isCameraActive"
         :connection-text="connectionText"
         @back="handleExit"
-        @change-mode="changeMode"
         @start-camera="startCamera"
         @stop-camera="stopCamera"
       />
@@ -25,6 +24,9 @@
             :action-title="actionTitle"
             :action-type="actionType"
             :action-tick="actionTick"
+            :command-mode-active="commandModeActive"
+            :command-candidate="commandCandidate"
+            :command-candidate-progress="commandCandidateProgress"
             @start="startCamera"
             @stop="stopCamera"
           />
@@ -100,7 +102,9 @@ const {
   clearActionToast,
   startCamera,
   stopCamera,
-  changeMode,
+  commandModeActive,
+  commandCandidate,
+  commandCandidateProgress,
 } = useRecognitionSession()
 
 const finalSentence = ref('')

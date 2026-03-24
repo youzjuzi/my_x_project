@@ -19,23 +19,12 @@
       </div>
 
       <div class="intro-actions">
-        <div class="mode-switch">
-          <el-button
-            :type="selectedMode === 'digits' ? 'primary' : 'default'"
-            plain
-            class="mode-button"
-            @click="$emit('change-mode', 'digits')"
-          >
-            数字模式
-          </el-button>
-          <el-button
-            :type="selectedMode === 'letters' ? 'primary' : 'default'"
-            plain
-            class="mode-button"
-            @click="$emit('change-mode', 'letters')"
-          >
-            字母模式
-          </el-button>
+        <div class="mode-display">
+          <div class="mode-icon-block">{{ selectedMode === 'digits' ? '123' : 'Aa' }}</div>
+          <div class="mode-info">
+            <span class="mode-hint">当前模式</span>
+            <span class="mode-name">{{ selectedMode === 'digits' ? '数字识别' : '字母识别' }}</span>
+          </div>
         </div>
 
         <div class="intro-badge">
@@ -84,7 +73,7 @@ defineProps({
   },
 })
 
-defineEmits(['back', 'change-mode', 'start-camera', 'stop-camera'])
+defineEmits(['back', 'start-camera', 'stop-camera'])
 </script>
 
 <style scoped lang="scss">
@@ -158,14 +147,50 @@ defineEmits(['back', 'change-mode', 'start-camera', 'stop-camera'])
   justify-content: flex-end;
 }
 
-.mode-switch {
+.mode-display {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #edf7f2 0%, #e8f4ef 100%);
+  border: 1px solid rgba(33, 109, 75, 0.15);
 }
 
-.mode-button {
-  min-width: 92px;
+.mode-icon-block {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #216d4b;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: -0.03em;
+  flex-shrink: 0;
+}
+
+.mode-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mode-hint {
+  font-size: 10px;
+  color: #688178;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.mode-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #16312a;
+  line-height: 1.1;
 }
 
 .eyebrow {
@@ -265,11 +290,10 @@ defineEmits(['back', 'change-mode', 'start-camera', 'stop-camera'])
     align-items: stretch;
   }
 
-  .mode-switch {
+  .mode-display {
     width: 100%;
   }
 
-  .mode-button,
   .hero-action {
     width: 100%;
   }

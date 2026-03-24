@@ -27,6 +27,9 @@ export function useRecognitionSession() {
   const deletedCacheTick = ref(0)
   const deleteProgressTick = ref(0)
   const deleteProgressValue = ref(0)
+  const commandModeActive = ref(false)
+  const commandCandidate = ref('')
+  const commandCandidateProgress = ref(0)
 
   let webrtcClient = null
   let actionToastTimer = null
@@ -202,6 +205,9 @@ export function useRecognitionSession() {
       pinyinBuffer.value = ''
       stabilityProgress.value = 0
       overlayResult.value = null
+      commandModeActive.value = Boolean(payload.commandModeActive)
+      commandCandidate.value = ''
+      commandCandidateProgress.value = 0
 
       if (payload.modeChangedByCommand) {
         selectedMode.value = payload.mode || selectedMode.value
@@ -234,6 +240,9 @@ export function useRecognitionSession() {
     cachedBuffer.value = String(payload.cachedBuffer || '')
     updateCandidateState(payload)
     stabilityProgress.value = Number(payload.stabilityProgress || 0)
+    commandModeActive.value = Boolean(payload.commandModeActive)
+    commandCandidate.value = String(payload.commandCandidate || '')
+    commandCandidateProgress.value = Number(payload.commandCandidateProgress || 0)
   }
 
   const disconnectWebRtc = () => {
@@ -367,5 +376,8 @@ export function useRecognitionSession() {
     startCamera,
     stopCamera,
     changeMode,
+    commandModeActive,
+    commandCandidate,
+    commandCandidateProgress,
   }
 }

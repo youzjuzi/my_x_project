@@ -17,8 +17,9 @@ COMMAND_SWITCH = "SWITCH"
 
 
 class HandsCommandParser:
-    def __init__(self, trigger_threshold: int = TRIGGER_THRESHOLD) -> None:
+    def __init__(self, trigger_threshold: int = TRIGGER_THRESHOLD, switch_trigger_threshold: int = 20) -> None:
         self.trigger_threshold = trigger_threshold
+        self.switch_trigger_threshold = switch_trigger_threshold
         self.confirm_counter = 0
         self.delete_counter = 0
         self.clear_counter = 0
@@ -149,7 +150,7 @@ class HandsCommandParser:
                 return COMMAND_ENTER
         elif candidate == COMMAND_SWITCH:
             self.switch_counter += 1
-            if self.switch_counter >= self.trigger_threshold:
+            if self.switch_counter >= self.switch_trigger_threshold:
                 self.switch_counter = 0
                 return COMMAND_SWITCH
 
@@ -207,6 +208,7 @@ class HandCommandRecognizer:
             "commandCandidate": candidate,
             "commandCounters": self.parser.snapshot(),
             "commandThreshold": self.parser.trigger_threshold,
+            "commandSwitchThreshold": self.parser.switch_trigger_threshold,
         }
 
     def reset(self) -> None:

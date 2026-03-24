@@ -6,6 +6,43 @@
           <video ref="videoRef" autoplay muted playsinline class="camera-feed"></video>
           <canvas ref="overlayCanvasRef" class="overlay-canvas"></canvas>
 
+          <transition name="hud-fade">
+            <div
+              v-if="isRecognitionReady && commandModeActive"
+              class="command-hud"
+            >
+              <transition name="gesture-pop" mode="out-in">
+                <div
+                  v-if="commandCandidate && currentGesture"
+                  :key="commandCandidate"
+                  class="gesture-card"
+                  :style="{ '--gesture-color': currentGesture.color }"
+                >
+                  <svg class="progress-ring" width="56" height="56" viewBox="0 0 56 56">
+                    <circle class="ring-track" cx="28" cy="28" :r="RING_R" />
+                    <circle
+                      class="ring-fill"
+                      cx="28" cy="28"
+                      :r="RING_R"
+                      :stroke="currentGesture.color"
+                      :stroke-dasharray="RING_C"
+                      :stroke-dashoffset="ringOffset"
+                    />
+                    <text x="28" y="33" text-anchor="middle" class="ring-symbol">{{ currentGesture.symbol }}</text>
+                  </svg>
+                  <div class="gesture-info">
+                    <span class="gesture-name">{{ currentGesture.label }}</span>
+                    <span class="gesture-hint">{{ currentGesture.hint }}</span>
+                  </div>
+                </div>
+                <div v-else key="idle" class="command-mode-badge">
+                  <span class="cmd-dot"></span>
+                  命令模式
+                </div>
+              </transition>
+            </div>
+          </transition>
+
           <div
             v-if="isRecognitionReady && actionToast"
             :key="`${actionType}-${actionTick}`"
@@ -81,8 +118,18 @@
 </template>
 
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { VideoCameraFilled } from '@element-plus/icons-vue'
+
+const GESTURE_CONFIG = {
+  CONFIRM: { label: '确认', hint: '保持手势', color: '#25a165', symbol: '✓' },
+  DELETE:  { label: '删除', hint: '继续按住', color: '#d74a4a', symbol: '←' },
+  CLEAR:   { label: '清空', hint: '继续按住', color: '#f0822b', symbol: '✕' },
+  SWITCH:  { label: '切换', hint: '保持手势', color: '#4a8fd7', symbol: '⇄' },
+}
+
+const RING_R = 22
+const RING_C = Math.PI * 2 * RING_R
 
 const props = defineProps({
   isCameraActive: {
@@ -129,9 +176,26 @@ const props = defineProps({
     type: Number,
     default: 0,
   },
+  commandModeActive: {
+    type: Boolean,
+    default: false,
+  },
+  commandCandidate: {
+    type: String,
+    default: '',
+  },
+  commandCandidateProgress: {
+    type: Number,
+    default: 0,
+  },
 })
 
 defineEmits(['start', 'stop'])
+
+const currentGesture = computed(() => GESTURE_CONFIG[props.commandCandidate] || null)
+const ringOffset = computed(() =>
+  RING_C * (1 - Math.max(0, Math.min(1, props.commandCandidateProgress)))
+)
 
 const videoRef = ref(null)
 const overlayCanvasRef = ref(null)
@@ -710,6 +774,133 @@ watch(
   }
 }
 
+// ── Command Gesture HUD ──────────────────────────────────────────────────
+.command-hud {
+  position: absolute;
+  left: 12px;
+  bottom: 52px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.command-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(10, 30, 22, 0.72);
+  backdrop-filter: blur(6px);
+  color: #a8e8c8;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cmd-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #25a165;
+  box-shadow: 0 0 0 3px rgba(37, 161, 101, 0.25);
+  animation: cmdBlink 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.gesture-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 8px;
+  border-radius: 16px;
+  background: rgba(10, 22, 18, 0.82);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.progress-ring {
+  flex-shrink: 0;
+}
+
+.ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 4;
+}
+
+.ring-fill {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 28px 28px;
+  transition: stroke-dashoffset 0.12s linear;
+}
+
+.ring-symbol {
+  fill: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  dominant-baseline: middle;
+  font-family: inherit;
+}
+
+.gesture-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gesture-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--gesture-color, #ffffff);
+  line-height: 1.1;
+}
+
+.gesture-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.hud-fade-enter-active,
+.hud-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.hud-fade-enter-from,
+.hud-fade-leave-to {
+  opacity: 0;
+}
+
+.gesture-pop-enter-active {
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.gesture-pop-leave-active {
+  transition: all 0.15s ease;
+}
+
+.gesture-pop-enter-from {
+  opacity: 0;
+  transform: scale(0.85) translateY(6px);
+}
+
+.gesture-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+@keyframes cmdBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 @keyframes actionBackdropPulse {
   0% {
     opacity: 0;

@@ -22,6 +22,7 @@ class SessionState:
         delete_hold_seconds: float = 1.5,
         clear_hold_seconds: float = 1.5,
         vote_window_frames: int = 20,
+        switch_suppression_seconds: float = 2.0,
     ) -> None:
         self.pc = pc
         self.mode = mode if mode in ("digits", "letters") else "digits"
@@ -31,6 +32,7 @@ class SessionState:
         self.stable_token_duration_seconds = stable_token_duration_seconds
         self.delete_hold_seconds = delete_hold_seconds
         self.clear_hold_seconds = clear_hold_seconds
+        self.switch_suppression_seconds = switch_suppression_seconds
 
         self.channel = None
         self.track_tasks: Set[asyncio.Task] = set()
@@ -53,6 +55,7 @@ class SessionState:
         self.pending_stable_text = ""
         self.pending_stable_started_at: Optional[float] = None
         self.last_cached_token = ""
+        self.switch_suppression_until: Optional[float] = None
 
         self.command_mode_active = False
         self.command_mode_started_at: Optional[float] = None
@@ -151,6 +154,15 @@ class SessionState:
     def processed_fps(self) -> float:
         return self._calculate_fps(self.processed_timestamps)
 
+    def _is_in_switch_suppression(self) -> bool:
+        """SWITCH 冷却期内返回 True，过期后自动清理时间戳。"""
+        if self.switch_suppression_until is None:
+            return False
+        if time.perf_counter() < self.switch_suppression_until:
+            return True
+        self.switch_suppression_until = None
+        return False
+
     def _compute_vote_winner(self, min_ratio: float = 0.45) -> str:
         """从最近 N 帧的原始识别结果中投票，返回占比达到 min_ratio 的赢家，否则返回空串。"""
         if not self._vote_buffer:
@@ -168,6 +180,12 @@ class SessionState:
         raw_spelling = "" if is_command_result else str(result.get("text") or "").strip()
 
         if not is_command_result:
+            if self._is_in_switch_suppression():
+                # 冷却期内：清空 vote_buffer 防止污染，保持空白输出
+                self._vote_buffer.clear()
+                self.spelling_buffer = ""
+                self._refresh_pinyin_state()
+                return
             self._vote_buffer.append(raw_spelling)
 
         # 投票赢家作为所有下游的输入，过滤帧间抖动
@@ -364,11 +382,37 @@ class SessionState:
         self.mode = "letters" if self.mode == "digits" else "digits"
         self.reset_display_state(clear_cached=True)
         self.deactivate_command_mode()
+        # 切换后启动冷却，抑制接下来 N 秒的字符识别输出
+        self.switch_suppression_until = time.perf_counter() + self.switch_suppression_seconds
         metadata["modeChangedByCommand"] = True
         metadata["actionPerformed"] = True
         metadata["actionType"] = "SWITCH"
         metadata["actionToast"] = self.mode
         return metadata
+
+    def _command_candidate_progress(self, command_candidate: str, command_result: Dict) -> float:
+        """计算当前候选手势的完成进度 [0.0, 1.0]。
+        DELETE/CLEAR 为时间 hold 进度；CONFIRM/SWITCH 为帧计数/触发阈值比。
+        """
+        if not command_candidate:
+            return 0.0
+        now = time.perf_counter()
+        if command_candidate == "DELETE":
+            if self.pending_delete_started_at is None:
+                return 0.0
+            return min(1.0, (now - self.pending_delete_started_at) / max(self.delete_hold_seconds, 0.001))
+        if command_candidate == "CLEAR":
+            if self.pending_clear_started_at is None:
+                return 0.0
+            return min(1.0, (now - self.pending_clear_started_at) / max(self.clear_hold_seconds, 0.001))
+        counters = dict(command_result.get("commandCounters") or {})
+        if command_candidate == "SWITCH":
+            threshold = int(command_result.get("commandSwitchThreshold") or 0)
+        else:
+            threshold = int(command_result.get("commandThreshold") or 0)
+        if threshold > 0:
+            return min(1.0, int(counters.get(command_candidate) or 0) / threshold)
+        return 0.0
 
     def build_command_result(
         self,
@@ -402,6 +446,7 @@ class SessionState:
             "commandCandidate": command_candidate,
             "commandCounters": dict(command_result.get("commandCounters") or {}),
             "commandThreshold": int(command_result.get("commandThreshold") or 0),
+            "commandCandidateProgress": self._command_candidate_progress(command_candidate, command_result),
             "modeChangedByCommand": mode_changed,
             "actionPerformed": action_performed,
             "actionType": str(metadata.get("actionType") or ""),
