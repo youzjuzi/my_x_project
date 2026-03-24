@@ -1,5 +1,5 @@
 import asyncio
-from collections import deque
+from collections import Counter, deque
 import json
 import time
 from typing import Deque, Dict, Optional, Set
@@ -21,6 +21,7 @@ class SessionState:
         stable_token_duration_seconds: float = 1.5,
         delete_hold_seconds: float = 1.5,
         clear_hold_seconds: float = 1.5,
+        vote_window_frames: int = 20,
     ) -> None:
         self.pc = pc
         self.mode = mode if mode in ("digits", "letters") else "digits"
@@ -40,6 +41,7 @@ class SessionState:
         self.processed_timestamps: Deque[float] = deque()
 
         self.process_items: Deque[str] = deque(maxlen=process_items_limit)
+        self._vote_buffer: Deque[str] = deque(maxlen=vote_window_frames)
         self.spelling_buffer = ""
         self.cached_buffer = ""
         self.raw_pinyin_buffer = ""
@@ -149,33 +151,40 @@ class SessionState:
     def processed_fps(self) -> float:
         return self._calculate_fps(self.processed_timestamps)
 
+    def _compute_vote_winner(self, min_ratio: float = 0.45) -> str:
+        """从最近 N 帧的原始识别结果中投票，返回占比达到 min_ratio 的赢家，否则返回空串。"""
+        if not self._vote_buffer:
+            return ""
+        counts = Counter(c for c in self._vote_buffer if c)
+        if not counts:
+            return ""
+        winner, count = counts.most_common(1)[0]
+        if count / len(self._vote_buffer) >= min_ratio:
+            return winner
+        return ""
+
     def update_display_state(self, result: Dict[str, object]) -> None:
         is_command_result = result.get("engine") == "mediapipe-command"
-        spelling_text = "" if is_command_result else str(result.get("text") or "").strip()
-        self.spelling_buffer = spelling_text
+        raw_spelling = "" if is_command_result else str(result.get("text") or "").strip()
 
         if not is_command_result:
-            self._update_cached_buffer(spelling_text)
+            self._vote_buffer.append(raw_spelling)
+
+        # 投票赢家作为所有下游的输入，过滤帧间抖动
+        vote_winner = self._compute_vote_winner() if not is_command_result else ""
+        self.spelling_buffer = vote_winner
+
+        if not is_command_result:
+            self._update_cached_buffer(vote_winner)
 
         self._refresh_pinyin_state()
 
         if is_command_result:
             return
 
-        hand_texts = []
-        for hand in result.get("hands", []):
-            if not isinstance(hand, dict):
-                continue
-            hand_text = str(hand.get("text") or "").strip()
-            if hand_text:
-                hand_texts.append(hand_text)
-
-        if not hand_texts and spelling_text:
-            hand_texts.append(spelling_text)
-
-        for item in hand_texts:
-            if not self.process_items or self.process_items[-1] != item:
-                self.process_items.append(item)
+        # process_items 只在投票赢家发生变化时追加，不再对每帧原始结果追加
+        if vote_winner and (not self.process_items or self.process_items[-1] != vote_winner):
+            self.process_items.append(vote_winner)
 
     def display_snapshot(self) -> Dict[str, object]:
         return {
@@ -191,6 +200,7 @@ class SessionState:
 
     def reset_display_state(self, clear_cached: bool = False) -> None:
         self.process_items.clear()
+        self._vote_buffer.clear()
         self.spelling_buffer = ""
         self.pending_stable_text = ""
         self.pending_stable_started_at = None
