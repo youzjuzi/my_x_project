@@ -6,6 +6,8 @@ from typing import Deque, Dict, Optional, Set
 
 from aiortc import RTCPeerConnection
 
+from ..pinyin_converter import PinyinConverter
+
 
 class SessionState:
     def __init__(
@@ -24,6 +26,11 @@ class SessionState:
         self.mode = mode if mode in ("digits", "letters") else "digits"
         self.command_recognizer = command_recognizer
         self.command_mode_timeout_seconds = command_mode_timeout_seconds
+        self.switch_min_interval_seconds = switch_min_interval_seconds
+        self.stable_token_duration_seconds = stable_token_duration_seconds
+        self.delete_hold_seconds = delete_hold_seconds
+        self.clear_hold_seconds = clear_hold_seconds
+
         self.channel = None
         self.track_tasks: Set[asyncio.Task] = set()
         self.latest_frame = None
@@ -31,26 +38,34 @@ class SessionState:
         self.frame_ready = asyncio.Event()
         self.input_timestamps: Deque[float] = deque()
         self.processed_timestamps: Deque[float] = deque()
+
         self.process_items: Deque[str] = deque(maxlen=process_items_limit)
         self.spelling_buffer = ""
         self.cached_buffer = ""
-        self.stable_token_duration_seconds = stable_token_duration_seconds
+        self.raw_pinyin_buffer = ""
+        self.hanzi_candidate = ""
+        self.hanzi_candidates = []
+        self.candidate_index = 0
+        self.pinyin_converter = PinyinConverter()
+
         self.pending_stable_text = ""
         self.pending_stable_started_at: Optional[float] = None
         self.last_cached_token = ""
+
         self.command_mode_active = False
         self.command_mode_started_at: Optional[float] = None
         self.command_mode_last_seen_at: Optional[float] = None
         self.command_mode_last_command_at: Optional[float] = None
-        self.switch_ready = True
-        self.clear_ready = True
-        self.switch_min_interval_seconds = switch_min_interval_seconds
-        self.last_switch_confirmed_at: Optional[float] = None
-        self.delete_hold_seconds = delete_hold_seconds
+        self.command_reentry_requires_release = False
+
+        self.confirm_ready = True
         self.delete_ready = True
+        self.clear_ready = True
+        self.switch_ready = True
+
         self.pending_delete_started_at: Optional[float] = None
-        self.clear_hold_seconds = clear_hold_seconds
         self.pending_clear_started_at: Optional[float] = None
+        self.last_switch_confirmed_at: Optional[float] = None
 
     async def send_json(self, payload: Dict[str, object]) -> None:
         if self.channel is None or self.channel.readyState != "open":
@@ -84,6 +99,7 @@ class SessionState:
             if requested_mode not in ("digits", "letters"):
                 await self.send_json({"type": "error", "message": f"Unsupported mode: {requested_mode}"})
                 return
+
             self.mode = requested_mode
             self.reset_display_state(clear_cached=True)
             self.deactivate_command_mode()
@@ -134,11 +150,17 @@ class SessionState:
         return self._calculate_fps(self.processed_timestamps)
 
     def update_display_state(self, result: Dict[str, object]) -> None:
-        spelling_text = str(result.get("text") or "").strip()
+        is_command_result = result.get("engine") == "mediapipe-command"
+        spelling_text = "" if is_command_result else str(result.get("text") or "").strip()
         self.spelling_buffer = spelling_text
 
-        if result.get("engine") != "mediapipe-command":
+        if not is_command_result:
             self._update_cached_buffer(spelling_text)
+
+        self._refresh_pinyin_state()
+
+        if is_command_result:
+            return
 
         hand_texts = []
         for hand in result.get("hands", []):
@@ -160,6 +182,9 @@ class SessionState:
             "processItems": list(self.process_items),
             "spellingBuffer": self.spelling_buffer,
             "cachedBuffer": self.cached_buffer,
+            "hanziCandidate": self.hanzi_candidate,
+            "hanziCandidates": list(self.hanzi_candidates),
+            "candidateIndex": self.candidate_index,
             "stabilityProgress": self.stability_progress(),
             "stabilityDurationMs": int(self.stable_token_duration_seconds * 1000),
         }
@@ -172,6 +197,7 @@ class SessionState:
         if clear_cached:
             self.cached_buffer = ""
             self.last_cached_token = ""
+        self._refresh_pinyin_state()
 
     def activate_command_mode(self) -> None:
         now = time.perf_counter()
@@ -179,14 +205,23 @@ class SessionState:
         self.command_mode_started_at = now
         self.command_mode_last_seen_at = now
         self.command_mode_last_command_at = None
-        self.switch_ready = True
-        self.clear_ready = True
+        self.confirm_ready = True
         self.delete_ready = True
+        self.clear_ready = True
+        self.switch_ready = True
         self.pending_delete_started_at = None
         self.pending_clear_started_at = None
         self.reset_display_state()
         if self.command_recognizer is not None:
             self.command_recognizer.reset()
+
+    def update_command_reentry_gate(self, hand_count: int) -> None:
+        if hand_count < 2:
+            self.command_reentry_requires_release = False
+
+    def can_activate_command_mode(self, hand_count: int) -> bool:
+        self.update_command_reentry_gate(hand_count)
+        return hand_count >= 2 and not self.command_reentry_requires_release
 
     def update_command_mode(self, command_result: Dict[str, object]) -> None:
         if not self.command_mode_active:
@@ -224,9 +259,10 @@ class SessionState:
         self.command_mode_started_at = None
         self.command_mode_last_seen_at = None
         self.command_mode_last_command_at = None
-        self.switch_ready = True
-        self.clear_ready = True
+        self.confirm_ready = True
         self.delete_ready = True
+        self.clear_ready = True
+        self.switch_ready = True
         self.pending_delete_started_at = None
         self.pending_clear_started_at = None
         if self.command_recognizer is not None:
@@ -243,16 +279,31 @@ class SessionState:
         command_candidate = str(command_result.get("commandCandidate") or "").strip()
         now = time.perf_counter()
 
+        if command_gesture != "CONFIRM" and command_candidate != "CONFIRM":
+            self.confirm_ready = True
+
         if command_gesture != "DELETE" and command_candidate != "DELETE":
             self.delete_ready = True
             self.pending_delete_started_at = None
 
-        if command_gesture != "SWITCH" and command_candidate != "SWITCH":
-            self.switch_ready = True
-
         if command_gesture != "CLEAR" and command_candidate != "CLEAR":
             self.clear_ready = True
             self.pending_clear_started_at = None
+
+        if command_gesture != "SWITCH" and command_candidate != "SWITCH":
+            self.switch_ready = True
+
+        if command_gesture == "CONFIRM" and self.confirm_ready:
+            self.confirm_ready = False
+            confirmed_text = self.hanzi_candidate or self.raw_pinyin_buffer
+            if confirmed_text:
+                self.command_reentry_requires_release = True
+                self.reset_display_state(clear_cached=True)
+                self.deactivate_command_mode()
+                metadata["actionPerformed"] = True
+                metadata["actionType"] = "CONFIRM"
+                metadata["actionToast"] = confirmed_text
+                return metadata
 
         if command_candidate == "DELETE" and self.delete_ready:
             if self.pending_delete_started_at is None:
@@ -261,6 +312,7 @@ class SessionState:
             if now - self.pending_delete_started_at >= self.delete_hold_seconds:
                 self.delete_ready = False
                 self.pending_delete_started_at = None
+                self.command_reentry_requires_release = True
                 if self.cached_buffer:
                     self.cached_buffer = self.cached_buffer[:-1]
                 self.last_cached_token = ""
@@ -268,7 +320,7 @@ class SessionState:
                 self.deactivate_command_mode()
                 metadata["actionPerformed"] = True
                 metadata["actionType"] = "DELETE"
-                metadata["actionToast"] = "已删除最后一个字符"
+                metadata["actionToast"] = "Deleted"
                 return metadata
 
         if command_candidate == "CLEAR" and self.clear_ready:
@@ -278,11 +330,12 @@ class SessionState:
             if now - self.pending_clear_started_at >= self.clear_hold_seconds:
                 self.clear_ready = False
                 self.pending_clear_started_at = None
+                self.command_reentry_requires_release = True
                 self.reset_display_state(clear_cached=True)
                 self.deactivate_command_mode()
                 metadata["actionPerformed"] = True
                 metadata["actionType"] = "CLEAR"
-                metadata["actionToast"] = "clear"
+                metadata["actionToast"] = "Cleared"
                 return metadata
 
         if command_gesture != "SWITCH" or not self.switch_ready:
@@ -297,6 +350,7 @@ class SessionState:
 
         self.switch_ready = False
         self.last_switch_confirmed_at = now
+        self.command_reentry_requires_release = True
         self.mode = "letters" if self.mode == "digits" else "digits"
         self.reset_display_state(clear_cached=True)
         self.deactivate_command_mode()
@@ -412,3 +466,26 @@ class SessionState:
         if self.stable_token_duration_seconds <= 0:
             return 1.0
         return round(min(1.0, max(0.0, elapsed / self.stable_token_duration_seconds)), 3)
+
+    def _current_pinyin_buffer(self) -> str:
+        if self.mode != "letters":
+            return ""
+
+        current = self.cached_buffer
+        if self.spelling_buffer and self.spelling_buffer != self.last_cached_token:
+            current += self.spelling_buffer
+        return current.lower()
+
+    def _refresh_pinyin_state(self) -> None:
+        self.raw_pinyin_buffer = self._current_pinyin_buffer()
+
+        if not self.raw_pinyin_buffer:
+            self.hanzi_candidate = ""
+            self.hanzi_candidates = []
+            self.candidate_index = 0
+            return
+
+        candidates = self.pinyin_converter.convert_with_candidates(self.raw_pinyin_buffer, num=5)
+        self.hanzi_candidates = candidates
+        self.candidate_index = 0
+        self.hanzi_candidate = candidates[0] if candidates else ""

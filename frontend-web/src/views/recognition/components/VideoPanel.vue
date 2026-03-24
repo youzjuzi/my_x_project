@@ -30,7 +30,7 @@
               <div class="action-toast-ring"></div>
               <div class="action-toast-title">{{ actionTitle || '动作反馈' }}</div>
               <div class="action-toast-text">{{ actionToast }}</div>
-              <div v-if="actionType === 'CLEAR'" class="action-toast-subtext">CLEAR ALL</div>
+              <div v-if="actionType === 'CLEAR'" class="action-toast-subtext">全部清空</div>
             </div>
           </div>
 
@@ -198,6 +198,31 @@ const drawLabel = (context, x, y, text, color) => {
   context.fillText(text, x, labelY)
 }
 
+const drawDetection = (context, detection, sourceWidth, sourceHeight, displayWidth, displayHeight) => {
+  if (!detection?.box || detection.box.length < 4) {
+    return
+  }
+
+  const [x, y, width, height] = mapBoxToCanvas(
+    detection.box,
+    sourceWidth,
+    sourceHeight,
+    displayWidth,
+    displayHeight,
+  )
+
+  context.strokeStyle = '#ffb347'
+  context.strokeRect(x, y, width, height)
+
+  const confidence =
+    typeof detection.confidence === 'number' ? ` ${detection.confidence.toFixed(2)}` : ''
+  const labelText = `${detection.label || ''}${confidence}`.trim()
+
+  if (labelText) {
+    drawLabel(context, x, y, labelText, '#ffb347')
+  }
+}
+
 const renderOverlay = async () => {
   await nextTick()
   resizeOverlay()
@@ -216,6 +241,24 @@ const renderOverlay = async () => {
 
   context.lineWidth = 3
   context.textBaseline = 'top'
+
+  result.hands.forEach((hand) => {
+    if (!Array.isArray(hand?.detections) || hand.detections.length === 0) {
+      return
+    }
+
+    hand.detections.forEach((detection) => {
+      drawDetection(
+        context,
+        detection,
+        result.imageWidth,
+        result.imageHeight,
+        displayWidth,
+        displayHeight,
+      )
+    })
+  })
+  return
 
   result.hands.forEach((hand) => {
     if (!hand.box || hand.box.length < 4) {

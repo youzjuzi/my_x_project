@@ -12,6 +12,9 @@ export function useRecognitionSession() {
   const gestureStream = ref([])
   const pinyinBuffer = ref('')
   const cachedBuffer = ref('')
+  const hanziCandidate = ref('')
+  const hanziCandidates = ref([])
+  const candidateIndex = ref(0)
   const stabilityProgress = ref(0)
   const localStream = ref(null)
   const overlayResult = ref(null)
@@ -28,7 +31,6 @@ export function useRecognitionSession() {
   let webrtcClient = null
   let actionToastTimer = null
   let deletedCacheTimer = null
-
   const modeLabelMap = {
     digits: '数字',
     letters: '字母',
@@ -38,14 +40,14 @@ export function useRecognitionSession() {
     const modeLabel = modeLabelMap[selectedMode.value] || selectedMode.value
 
     if (connectionState.value === 'connected') {
-      return `WebRTC 已连接，当前为${modeLabel}模式`
+      return `WebRTC 已连接，当前模式：${modeLabel}`
     }
 
     if (connectionState.value === 'connecting') {
-      return `WebRTC 连接中，准备进入${modeLabel}模式`
+      return `WebRTC 连接中，当前模式：${modeLabel}`
     }
 
-    return `开启摄像头后，将进入${modeLabel}模式`
+    return `摄像头未启动，当前模式：${modeLabel}`
   })
 
   const resetDisplayState = () => {
@@ -56,6 +58,9 @@ export function useRecognitionSession() {
     gestureStream.value = []
     pinyinBuffer.value = ''
     cachedBuffer.value = ''
+    hanziCandidate.value = ''
+    hanziCandidates.value = []
+    candidateIndex.value = 0
     stabilityProgress.value = 0
     deleteProgressValue.value = 0
     isRecognitionReady.value = false
@@ -67,6 +72,7 @@ export function useRecognitionSession() {
       window.clearTimeout(actionToastTimer)
       actionToastTimer = null
     }
+
     actionType.value = ''
     actionToast.value = ''
     actionTitle.value = ''
@@ -75,35 +81,44 @@ export function useRecognitionSession() {
   const showActionToast = (actionKind, actionValue) => {
     clearActionToast()
 
-    if (actionKind === 'SWITCH') {
-      const modeLabel = modeLabelMap[actionValue] || actionValue
-      actionType.value = actionKind
-      actionTitle.value = '模式切换'
-      actionToast.value = `已切换到${modeLabel}模式`
-      actionTick.value += 1
-
-      actionToastTimer = window.setTimeout(() => {
-        actionType.value = ''
-        actionToast.value = ''
-        actionTitle.value = ''
-        actionToastTimer = null
-      }, 1500)
+    if (!actionKind) {
       return
     }
 
-    if (actionKind === 'CLEAR') {
-      actionType.value = actionKind
-      actionTitle.value = '整段清空'
-      actionToast.value = '已清空当前拼写'
-      actionTick.value += 1
-
-      actionToastTimer = window.setTimeout(() => {
-        actionType.value = ''
-        actionToast.value = ''
-        actionTitle.value = ''
-        actionToastTimer = null
-      }, 1400)
+    const actionMap = {
+      SWITCH: {
+        title: '模式切换',
+        text: `当前模式：${modeLabelMap[actionValue] || actionValue || modeLabelMap[selectedMode.value] || selectedMode.value}`,
+        duration: 1500,
+      },
+      CLEAR: {
+        title: '整段清空',
+        text: '已清空当前拼写',
+        duration: 1400,
+      },
+      CONFIRM: {
+        title: '确认完成',
+        text: actionValue || '已确认',
+        duration: 1200,
+      },
     }
+
+    const toast = actionMap[actionKind]
+    if (!toast) {
+      return
+    }
+
+    actionType.value = actionKind
+    actionTitle.value = toast.title
+    actionToast.value = toast.text
+    actionTick.value += 1
+
+    actionToastTimer = window.setTimeout(() => {
+      actionType.value = ''
+      actionToast.value = ''
+      actionTitle.value = ''
+      actionToastTimer = null
+    }, toast.duration)
   }
 
   const clearDeleteAnimation = () => {
@@ -111,6 +126,7 @@ export function useRecognitionSession() {
       window.clearTimeout(deletedCacheTimer)
       deletedCacheTimer = null
     }
+
     deletedCacheChar.value = ''
   }
 
@@ -135,7 +151,7 @@ export function useRecognitionSession() {
     deletedCacheTimer = window.setTimeout(() => {
       deletedCacheChar.value = ''
       deletedCacheTimer = null
-    }, 900)
+    }, 1000)
   }
 
   const mapProcessItems = (items) => {
@@ -149,13 +165,19 @@ export function useRecognitionSession() {
     }))
   }
 
+  const updateCandidateState = (payload) => {
+    hanziCandidate.value = String(payload.hanziCandidate || '')
+    hanziCandidates.value = Array.isArray(payload.hanziCandidates) ? payload.hanziCandidates : []
+    candidateIndex.value = Number(payload.candidateIndex || 0)
+  }
+
   const handleServerMessage = (payload) => {
     if (!payload || typeof payload !== 'object') {
       return
     }
 
     if (payload.type === 'error') {
-      ElMessage.error(payload.message || '识别服务发生异常')
+      ElMessage.error(payload.message || '识别服务异常')
       return
     }
 
@@ -189,9 +211,13 @@ export function useRecognitionSession() {
         deleteProgressValue.value = Math.max(progressBeforeAction, 1)
         deleteProgressTick.value += 1
         triggerDeleteAnimation(String(payload.cachedBuffer || ''))
+        updateCandidateState(payload)
       } else {
         deleteProgressValue.value = 0
         cachedBuffer.value = String(payload.cachedBuffer || '')
+        hanziCandidate.value = ''
+        hanziCandidates.value = []
+        candidateIndex.value = 0
       }
 
       showActionToast(payload.actionType, payload.actionToast)
@@ -206,6 +232,7 @@ export function useRecognitionSession() {
     gestureStream.value = mapProcessItems(payload.processItems)
     pinyinBuffer.value = String(payload.spellingBuffer || '')
     cachedBuffer.value = String(payload.cachedBuffer || '')
+    updateCandidateState(payload)
     stabilityProgress.value = Number(payload.stabilityProgress || 0)
   }
 
@@ -267,11 +294,12 @@ export function useRecognitionSession() {
           track.stop()
         })
       }
+
       isCameraActive.value = false
       localStream.value = null
       resetDisplayState()
       connectionState.value = 'idle'
-      ElMessage.error(error?.message || '无法开启摄像头或连接 WebRTC 服务')
+      ElMessage.error(error?.message || '摄像头启动或 WebRTC 连接失败')
     }
   }
 
@@ -320,6 +348,9 @@ export function useRecognitionSession() {
     gestureStream,
     pinyinBuffer,
     cachedBuffer,
+    hanziCandidate,
+    hanziCandidates,
+    candidateIndex,
     stabilityProgress,
     localStream,
     overlayResult,

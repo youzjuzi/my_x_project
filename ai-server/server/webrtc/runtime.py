@@ -40,9 +40,12 @@ async def run_inference_loop(session: SessionState, get_detector: Callable[[str]
                     include_annotated=False,
                 )
                 result = await loop.run_in_executor(None, func)
+                hand_count = int(result.get("handCount") or 0)
+                if session.command_recognizer is not None:
+                    session.update_command_reentry_gate(hand_count)
                 if (
                     session.command_recognizer is not None
-                    and int(result.get("handCount") or 0) == 2
+                    and session.can_activate_command_mode(hand_count)
                 ):
                     session.activate_command_mode()
                     command_result = await loop.run_in_executor(

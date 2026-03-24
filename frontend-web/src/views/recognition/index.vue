@@ -35,14 +35,15 @@
             :gesture-stream="gestureStream"
             :pinyin-buffer="pinyinBuffer"
             :cached-buffer="cachedBuffer"
+            :hanzi-candidate="hanziCandidate"
+            :candidates="hanziCandidates"
+            :candidate-index="candidateIndex"
             :deleted-cache-char="deletedCacheChar"
             :deleted-cache-tick="deletedCacheTick"
             :delete-progress-tick="deleteProgressTick"
             :delete-progress-value="deleteProgressValue"
             :stability-progress="stabilityProgress"
-            :candidates="candidates"
             :final-sentence="finalSentence"
-            @select-candidate="selectCandidate"
             @copy="copyResult"
             @clear="clearAll"
             @speak="speakResult"
@@ -60,7 +61,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import RecognitionHeader from './components/RecognitionHeader.vue'
@@ -81,6 +82,9 @@ const {
   gestureStream,
   pinyinBuffer,
   cachedBuffer,
+  hanziCandidate,
+  hanziCandidates,
+  candidateIndex,
   deletedCacheChar,
   deletedCacheTick,
   deleteProgressTick,
@@ -99,9 +103,19 @@ const {
   changeMode,
 } = useRecognitionSession()
 
-const candidates = ref([])
 const finalSentence = ref('')
 const exitDialogVisible = ref(false)
+
+watch(
+  () => actionTick.value,
+  () => {
+    if (actionType.value !== 'CONFIRM' || !actionToast.value) {
+      return
+    }
+
+    finalSentence.value += actionToast.value
+  }
+)
 
 const handleExit = () => {
   if (isCameraActive.value) {
@@ -127,19 +141,8 @@ const navigateBack = () => {
   router.push('/')
 }
 
-const selectCandidate = (word) => {
-  finalSentence.value += word
-  pinyinBuffer.value = ''
-  candidates.value = []
-  gestureStream.value = []
-  stabilityProgress.value = 0
-}
-
 const clearAll = () => {
   finalSentence.value = ''
-  pinyinBuffer.value = ''
-  gestureStream.value = []
-  stabilityProgress.value = 0
 }
 
 const copyResult = async () => {
@@ -148,11 +151,11 @@ const copyResult = async () => {
   }
 
   await navigator.clipboard.writeText(finalSentence.value)
-  ElMessage.success('识别结果已复制')
+  ElMessage.success('已复制')
 }
 
 const speakResult = () => {
-  ElMessage.info('朗读功能稍后接入')
+  ElMessage.info('语音播报暂未实现')
 }
 
 onBeforeUnmount(() => {

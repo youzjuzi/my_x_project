@@ -3,3 +3,4 @@ uvicorn>=0.30,<1
 websockets>=12,<16
 python-multipart>=0.0.9,<1
 aiortc>=1.9,<2
+Pinyin2Hanzi>=0.1.1

@@ -4,9 +4,9 @@
       <div class="section-header">
         <div class="header-title">
           <el-icon><Aim /></el-icon>
-          <span>识别过程</span>
+          <span>识别流</span>
         </div>
-        <span class="section-meta">{{ gestureStream.length }} 条</span>
+        <span class="section-meta">{{ gestureStream.length }} 项</span>
       </div>
 
       <div class="gesture-stream">
@@ -21,7 +21,7 @@
           </div>
         </transition-group>
         <div v-if="gestureStream.length === 0" class="empty-tip">
-          开启摄像头后，识别到的字符会按顺序显示在这里。
+          启动摄像头后，这里会实时显示识别过程。
         </div>
       </div>
     </div>
@@ -42,14 +42,14 @@
           :class="{ animating: hasInput }"
           :style="pinyinStyle"
         >
-          {{ pinyinBuffer || '等待输入' }}
+          {{ pinyinBuffer || '等待当前字符' }}
         </span>
       </div>
 
       <div class="cache-display">
         <div class="cache-header">
           <span class="label">稳定缓存</span>
-          <span class="tip">字符稳定后会追加到这里，删除动作会作用于最后一个字符。</span>
+          <span class="tip">已锁定字符会保留在这里，直到触发删除或清空。</span>
         </div>
         <div class="cache-value" :class="{ empty: !hasCacheContent }">
           <template v-if="hasCacheContent">
@@ -80,17 +80,20 @@
       <div class="candidates-area">
         <div class="candidates-header">
           <span class="label">候选内容</span>
-          <span class="tip">后续可在这里扩展候选词或拼写建议。</span>
+          <span class="tip">候选词由服务端根据当前拼音实时生成。</span>
+        </div>
+        <div v-if="hanziCandidate" class="candidate-preview">
+          {{ hanziCandidate }}
         </div>
         <div class="tags-wrapper">
           <el-tag
             v-for="(word, idx) in candidates"
             :key="idx"
             class="candidate-tag"
+            :class="{ active: idx === candidateIndex }"
             effect="plain"
             round
             size="small"
-            @click="$emit('select-candidate', word)"
           >
             {{ word }}
           </el-tag>
@@ -117,14 +120,14 @@
 
       <div class="final-result-card" :class="{ empty: !finalSentence }">
         <div class="result-content">
-          <p class="result-label">已确认内容</p>
-          <div class="result-text">{{ finalSentence || '已确认的内容会显示在这里。' }}</div>
+          <p class="result-label">结果</p>
+          <div class="result-text">{{ finalSentence || '当前流程下，确认后的候选词不会追加到这里。' }}</div>
         </div>
 
         <div class="result-toolbar">
           <el-button type="primary" plain size="small" round @click="$emit('speak')" :disabled="!finalSentence">
             <el-icon><Microphone /></el-icon>
-            朗读结果
+            播报
           </el-button>
         </div>
       </div>
@@ -149,6 +152,18 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  hanziCandidate: {
+    type: String,
+    default: '',
+  },
+  candidates: {
+    type: Array,
+    default: () => [],
+  },
+  candidateIndex: {
+    type: Number,
+    default: 0,
+  },
   deletedCacheChar: {
     type: String,
     default: '',
@@ -169,17 +184,13 @@ const props = defineProps({
     type: Number,
     default: 0,
   },
-  candidates: {
-    type: Array,
-    default: () => [],
-  },
   finalSentence: {
     type: String,
     default: '',
   },
 })
 
-defineEmits(['select-candidate', 'copy', 'clear', 'speak'])
+defineEmits(['copy', 'clear', 'speak'])
 
 const normalizedProgress = computed(() => {
   const value = Number(props.stabilityProgress || 0)
@@ -200,6 +211,7 @@ const pinyinStyle = computed(() => {
   const translateY = Math.round(progress * -8)
   const scale = 1 + progress * 0.08
   const glow = 10 + progress * 18
+
   return {
     color: `hsl(${hue} 72% 42%)`,
     transform: `translateY(${translateY}px) scale(${scale})`,
@@ -451,6 +463,16 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
+.candidate-preview {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eff7f2 0%, #f9fcfa 100%);
+  border: 1px solid #e3ece7;
+  color: #17312b;
+  font-size: 20px;
+  font-weight: 800;
+}
+
 .tags-wrapper {
   display: flex;
   flex-wrap: wrap;
@@ -458,7 +480,18 @@ onBeforeUnmount(() => {
 }
 
 .candidate-tag {
-  cursor: pointer;
+  border-color: rgba(33, 109, 75, 0.12);
+  color: #226145;
+  background: #f7faf8;
+  cursor: default;
+  user-select: none;
+}
+
+.candidate-tag.active {
+  color: #ffffff;
+  background: #216d4b;
+  border-color: #216d4b;
+  box-shadow: 0 10px 18px rgba(33, 109, 75, 0.18);
 }
 
 .no-candidate {
