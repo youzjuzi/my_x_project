@@ -18,8 +18,12 @@ export function useRecognitionSession() {
   const isRecognitionReady = ref(false)
   const actionToast = ref('')
   const actionTitle = ref('')
+  const actionType = ref('')
+  const actionTick = ref(0)
   const deletedCacheChar = ref('')
   const deletedCacheTick = ref(0)
+  const deleteProgressTick = ref(0)
+  const deleteProgressValue = ref(0)
 
   let webrtcClient = null
   let actionToastTimer = null
@@ -53,6 +57,7 @@ export function useRecognitionSession() {
     pinyinBuffer.value = ''
     cachedBuffer.value = ''
     stabilityProgress.value = 0
+    deleteProgressValue.value = 0
     isRecognitionReady.value = false
     clearDeleteAnimation()
   }
@@ -62,25 +67,43 @@ export function useRecognitionSession() {
       window.clearTimeout(actionToastTimer)
       actionToastTimer = null
     }
+    actionType.value = ''
     actionToast.value = ''
     actionTitle.value = ''
   }
 
-  const showActionToast = (actionType, actionValue) => {
-    if (actionType !== 'SWITCH') {
+  const showActionToast = (actionKind, actionValue) => {
+    clearActionToast()
+
+    if (actionKind === 'SWITCH') {
+      const modeLabel = modeLabelMap[actionValue] || actionValue
+      actionType.value = actionKind
+      actionTitle.value = '模式切换'
+      actionToast.value = `已切换到${modeLabel}模式`
+      actionTick.value += 1
+
+      actionToastTimer = window.setTimeout(() => {
+        actionType.value = ''
+        actionToast.value = ''
+        actionTitle.value = ''
+        actionToastTimer = null
+      }, 1500)
       return
     }
 
-    const modeLabel = modeLabelMap[actionValue] || actionValue
-    clearActionToast()
-    actionTitle.value = '模式切换'
-    actionToast.value = `已切换到${modeLabel}模式`
+    if (actionKind === 'CLEAR') {
+      actionType.value = actionKind
+      actionTitle.value = '整段清空'
+      actionToast.value = '已清空当前拼写'
+      actionTick.value += 1
 
-    actionToastTimer = window.setTimeout(() => {
-      actionToast.value = ''
-      actionTitle.value = ''
-      actionToastTimer = null
-    }, 1500)
+      actionToastTimer = window.setTimeout(() => {
+        actionType.value = ''
+        actionToast.value = ''
+        actionTitle.value = ''
+        actionToastTimer = null
+      }, 1400)
+    }
   }
 
   const clearDeleteAnimation = () => {
@@ -147,6 +170,8 @@ export function useRecognitionSession() {
     }
 
     if (payload.actionPerformed) {
+      const progressBeforeAction = Number(stabilityProgress.value || 0)
+
       isRecognitionReady.value = true
       inputFps.value = Number(payload.inputFps || 0)
       processedFps.value = Number(payload.processedFps || 0)
@@ -161,8 +186,11 @@ export function useRecognitionSession() {
       }
 
       if (payload.actionType === 'DELETE') {
+        deleteProgressValue.value = Math.max(progressBeforeAction, 1)
+        deleteProgressTick.value += 1
         triggerDeleteAnimation(String(payload.cachedBuffer || ''))
       } else {
+        deleteProgressValue.value = 0
         cachedBuffer.value = String(payload.cachedBuffer || '')
       }
 
@@ -298,8 +326,12 @@ export function useRecognitionSession() {
     isRecognitionReady,
     actionToast,
     actionTitle,
+    actionType,
+    actionTick,
     deletedCacheChar,
     deletedCacheTick,
+    deleteProgressTick,
+    deleteProgressValue,
     clearActionToast,
     startCamera,
     stopCamera,

@@ -69,6 +69,11 @@
             </span>
           </template>
           <span v-else>暂无已锁定字符</span>
+          <div
+            v-if="rewindTrackVisible"
+            class="cache-delete-track"
+            :style="rewindTrackStyle"
+          ></div>
         </div>
       </div>
 
@@ -128,7 +133,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Aim, ChatLineSquare, EditPen, Microphone } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -149,6 +154,14 @@ const props = defineProps({
     default: '',
   },
   deletedCacheTick: {
+    type: Number,
+    default: 0,
+  },
+  deleteProgressTick: {
+    type: Number,
+    default: 0,
+  },
+  deleteProgressValue: {
     type: Number,
     default: 0,
   },
@@ -177,6 +190,9 @@ const stabilityPercent = computed(() => Math.round(normalizedProgress.value * 10
 const hasInput = computed(() => Boolean(props.pinyinBuffer))
 const cacheChars = computed(() => Array.from(props.cachedBuffer || ''))
 const hasCacheContent = computed(() => cacheChars.value.length > 0 || Boolean(props.deletedCacheChar))
+const rewindTrackVisible = ref(false)
+const rewindTrackScale = ref(0)
+let rewindTrackTimer = null
 
 const pinyinStyle = computed(() => {
   const progress = normalizedProgress.value
@@ -194,6 +210,50 @@ const pinyinStyle = computed(() => {
 const trackStyle = computed(() => ({
   transform: `scaleX(${normalizedProgress.value})`,
 }))
+
+const rewindTrackStyle = computed(() => ({
+  transform: `scaleX(${rewindTrackScale.value})`,
+}))
+
+const clearRewindTrackTimer = () => {
+  if (!rewindTrackTimer) {
+    return
+  }
+
+  window.clearTimeout(rewindTrackTimer)
+  rewindTrackTimer = null
+}
+
+watch(
+  () => props.deleteProgressTick,
+  () => {
+    clearRewindTrackTimer()
+
+    const progress = Math.max(0, Math.min(1, Number(props.deleteProgressValue || 0)))
+
+    if (progress <= 0) {
+      rewindTrackVisible.value = false
+      rewindTrackScale.value = 0
+      return
+    }
+
+    rewindTrackVisible.value = true
+    rewindTrackScale.value = progress
+
+    window.requestAnimationFrame(() => {
+      rewindTrackScale.value = 0
+    })
+
+    rewindTrackTimer = window.setTimeout(() => {
+      rewindTrackVisible.value = false
+      rewindTrackTimer = null
+    }, 1000)
+  }
+)
+
+onBeforeUnmount(() => {
+  clearRewindTrackTimer()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -332,6 +392,7 @@ const trackStyle = computed(() => ({
 }
 
 .cache-value {
+  position: relative;
   min-height: 40px;
   display: flex;
   align-items: center;
@@ -344,11 +405,24 @@ const trackStyle = computed(() => ({
   font-size: 18px;
   font-weight: 800;
   word-break: break-all;
+  overflow: hidden;
 
   &.empty {
     color: #8a9893;
     font-weight: 600;
   }
+}
+
+.cache-delete-track {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 4px;
+  transform-origin: right center;
+  background: linear-gradient(90deg, #2f9f68 0%, #f0b54b 55%, #d74a4a 100%);
+  transition: transform 1s ease-out;
+  box-shadow: 0 0 18px rgba(215, 74, 74, 0.2);
 }
 
 .cache-char {
@@ -361,7 +435,7 @@ const trackStyle = computed(() => ({
 .cache-char.deleting {
   color: #d74a4a;
   text-shadow: 0 0 16px rgba(215, 74, 74, 0.28);
-  animation: reverseDelete 0.9s ease forwards;
+  animation: reverseDelete 1s ease forwards;
 }
 
 .candidates-area {

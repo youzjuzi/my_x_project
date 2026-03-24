@@ -23,6 +23,8 @@
             :overlay-result="overlayResult"
             :action-toast="actionToast"
             :action-title="actionTitle"
+            :action-type="actionType"
+            :action-tick="actionTick"
             @start="startCamera"
             @stop="stopCamera"
           />
@@ -35,6 +37,8 @@
             :cached-buffer="cachedBuffer"
             :deleted-cache-char="deletedCacheChar"
             :deleted-cache-tick="deletedCacheTick"
+            :delete-progress-tick="deleteProgressTick"
+            :delete-progress-value="deleteProgressValue"
             :stability-progress="stabilityProgress"
             :candidates="candidates"
             :final-sentence="finalSentence"
@@ -79,12 +83,16 @@ const {
   cachedBuffer,
   deletedCacheChar,
   deletedCacheTick,
+  deleteProgressTick,
+  deleteProgressValue,
   stabilityProgress,
   localStream,
   overlayResult,
   isRecognitionReady,
   actionToast,
   actionTitle,
+  actionType,
+  actionTick,
   clearActionToast,
   startCamera,
   stopCamera,

@@ -18,6 +18,7 @@ class SessionState:
         switch_min_interval_seconds: float = 1.0,
         stable_token_duration_seconds: float = 1.5,
         delete_hold_seconds: float = 1.5,
+        clear_hold_seconds: float = 1.5,
     ) -> None:
         self.pc = pc
         self.mode = mode if mode in ("digits", "letters") else "digits"
@@ -42,11 +43,14 @@ class SessionState:
         self.command_mode_last_seen_at: Optional[float] = None
         self.command_mode_last_command_at: Optional[float] = None
         self.switch_ready = True
+        self.clear_ready = True
         self.switch_min_interval_seconds = switch_min_interval_seconds
         self.last_switch_confirmed_at: Optional[float] = None
         self.delete_hold_seconds = delete_hold_seconds
         self.delete_ready = True
         self.pending_delete_started_at: Optional[float] = None
+        self.clear_hold_seconds = clear_hold_seconds
+        self.pending_clear_started_at: Optional[float] = None
 
     async def send_json(self, payload: Dict[str, object]) -> None:
         if self.channel is None or self.channel.readyState != "open":
@@ -176,8 +180,10 @@ class SessionState:
         self.command_mode_last_seen_at = now
         self.command_mode_last_command_at = None
         self.switch_ready = True
+        self.clear_ready = True
         self.delete_ready = True
         self.pending_delete_started_at = None
+        self.pending_clear_started_at = None
         self.reset_display_state()
         if self.command_recognizer is not None:
             self.command_recognizer.reset()
@@ -219,8 +225,10 @@ class SessionState:
         self.command_mode_last_seen_at = None
         self.command_mode_last_command_at = None
         self.switch_ready = True
+        self.clear_ready = True
         self.delete_ready = True
         self.pending_delete_started_at = None
+        self.pending_clear_started_at = None
         if self.command_recognizer is not None:
             self.command_recognizer.reset()
 
@@ -242,6 +250,10 @@ class SessionState:
         if command_gesture != "SWITCH" and command_candidate != "SWITCH":
             self.switch_ready = True
 
+        if command_gesture != "CLEAR" and command_candidate != "CLEAR":
+            self.clear_ready = True
+            self.pending_clear_started_at = None
+
         if command_candidate == "DELETE" and self.delete_ready:
             if self.pending_delete_started_at is None:
                 self.pending_delete_started_at = now
@@ -257,6 +269,20 @@ class SessionState:
                 metadata["actionPerformed"] = True
                 metadata["actionType"] = "DELETE"
                 metadata["actionToast"] = "已删除最后一个字符"
+                return metadata
+
+        if command_candidate == "CLEAR" and self.clear_ready:
+            if self.pending_clear_started_at is None:
+                self.pending_clear_started_at = now
+
+            if now - self.pending_clear_started_at >= self.clear_hold_seconds:
+                self.clear_ready = False
+                self.pending_clear_started_at = None
+                self.reset_display_state(clear_cached=True)
+                self.deactivate_command_mode()
+                metadata["actionPerformed"] = True
+                metadata["actionType"] = "CLEAR"
+                metadata["actionToast"] = "clear"
                 return metadata
 
         if command_gesture != "SWITCH" or not self.switch_ready:

@@ -6,13 +6,31 @@
           <video ref="videoRef" autoplay muted playsinline class="camera-feed"></video>
           <canvas ref="overlayCanvasRef" class="overlay-canvas"></canvas>
 
-          <div v-if="isRecognitionReady && actionToast" class="action-toast">
+          <div
+            v-if="isRecognitionReady && actionToast"
+            :key="`${actionType}-${actionTick}`"
+            class="action-toast"
+            :class="{
+              'is-clear-effect': actionType === 'CLEAR',
+              'is-switch-effect': actionType === 'SWITCH',
+            }"
+          >
             <div class="action-toast-backdrop"></div>
+            <div v-if="actionType === 'CLEAR'" class="action-clear-flash"></div>
             <div class="action-scan-line"></div>
+            <div v-if="actionType === 'CLEAR'" class="action-clear-wipe"></div>
+            <div v-if="actionType === 'CLEAR'" class="action-clear-particles">
+              <span
+                v-for="index in 12"
+                :key="`clear-particle-${index}`"
+                class="clear-particle"
+              ></span>
+            </div>
             <div class="action-toast-card">
               <div class="action-toast-ring"></div>
               <div class="action-toast-title">{{ actionTitle || '动作反馈' }}</div>
               <div class="action-toast-text">{{ actionToast }}</div>
+              <div v-if="actionType === 'CLEAR'" class="action-toast-subtext">CLEAR ALL</div>
             </div>
           </div>
 
@@ -102,6 +120,14 @@ const props = defineProps({
   actionTitle: {
     type: String,
     default: '',
+  },
+  actionType: {
+    type: String,
+    default: '',
+  },
+  actionTick: {
+    type: Number,
+    default: 0,
   },
 })
 
@@ -303,12 +329,22 @@ watch(
   overflow: hidden;
 }
 
+.action-toast.is-clear-effect {
+  z-index: 5;
+}
+
 .action-toast-backdrop {
   position: absolute;
   inset: 0;
   background:
     radial-gradient(circle at center, rgba(30, 122, 82, 0.22) 0%, rgba(30, 122, 82, 0.08) 32%, rgba(9, 18, 14, 0.56) 100%);
   animation: actionBackdropPulse 1.5s ease forwards;
+}
+
+.action-toast.is-clear-effect .action-toast-backdrop {
+  background:
+    radial-gradient(circle at center, rgba(255, 245, 229, 0.46) 0%, rgba(255, 231, 191, 0.16) 34%, rgba(255, 255, 255, 0.06) 56%, rgba(10, 18, 15, 0.66) 100%);
+  animation-duration: 1.4s;
 }
 
 .action-scan-line {
@@ -330,6 +366,78 @@ watch(
   animation: actionScanSweep 1.5s ease forwards;
 }
 
+.action-toast.is-clear-effect .action-scan-line {
+  top: auto;
+  bottom: 18%;
+  height: 132px;
+  transform: translateY(0) rotate(0deg);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 239, 198, 0.18) 22%,
+    rgba(255, 244, 224, 0.82) 50%,
+    rgba(255, 239, 198, 0.18) 78%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  filter: blur(16px);
+  animation: clearSweep 1.05s cubic-bezier(0.18, 0.84, 0.28, 1) forwards;
+}
+
+.action-clear-flash {
+  position: absolute;
+  inset: -8%;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.94) 0%, rgba(255, 247, 228, 0.58) 26%, rgba(255, 255, 255, 0) 64%);
+  opacity: 0;
+  animation: clearFlashPulse 1.05s ease-out forwards;
+}
+
+.action-clear-wipe {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 248, 231, 0.16) 42%,
+    rgba(255, 248, 231, 0.86) 50%,
+    rgba(255, 248, 231, 0.16) 58%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-115%);
+  animation: clearFullWipe 0.95s cubic-bezier(0.2, 0.82, 0.22, 1) forwards;
+}
+
+.action-clear-particles {
+  position: absolute;
+  inset: 0;
+}
+
+.clear-particle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255, 247, 232, 0.95) 0%, rgba(255, 214, 133, 0.75) 100%);
+  box-shadow: 0 0 18px rgba(255, 228, 168, 0.4);
+  opacity: 0;
+  animation: clearParticleBurst 0.95s ease-out forwards;
+}
+
+.clear-particle:nth-child(1) { --tx: -320px; --ty: -150px; --scale: 0.7; animation-delay: 0.02s; }
+.clear-particle:nth-child(2) { --tx: -260px; --ty: -34px; --scale: 0.9; animation-delay: 0.06s; }
+.clear-particle:nth-child(3) { --tx: -190px; --ty: 106px; --scale: 0.75; animation-delay: 0.04s; }
+.clear-particle:nth-child(4) { --tx: -96px; --ty: -186px; --scale: 0.6; animation-delay: 0.01s; }
+.clear-particle:nth-child(5) { --tx: -18px; --ty: 176px; --scale: 1; animation-delay: 0.08s; }
+.clear-particle:nth-child(6) { --tx: 92px; --ty: -132px; --scale: 0.8; animation-delay: 0.05s; }
+.clear-particle:nth-child(7) { --tx: 168px; --ty: 24px; --scale: 0.7; animation-delay: 0.02s; }
+.clear-particle:nth-child(8) { --tx: 224px; --ty: 152px; --scale: 0.92; animation-delay: 0.07s; }
+.clear-particle:nth-child(9) { --tx: 286px; --ty: -96px; --scale: 0.74; animation-delay: 0.03s; }
+.clear-particle:nth-child(10) { --tx: 340px; --ty: 82px; --scale: 0.66; animation-delay: 0.09s; }
+.clear-particle:nth-child(11) { --tx: 124px; --ty: 198px; --scale: 0.58; animation-delay: 0.11s; }
+.clear-particle:nth-child(12) { --tx: -136px; --ty: 210px; --scale: 0.62; animation-delay: 0.1s; }
+
 .action-toast-card {
   position: relative;
   z-index: 1;
@@ -346,12 +454,25 @@ watch(
   animation: actionCardReveal 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
+.action-toast.is-clear-effect .action-toast-card {
+  min-width: 280px;
+  padding: 24px 34px 22px;
+  background: rgba(110, 60, 12, 0.88);
+  border-color: rgba(255, 244, 220, 0.3);
+  box-shadow: 0 28px 60px rgba(58, 27, 3, 0.42);
+}
+
 .action-toast-ring {
   position: absolute;
   inset: -18px;
   border-radius: 30px;
   border: 1px solid rgba(132, 244, 191, 0.3);
   animation: actionRingPulse 1.5s ease-out forwards;
+}
+
+.action-toast.is-clear-effect .action-toast-ring {
+  border-color: rgba(255, 233, 178, 0.4);
+  animation-duration: 1.15s;
 }
 
 .action-toast-title {
@@ -368,6 +489,14 @@ watch(
   font-weight: 800;
   line-height: 1.15;
   text-shadow: 0 6px 20px rgba(5, 23, 16, 0.32);
+}
+
+.action-toast-subtext {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: rgba(255, 240, 208, 0.82);
 }
 
 .startup-card {
@@ -573,6 +702,71 @@ watch(
   100% {
     opacity: 0;
     transform: translate(24%, -50%) rotate(-8deg);
+  }
+}
+
+@keyframes clearFlashPulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  16% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes clearFullWipe {
+  0% {
+    opacity: 0;
+    transform: translateX(-115%);
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(115%);
+  }
+}
+
+@keyframes clearSweep {
+  0% {
+    opacity: 0;
+    transform: translate(-28%, 0) scaleY(0.82);
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(28%, 0) scaleY(1.08);
+  }
+}
+
+@keyframes clearParticleBurst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(var(--scale));
   }
 }
 
