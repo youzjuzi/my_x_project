@@ -15,7 +15,9 @@ class SessionState:
         process_items_limit: int = 8,
         command_recognizer=None,
         command_mode_timeout_seconds: float = 2.5,
+        switch_min_interval_seconds: float = 1.0,
         stable_token_duration_seconds: float = 1.5,
+        delete_hold_seconds: float = 1.5,
     ) -> None:
         self.pc = pc
         self.mode = mode if mode in ("digits", "letters") else "digits"
@@ -40,6 +42,11 @@ class SessionState:
         self.command_mode_last_seen_at: Optional[float] = None
         self.command_mode_last_command_at: Optional[float] = None
         self.switch_ready = True
+        self.switch_min_interval_seconds = switch_min_interval_seconds
+        self.last_switch_confirmed_at: Optional[float] = None
+        self.delete_hold_seconds = delete_hold_seconds
+        self.delete_ready = True
+        self.pending_delete_started_at: Optional[float] = None
 
     async def send_json(self, payload: Dict[str, object]) -> None:
         if self.channel is None or self.channel.readyState != "open":
@@ -169,6 +176,8 @@ class SessionState:
         self.command_mode_last_seen_at = now
         self.command_mode_last_command_at = None
         self.switch_ready = True
+        self.delete_ready = True
+        self.pending_delete_started_at = None
         self.reset_display_state()
         if self.command_recognizer is not None:
             self.command_recognizer.reset()
@@ -210,30 +219,65 @@ class SessionState:
         self.command_mode_last_seen_at = None
         self.command_mode_last_command_at = None
         self.switch_ready = True
+        self.delete_ready = True
+        self.pending_delete_started_at = None
         if self.command_recognizer is not None:
             self.command_recognizer.reset()
 
     def apply_command_actions(self, command_result: Dict[str, object]) -> Dict[str, object]:
         metadata: Dict[str, object] = {
             "modeChangedByCommand": False,
-            "switchToast": "",
+            "actionPerformed": False,
+            "actionType": "",
+            "actionToast": "",
         }
         command_gesture = str(command_result.get("commandGesture") or "").strip()
         command_candidate = str(command_result.get("commandCandidate") or "").strip()
+        now = time.perf_counter()
+
+        if command_gesture != "DELETE" and command_candidate != "DELETE":
+            self.delete_ready = True
+            self.pending_delete_started_at = None
 
         if command_gesture != "SWITCH" and command_candidate != "SWITCH":
             self.switch_ready = True
-            return metadata
+
+        if command_candidate == "DELETE" and self.delete_ready:
+            if self.pending_delete_started_at is None:
+                self.pending_delete_started_at = now
+
+            if now - self.pending_delete_started_at >= self.delete_hold_seconds:
+                self.delete_ready = False
+                self.pending_delete_started_at = None
+                if self.cached_buffer:
+                    self.cached_buffer = self.cached_buffer[:-1]
+                self.last_cached_token = ""
+                self.reset_display_state()
+                self.deactivate_command_mode()
+                metadata["actionPerformed"] = True
+                metadata["actionType"] = "DELETE"
+                metadata["actionToast"] = "已删除最后一个字符"
+                return metadata
 
         if command_gesture != "SWITCH" or not self.switch_ready:
             return metadata
 
+        if (
+            self.last_switch_confirmed_at is not None
+            and now - self.last_switch_confirmed_at < self.switch_min_interval_seconds
+        ):
+            self.switch_ready = False
+            return metadata
+
         self.switch_ready = False
+        self.last_switch_confirmed_at = now
         self.mode = "letters" if self.mode == "digits" else "digits"
         self.reset_display_state(clear_cached=True)
         self.deactivate_command_mode()
         metadata["modeChangedByCommand"] = True
-        metadata["switchToast"] = self.mode
+        metadata["actionPerformed"] = True
+        metadata["actionType"] = "SWITCH"
+        metadata["actionToast"] = self.mode
         return metadata
 
     def build_command_result(
@@ -247,8 +291,9 @@ class SessionState:
         command_candidate = str(command_result.get("commandCandidate") or "").strip()
         display_text = command_gesture or command_candidate
         mode_changed = bool(metadata.get("modeChangedByCommand"))
+        action_performed = bool(metadata.get("actionPerformed"))
 
-        if mode_changed:
+        if mode_changed or action_performed:
             display_text = ""
 
         return {
@@ -268,9 +313,11 @@ class SessionState:
             "commandCounters": dict(command_result.get("commandCounters") or {}),
             "commandThreshold": int(command_result.get("commandThreshold") or 0),
             "modeChangedByCommand": mode_changed,
-            "switchToast": str(metadata.get("switchToast") or ""),
-            "resetDisplayState": mode_changed,
-            "suppressDisplayStateUpdate": mode_changed,
+            "actionPerformed": action_performed,
+            "actionType": str(metadata.get("actionType") or ""),
+            "actionToast": str(metadata.get("actionToast") or ""),
+            "resetDisplayState": mode_changed or action_performed,
+            "suppressDisplayStateUpdate": mode_changed or action_performed,
         }
 
     def _mark_timestamp(self, bucket: Deque[float]) -> None:

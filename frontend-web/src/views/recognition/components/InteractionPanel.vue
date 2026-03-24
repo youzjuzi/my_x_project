@@ -36,10 +36,7 @@
       </div>
 
       <div class="input-display">
-        <div
-          class="pinyin-track"
-          :style="trackStyle"
-        ></div>
+        <div class="pinyin-track" :style="trackStyle"></div>
         <span
           class="pinyin-text"
           :class="{ animating: hasInput }"
@@ -52,10 +49,26 @@
       <div class="cache-display">
         <div class="cache-header">
           <span class="label">稳定缓存</span>
-          <span class="tip">字符持续稳定一段时间后，会自动追加到这里。</span>
+          <span class="tip">字符稳定后会追加到这里，删除动作会作用于最后一个字符。</span>
         </div>
-        <div class="cache-value" :class="{ empty: !cachedBuffer }">
-          {{ cachedBuffer || '暂无已锁定字符' }}
+        <div class="cache-value" :class="{ empty: !hasCacheContent }">
+          <template v-if="hasCacheContent">
+            <span
+              v-for="(char, index) in cacheChars"
+              :key="`cache-${index}-${char}`"
+              class="cache-char"
+            >
+              {{ char }}
+            </span>
+            <span
+              v-if="deletedCacheChar"
+              :key="`deleted-${deletedCacheTick}`"
+              class="cache-char deleting"
+            >
+              {{ deletedCacheChar }}
+            </span>
+          </template>
+          <span v-else>暂无已锁定字符</span>
         </div>
       </div>
 
@@ -131,6 +144,14 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  deletedCacheChar: {
+    type: String,
+    default: '',
+  },
+  deletedCacheTick: {
+    type: Number,
+    default: 0,
+  },
   stabilityProgress: {
     type: Number,
     default: 0,
@@ -154,6 +175,8 @@ const normalizedProgress = computed(() => {
 
 const stabilityPercent = computed(() => Math.round(normalizedProgress.value * 100))
 const hasInput = computed(() => Boolean(props.pinyinBuffer))
+const cacheChars = computed(() => Array.from(props.cachedBuffer || ''))
+const hasCacheContent = computed(() => cacheChars.value.length > 0 || Boolean(props.deletedCacheChar))
 
 const pinyinStyle = computed(() => {
   const progress = normalizedProgress.value
@@ -312,6 +335,8 @@ const trackStyle = computed(() => ({
   min-height: 40px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
   padding: 10px 12px;
   border-radius: 12px;
   background: #ecf4ef;
@@ -324,6 +349,19 @@ const trackStyle = computed(() => ({
     color: #8a9893;
     font-weight: 600;
   }
+}
+
+.cache-char {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0.9em;
+}
+
+.cache-char.deleting {
+  color: #d74a4a;
+  text-shadow: 0 0 16px rgba(215, 74, 74, 0.28);
+  animation: reverseDelete 0.9s ease forwards;
 }
 
 .candidates-area {
@@ -414,6 +452,26 @@ const trackStyle = computed(() => ({
 .list-leave-to {
   opacity: 0;
   transform: translateY(-10px);
+}
+
+@keyframes reverseDelete {
+  0% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.08);
+    color: #d74a4a;
+  }
+
+  55% {
+    opacity: 0.85;
+    transform: translateY(2px) scale(0.94);
+    color: #f08a5b;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.72);
+    color: #2f9f68;
+  }
 }
 
 @media (max-width: 767px) {

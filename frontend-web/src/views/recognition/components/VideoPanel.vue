@@ -5,20 +5,24 @@
         <template v-if="isCameraActive">
           <video ref="videoRef" autoplay muted playsinline class="camera-feed"></video>
           <canvas ref="overlayCanvasRef" class="overlay-canvas"></canvas>
-          <div v-if="isRecognitionReady && switchToast" class="switch-toast">
-            <div class="switch-toast-backdrop"></div>
-            <div class="switch-scan-line"></div>
-            <div class="switch-toast-card">
-              <div class="switch-toast-ring"></div>
-              <div class="switch-toast-title">模式切换</div>
-              <div class="switch-toast-text">{{ switchToast }}</div>
+
+          <div v-if="isRecognitionReady && actionToast" class="action-toast">
+            <div class="action-toast-backdrop"></div>
+            <div class="action-scan-line"></div>
+            <div class="action-toast-card">
+              <div class="action-toast-ring"></div>
+              <div class="action-toast-title">{{ actionTitle || '动作反馈' }}</div>
+              <div class="action-toast-text">{{ actionToast }}</div>
             </div>
           </div>
+
           <div v-if="!isRecognitionReady" class="startup-state">
             <div class="startup-card">
               <div class="startup-dot"></div>
               <p class="startup-title">正在连接识别服务</p>
-              <p class="startup-text">摄像头已开启，正在等待后端启动推理，请保持手势在画面中。</p>
+              <p class="startup-text">
+                摄像头开启后，系统会先完成连接与模型初始化，再开始显示识别结果。
+              </p>
             </div>
           </div>
         </template>
@@ -29,7 +33,7 @@
               <el-icon><VideoCameraFilled /></el-icon>
             </div>
             <p class="placeholder-title">开启摄像头后开始识别</p>
-            <p class="placeholder-text">实时画面和识别框会显示在这里。</p>
+            <p class="placeholder-text">识别画面、坐标框和动作反馈会显示在这里。</p>
             <button class="text-trigger" type="button" @click="$emit('start')">
               开启摄像头
             </button>
@@ -38,8 +42,8 @@
 
         <div v-if="isCameraActive" class="status-strip">
           <div class="strip-main">
-            <span class="live-chip">实时识别</span>
-            <span class="strip-text">当前正在显示后端返回的识别框</span>
+            <span class="live-chip">识别进行中</span>
+            <span class="strip-text">正在持续接收视频并返回检测结果</span>
           </div>
           <div class="strip-metrics">
             <span>输入帧率 {{ inputFps > 0 ? inputFps : '--' }}</span>
@@ -52,7 +56,7 @@
 
     <div class="control-zone">
       <p class="footer-tip">
-        {{ isCameraActive ? '识别框来自 app_webrtc 返回结果。' : '可通过顶部右侧按钮开启摄像头。' }}
+        {{ isCameraActive ? '识别结果将通过 app_webrtc 实时返回。' : '开启摄像头后即可在当前页面进行识别。' }}
       </p>
     </div>
   </div>
@@ -65,36 +69,40 @@ import { VideoCameraFilled } from '@element-plus/icons-vue'
 const props = defineProps({
   isCameraActive: {
     type: Boolean,
-    default: false
+    default: false,
   },
   isRecognitionReady: {
     type: Boolean,
-    default: false
+    default: false,
   },
   inputFps: {
     type: Number,
-    default: 0
+    default: 0,
   },
   processedFps: {
     type: Number,
-    default: 0
+    default: 0,
   },
   latency: {
     type: Number,
-    default: 0
+    default: 0,
   },
   videoStream: {
     type: MediaStream,
-    default: null
+    default: null,
   },
   overlayResult: {
     type: Object,
-    default: null
+    default: null,
   },
-  switchToast: {
+  actionToast: {
     type: String,
-    default: ''
-  }
+    default: '',
+  },
+  actionTitle: {
+    type: String,
+    default: '',
+  },
 })
 
 defineEmits(['start', 'stop'])
@@ -104,11 +112,9 @@ const overlayCanvasRef = ref(null)
 
 const syncVideoStream = async () => {
   await nextTick()
-
   if (!videoRef.value) {
     return
   }
-
   videoRef.value.srcObject = props.videoStream || null
 }
 
@@ -138,7 +144,6 @@ const clearOverlay = () => {
   if (!canvas) {
     return
   }
-
   const context = canvas.getContext('2d')
   context.clearRect(0, 0, canvas.width, canvas.height)
 }
@@ -196,7 +201,7 @@ const renderOverlay = async () => {
       result.imageWidth,
       result.imageHeight,
       displayWidth,
-      displayHeight
+      displayHeight,
     )
 
     context.strokeStyle = '#3ddc97'
@@ -214,7 +219,7 @@ watch(
   () => {
     syncVideoStream()
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 watch(
@@ -225,7 +230,7 @@ watch(
       clearOverlay()
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 watch(
@@ -233,7 +238,7 @@ watch(
   () => {
     renderOverlay()
   },
-  { deep: true }
+  { deep: true },
 )
 </script>
 
@@ -286,7 +291,7 @@ watch(
   backdrop-filter: blur(6px);
 }
 
-.switch-toast {
+.action-toast {
   position: absolute;
   inset: 0;
   z-index: 4;
@@ -298,15 +303,15 @@ watch(
   overflow: hidden;
 }
 
-.switch-toast-backdrop {
+.action-toast-backdrop {
   position: absolute;
   inset: 0;
   background:
     radial-gradient(circle at center, rgba(30, 122, 82, 0.22) 0%, rgba(30, 122, 82, 0.08) 32%, rgba(9, 18, 14, 0.56) 100%);
-  animation: switchBackdropPulse 1.5s ease forwards;
+  animation: actionBackdropPulse 1.5s ease forwards;
 }
 
-.switch-scan-line {
+.action-scan-line {
   position: absolute;
   left: -12%;
   right: -12%;
@@ -322,10 +327,10 @@ watch(
     rgba(255, 255, 255, 0) 100%
   );
   filter: blur(10px);
-  animation: switchScanSweep 1.5s ease forwards;
+  animation: actionScanSweep 1.5s ease forwards;
 }
 
-.switch-toast-card {
+.action-toast-card {
   position: relative;
   z-index: 1;
   min-width: 220px;
@@ -338,18 +343,18 @@ watch(
   box-shadow: 0 24px 50px rgba(10, 38, 28, 0.32);
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(10px);
-  animation: switchCardReveal 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation: actionCardReveal 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
-.switch-toast-ring {
+.action-toast-ring {
   position: absolute;
   inset: -18px;
   border-radius: 30px;
   border: 1px solid rgba(132, 244, 191, 0.3);
-  animation: switchRingPulse 1.5s ease-out forwards;
+  animation: actionRingPulse 1.5s ease-out forwards;
 }
 
-.switch-toast-title {
+.action-toast-title {
   margin-bottom: 8px;
   font-size: 13px;
   font-weight: 700;
@@ -358,7 +363,7 @@ watch(
   color: rgba(226, 255, 240, 0.8);
 }
 
-.switch-toast-text {
+.action-toast-text {
   font-size: 30px;
   font-weight: 800;
   line-height: 1.15;
@@ -533,7 +538,7 @@ watch(
   }
 }
 
-@keyframes switchBackdropPulse {
+@keyframes actionBackdropPulse {
   0% {
     opacity: 0;
   }
@@ -551,7 +556,7 @@ watch(
   }
 }
 
-@keyframes switchScanSweep {
+@keyframes actionScanSweep {
   0% {
     opacity: 0;
     transform: translate(-24%, -50%) rotate(-8deg);
@@ -571,7 +576,7 @@ watch(
   }
 }
 
-@keyframes switchCardReveal {
+@keyframes actionCardReveal {
   0% {
     opacity: 0;
     transform: translateY(18px) scale(0.92);
@@ -593,7 +598,7 @@ watch(
   }
 }
 
-@keyframes switchRingPulse {
+@keyframes actionRingPulse {
   0% {
     opacity: 0;
     transform: scale(0.92);
@@ -631,13 +636,13 @@ watch(
     align-items: flex-start;
   }
 
-  .switch-toast-card {
+  .action-toast-card {
     min-width: 0;
     width: 100%;
     padding: 18px 20px 16px;
   }
 
-  .switch-toast-text {
+  .action-toast-text {
     font-size: 24px;
   }
 
