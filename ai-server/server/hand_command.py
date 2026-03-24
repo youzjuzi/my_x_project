@@ -1,3 +1,4 @@
+import math
 import time
 from typing import Dict
 
@@ -5,7 +6,7 @@ import cv2
 import mediapipe as mp
 
 
-TRIGGER_THRESHOLD = 3
+TRIGGER_THRESHOLD = 5
 DISPLAY_HOLD_FRAMES = 12
 
 COMMAND_CONFIRM = "CONFIRM"
@@ -24,16 +25,24 @@ class HandsCommandParser:
         self.enter_counter = 0
         self.switch_counter = 0
 
+    def _get_palm_scale(self, hand_landmarks) -> float:
+        """计算手腕(0)到中指根部(9)的欧氏距离，作为手掌基准尺度。"""
+        wrist = hand_landmarks[0]
+        mid_mcp = hand_landmarks[9]
+        return math.hypot(mid_mcp.x - wrist.x, mid_mcp.y - wrist.y)
+
     def _is_full_open_palm(self, hand_landmarks) -> bool:
+        palm_scale = self._get_palm_scale(hand_landmarks)
         fingers_up = all(
             hand_landmarks[i].y < hand_landmarks[i - 2].y
             for i in [8, 12, 16, 20]
         )
-        is_spread = abs(hand_landmarks[8].x - hand_landmarks[20].x) > 0.15
+        is_spread = abs(hand_landmarks[8].x - hand_landmarks[20].x) > 0.75 * palm_scale
         return fingers_up and is_spread
 
     def _is_single_index_up(self, hand_landmarks) -> bool:
-        index_up = hand_landmarks[8].y < hand_landmarks[6].y - 0.05
+        palm_scale = self._get_palm_scale(hand_landmarks)
+        index_up = hand_landmarks[8].y < hand_landmarks[6].y - 0.25 * palm_scale
         others_fisted = (
             hand_landmarks[12].y > hand_landmarks[10].y
             and hand_landmarks[16].y > hand_landmarks[14].y
@@ -43,20 +52,22 @@ class HandsCommandParser:
         return index_up and others_fisted and is_highest
 
     def _is_single_index_down(self, hand_landmarks) -> bool:
-        index_down = hand_landmarks[8].y > hand_landmarks[6].y + 0.05
+        palm_scale = self._get_palm_scale(hand_landmarks)
+        index_down = hand_landmarks[8].y > hand_landmarks[6].y + 0.25 * palm_scale
         others_up = (
-            hand_landmarks[12].y < hand_landmarks[8].y - 0.1
-            and hand_landmarks[16].y < hand_landmarks[8].y - 0.1
-            and hand_landmarks[20].y < hand_landmarks[8].y - 0.1
+            hand_landmarks[12].y < hand_landmarks[8].y - 0.5 * palm_scale
+            and hand_landmarks[16].y < hand_landmarks[8].y - 0.5 * palm_scale
+            and hand_landmarks[20].y < hand_landmarks[8].y - 0.5 * palm_scale
         )
         return index_down and others_up
 
     def _is_single_fist(self, hand_landmarks) -> bool:
+        palm_scale = self._get_palm_scale(hand_landmarks)
         return (
-            hand_landmarks[8].y > hand_landmarks[5].y + 0.05
-            and hand_landmarks[12].y > hand_landmarks[9].y + 0.05
-            and hand_landmarks[16].y > hand_landmarks[13].y + 0.05
-            and hand_landmarks[20].y > hand_landmarks[17].y + 0.05
+            hand_landmarks[8].y > hand_landmarks[5].y + 0.25 * palm_scale
+            and hand_landmarks[12].y > hand_landmarks[9].y + 0.25 * palm_scale
+            and hand_landmarks[16].y > hand_landmarks[13].y + 0.25 * palm_scale
+            and hand_landmarks[20].y > hand_landmarks[17].y + 0.25 * palm_scale
         )
 
     def _is_single_thumb_up(self, hand_landmarks) -> bool:

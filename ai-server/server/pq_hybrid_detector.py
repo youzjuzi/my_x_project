@@ -234,13 +234,18 @@ class PQHybridDetector:
             yolo_text = yolo_payload["text"]
             special_candidate = self._pick_special_candidate(yolo_payload["hands"])
             # 修改点 1：把 T 加入到可以激活 MediaPipe 的候选列表中
-            if special_candidate in ("P", "Q", "M", "N", "T", "I", "D"):
+            # 双手出现时禁止激活单手字母检测，避免误触发 Q/P 等手势
+            if special_candidate in ("P", "Q", "M", "N", "T", "I", "D") and yolo_payload["handCount"] <= 1:
                 self._activate_mediapipe(special_candidate)
 
         mp_payload = None
         if self.mp_active:
             mp_payload = self._run_mediapipe(frame, output)
             if mp_payload.get("handCount", 0) == 0:
+                self._deactivate_mediapipe()
+                mp_payload["deactivated"] = True
+            elif mp_payload.get("handCount", 0) > 1:
+                # 双手出现时立即退出单手检测模式，将控制权交还给双手功能手势
                 self._deactivate_mediapipe()
                 mp_payload["deactivated"] = True
             else:
