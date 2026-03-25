@@ -411,7 +411,11 @@ class SessionState:
         else:
             threshold = int(command_result.get("commandThreshold") or 0)
         if threshold > 0:
-            return min(1.0, int(counters.get(command_candidate) or 0) / threshold)
+            count = int(counters.get(command_candidate) or 0)
+            # counter 归零说明刚触发，返回 1.0 避免进度条瞬间消失
+            if count == 0 and str(command_result.get("commandGesture") or "") == command_candidate:
+                return 1.0
+            return min(1.0, count / threshold)
         return 0.0
 
     def build_command_result(

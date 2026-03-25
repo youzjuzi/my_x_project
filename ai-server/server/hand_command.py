@@ -6,7 +6,7 @@ import cv2
 import mediapipe as mp
 
 
-TRIGGER_THRESHOLD = 5
+TRIGGER_THRESHOLD = 15
 DISPLAY_HOLD_FRAMES = 12
 
 COMMAND_CONFIRM = "CONFIRM"
@@ -17,14 +17,17 @@ COMMAND_SWITCH = "SWITCH"
 
 
 class HandsCommandParser:
-    def __init__(self, trigger_threshold: int = TRIGGER_THRESHOLD, switch_trigger_threshold: int = 20) -> None:
+    def __init__(self, trigger_threshold: int = TRIGGER_THRESHOLD, switch_trigger_threshold: int = 20, miss_tolerance: int = 5) -> None:
         self.trigger_threshold = trigger_threshold
         self.switch_trigger_threshold = switch_trigger_threshold
+        self.miss_tolerance = miss_tolerance
         self.confirm_counter = 0
         self.delete_counter = 0
         self.clear_counter = 0
         self.enter_counter = 0
         self.switch_counter = 0
+        self._miss_counter = 0
+        self._last_candidate = ""
 
     def _get_palm_scale(self, hand_landmarks) -> float:
         """计算手腕(0)到中指根部(9)的欧氏距离，作为手掌基准尺度。"""
@@ -38,7 +41,13 @@ class HandsCommandParser:
             hand_landmarks[i].y < hand_landmarks[i - 2].y
             for i in [8, 12, 16, 20]
         )
-        is_spread = abs(hand_landmarks[8].x - hand_landmarks[20].x) > 0.75 * palm_scale
+        # 用食指尖到小指尖的距离（不依赖 x 轴方向），对手的旋转更鲁棒
+        import math
+        spread_dist = math.hypot(
+            hand_landmarks[8].x - hand_landmarks[20].x,
+            hand_landmarks[8].y - hand_landmarks[20].y,
+        )
+        is_spread = spread_dist > 0.8 * palm_scale
         return fingers_up and is_spread
 
     def _is_single_index_up(self, hand_landmarks) -> bool:
@@ -94,6 +103,8 @@ class HandsCommandParser:
         self.clear_counter = 0
         self.enter_counter = 0
         self.switch_counter = 0
+        self._miss_counter = 0
+        self._last_candidate = ""
 
     def snapshot(self) -> Dict[str, int]:
         return {
@@ -125,8 +136,17 @@ class HandsCommandParser:
     def detect_command(self, multi_hand_landmarks) -> str:
         candidate = self.detect_candidate(multi_hand_landmarks)
         if not candidate:
-            self.reset()
+            self._miss_counter += 1
+            if self._miss_counter > self.miss_tolerance:
+                self.reset()
             return ""
+
+        # 切换到不同候选时立即重置
+        if candidate != self._last_candidate:
+            self.reset()
+            self._last_candidate = candidate
+
+        self._miss_counter = 0
 
         if candidate == COMMAND_CONFIRM:
             self.confirm_counter += 1
@@ -154,18 +174,6 @@ class HandsCommandParser:
                 self.switch_counter = 0
                 return COMMAND_SWITCH
 
-        for name in self.snapshot():
-            if name != candidate:
-                if name == COMMAND_CONFIRM:
-                    self.confirm_counter = 0
-                elif name == COMMAND_DELETE:
-                    self.delete_counter = 0
-                elif name == COMMAND_CLEAR:
-                    self.clear_counter = 0
-                elif name == COMMAND_ENTER:
-                    self.enter_counter = 0
-                elif name == COMMAND_SWITCH:
-                    self.switch_counter = 0
         return ""
 
 
