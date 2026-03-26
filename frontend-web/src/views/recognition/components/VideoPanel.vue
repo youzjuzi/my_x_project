@@ -1289,7 +1289,7 @@ onBeforeUnmount(() => {
   height: 4px;
   transform-origin: left center;
   background: linear-gradient(90deg, #3ddc97 0%, #f0b54b 55%, #f25f5c 100%);
-  transition: transform 0.12s linear;
+  transition: transform 0.05s linear;
 }
 
 .pinyin-text {

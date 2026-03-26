@@ -194,8 +194,20 @@ class SessionState:
                 # 冷却期内：清空 vote_buffer 防止污染，保持空白输出
                 self._vote_buffer.clear()
                 self.spelling_buffer = ""
+                self.pending_stable_text = ""
+                self.pending_stable_started_at = None
                 self._refresh_pinyin_state()
                 return
+
+            # 没有检测到手 或 识别结果为空时，立即清空投票缓冲和进度，不留"粘性"
+            if hand_count == 0 or not raw_spelling:
+                self._vote_buffer.clear()
+                self.spelling_buffer = ""
+                self.pending_stable_text = ""
+                self.pending_stable_started_at = None
+                self._refresh_pinyin_state()
+                return
+
             self._vote_buffer.append(raw_spelling)
 
         # 投票赢家作为所有下游的输入，过滤帧间抖动
