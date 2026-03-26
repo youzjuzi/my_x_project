@@ -25,7 +25,7 @@ class SessionState:
         action_suppression_seconds: float = 1.5,
     ) -> None:
         self.pc = pc
-        self.mode = mode if mode in ("digits", "letters") else "digits"
+        self.mode = mode if mode in ("digits", "letters") else "letters"
         self.command_recognizer = command_recognizer
         self.command_mode_timeout_seconds = command_mode_timeout_seconds
         self.switch_min_interval_seconds = switch_min_interval_seconds

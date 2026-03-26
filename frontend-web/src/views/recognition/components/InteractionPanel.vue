@@ -88,23 +88,25 @@
           <span class="label">候选内容</span>
           <span class="tip">候选词由服务端根据当前拼音实时生成。</span>
         </div>
-        <div v-if="hanziCandidate" class="candidate-preview">
-          {{ hanziCandidate }}
-        </div>
-        <div class="tags-wrapper">
-          <el-tag
-            v-for="(word, idx) in candidates"
-            :key="idx"
-            class="candidate-tag"
-            :class="{ active: idx === candidateIndex }"
-            effect="plain"
-            round
-            size="small"
-          >
-            <span class="candidate-index">{{ idx + 1 }}</span>
-            {{ word }}
-          </el-tag>
-          <span v-if="candidates.length === 0" class="no-candidate">暂无候选内容</span>
+        <div class="candidates-content">
+          <div v-if="hanziCandidate" class="candidate-preview">
+            {{ hanziCandidate }}
+          </div>
+          <div class="tags-wrapper">
+            <el-tag
+              v-for="(word, idx) in candidates"
+              :key="idx"
+              class="candidate-tag"
+              :class="{ active: idx === candidateIndex }"
+              effect="plain"
+              round
+              size="small"
+            >
+              <span class="candidate-index">{{ idx + 1 }}</span>
+              {{ word }}
+            </el-tag>
+            <span v-if="candidates.length === 0" class="no-candidate">暂无候选内容</span>
+          </div>
         </div>
       </div>
 
@@ -339,26 +341,31 @@ onBeforeUnmount(() => {
 }
 
 .gesture-stream {
-  min-height: 52px;
+  min-height: 40px; /* 压扁识别流 */
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #fbfcfb;
+  border: 1px solid #e3ece7;
   display: flex;
   align-items: center;
-  gap: 8px;
-  overflow-x: auto;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow: hidden;
 }
 
 .gesture-bubble {
-  min-width: 38px;
-  height: 38px;
-  padding: 0 12px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
   flex-shrink: 0;
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #ecf4ef;
   color: #226145;
-  font-size: 16px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 700;
 
   &.latest {
     background: #216d4b;
@@ -504,20 +511,31 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
-.candidate-preview {
-  padding: 10px 12px;
+.candidates-content {
+  padding: 12px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #eff7f2 0%, #f9fcfa 100%);
+  background: #f4f7f5;
   border: 1px solid #e3ece7;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.candidate-preview {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #eff7f2 0%, #f9fcfa 100%);
+  border: 1px solid #dee9e3;
   color: #17312b;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
+  text-align: center;
 }
 
 .tags-wrapper {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .candidate-tag {

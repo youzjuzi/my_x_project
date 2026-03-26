@@ -64,7 +64,7 @@ import { ArrowLeft, Switch } from '@element-plus/icons-vue'
 const props = defineProps({
   selectedMode: {
     type: String,
-    default: 'digits',
+    default: 'letters',
   },
   isCameraActive: {
     type: Boolean,

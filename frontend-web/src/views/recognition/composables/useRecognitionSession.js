@@ -5,7 +5,7 @@ import { createRecognitionWebRtcClient } from '../services/webrtcClient'
 export function useRecognitionSession() {
   const isCameraActive = ref(false)
   const connectionState = ref('idle')
-  const selectedMode = ref('digits')
+  const selectedMode = ref('letters')
   const inputFps = ref(0)
   const processedFps = ref(0)
   const latency = ref(0)

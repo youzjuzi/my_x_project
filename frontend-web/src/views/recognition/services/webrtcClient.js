@@ -27,7 +27,7 @@ export function createRecognitionWebRtcClient(options) {
   const {
     mediaStream,
     offerUrl = DEFAULT_WEBRTC_URL,
-    mode = 'digits',
+    mode = 'letters',
     onResult,
     onOpen,
     onClose,
