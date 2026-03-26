@@ -12,14 +12,14 @@ DISPLAY_HOLD_FRAMES = 12
 COMMAND_CONFIRM = "CONFIRM"
 COMMAND_DELETE = "DELETE"
 COMMAND_CLEAR = "CLEAR"
-COMMAND_ENTER = "ENTER"
-COMMAND_SWITCH = "SWITCH"
+COMMAND_NEXT = "NEXT"
+COMMAND_SUBMIT = "SUBMIT"
 
 
 class HandsCommandParser:
-    def __init__(self, trigger_threshold: int = TRIGGER_THRESHOLD, switch_trigger_threshold: int = 20, miss_tolerance: int = 8, switch_tolerance: int = 5) -> None:
+    def __init__(self, trigger_threshold: int = TRIGGER_THRESHOLD, submit_trigger_threshold: int = 20, miss_tolerance: int = 8, switch_tolerance: int = 5) -> None:
         self.trigger_threshold = trigger_threshold
-        self.switch_trigger_threshold = switch_trigger_threshold
+        self.submit_trigger_threshold = submit_trigger_threshold
         # miss_tolerance: 手势「消失/丢失」时，允许连续丢失多少帧才清空进度（用于处理识别掉帧）
         self.miss_tolerance = miss_tolerance
         # switch_tolerance: 手势「切换」时，允许多少帧的过渡缓冲才重置（用于处理换手势时的抖动）
@@ -27,8 +27,8 @@ class HandsCommandParser:
         self.confirm_counter = 0
         self.delete_counter = 0
         self.clear_counter = 0
-        self.enter_counter = 0
-        self.switch_counter = 0
+        self.next_counter = 0
+        self.submit_counter = 0
         self._miss_counter = 0
         self._switch_miss_counter = 0
         self._last_candidate = ""
@@ -110,8 +110,8 @@ class HandsCommandParser:
         self.confirm_counter = 0
         self.delete_counter = 0
         self.clear_counter = 0
-        self.enter_counter = 0
-        self.switch_counter = 0
+        self.next_counter = 0
+        self.submit_counter = 0
         self._miss_counter = 0
         self._switch_miss_counter = 0
         self._last_candidate = ""
@@ -121,8 +121,8 @@ class HandsCommandParser:
             COMMAND_CONFIRM: self.confirm_counter,
             COMMAND_DELETE: self.delete_counter,
             COMMAND_CLEAR: self.clear_counter,
-            COMMAND_ENTER: self.enter_counter,
-            COMMAND_SWITCH: self.switch_counter,
+            COMMAND_NEXT: self.next_counter,
+            COMMAND_SUBMIT: self.submit_counter,
         }
 
     def detect_candidate(self, multi_hand_landmarks) -> str:
@@ -137,10 +137,10 @@ class HandsCommandParser:
             return COMMAND_DELETE
         if self._is_single_fist(hand1) and self._is_single_fist(hand2):
             return COMMAND_CLEAR
-        if self._is_single_thumb_up(hand1) and self._is_single_thumb_up(hand2):
-            return COMMAND_ENTER
         if self._is_single_index_up(hand1) and self._is_single_index_up(hand2):
-            return COMMAND_SWITCH
+            return COMMAND_NEXT
+        if self._is_single_thumb_up(hand1) and self._is_single_thumb_up(hand2):
+            return COMMAND_SUBMIT
         return ""
 
     def detect_command(self, multi_hand_landmarks) -> str:
@@ -189,16 +189,16 @@ class HandsCommandParser:
             if self.clear_counter >= self.trigger_threshold:
                 self.clear_counter = 0
                 return COMMAND_CLEAR
-        elif candidate == COMMAND_ENTER:
-            self.enter_counter += 1
-            if self.enter_counter >= self.trigger_threshold:
-                self.enter_counter = 0
-                return COMMAND_ENTER
-        elif candidate == COMMAND_SWITCH:
-            self.switch_counter += 1
-            if self.switch_counter >= self.switch_trigger_threshold:
-                self.switch_counter = 0
-                return COMMAND_SWITCH
+        elif candidate == COMMAND_NEXT:
+            self.next_counter += 1
+            if self.next_counter >= self.trigger_threshold:
+                self.next_counter = 0
+                return COMMAND_NEXT
+        elif candidate == COMMAND_SUBMIT:
+            self.submit_counter += 1
+            if self.submit_counter >= self.submit_trigger_threshold:
+                self.submit_counter = 0
+                return COMMAND_SUBMIT
 
         return ""
 
@@ -242,7 +242,7 @@ class HandCommandRecognizer:
             "commandCandidate": candidate,
             "commandCounters": self.parser.snapshot(),
             "commandThreshold": self.parser.trigger_threshold,
-            "commandSwitchThreshold": self.parser.switch_trigger_threshold,
+            "commandSubmitThreshold": self.parser.submit_trigger_threshold,
         }
 
     def reset(self) -> None:

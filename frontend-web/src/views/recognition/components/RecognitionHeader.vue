@@ -19,11 +19,14 @@
       </div>
 
       <div class="intro-actions">
-        <div class="mode-display">
+        <div class="mode-display" @click="handleModeToggle" role="button" tabindex="0" aria-label="切换识别模式">
           <div class="mode-icon-block">{{ selectedMode === 'digits' ? '123' : 'Aa' }}</div>
           <div class="mode-info">
-            <span class="mode-hint">当前模式</span>
+            <span class="mode-hint">点击切换模式</span>
             <span class="mode-name">{{ selectedMode === 'digits' ? '数字识别' : '字母识别' }}</span>
+          </div>
+          <div class="mode-toggle-icon">
+            <el-icon><Switch /></el-icon>
           </div>
         </div>
 
@@ -56,9 +59,9 @@
 </template>
 
 <script setup>
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, Switch } from '@element-plus/icons-vue'
 
-defineProps({
+const props = defineProps({
   selectedMode: {
     type: String,
     default: 'digits',
@@ -73,7 +76,12 @@ defineProps({
   },
 })
 
-defineEmits(['back', 'start-camera', 'stop-camera'])
+const emit = defineEmits(['back', 'start-camera', 'stop-camera', 'change-mode'])
+
+const handleModeToggle = () => {
+  const next = props.selectedMode === 'digits' ? 'letters' : 'digits'
+  emit('change-mode', next)
+}
 </script>
 
 <style scoped lang="scss">
@@ -155,6 +163,32 @@ defineEmits(['back', 'start-camera', 'stop-camera'])
   border-radius: 14px;
   background: linear-gradient(135deg, #edf7f2 0%, #e8f4ef 100%);
   border: 1px solid rgba(33, 109, 75, 0.15);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(33, 109, 75, 0.12);
+    border-color: rgba(33, 109, 75, 0.35);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.mode-toggle-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(33, 109, 75, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #216d4b;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .mode-icon-block {

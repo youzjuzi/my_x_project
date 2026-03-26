@@ -8,6 +8,7 @@
         @back="handleExit"
         @start-camera="startCamera"
         @stop-camera="stopCamera"
+        @change-mode="changeMode"
       />
 
       <el-row :gutter="18" class="main-layout">
@@ -102,28 +103,62 @@ const {
   clearActionToast,
   startCamera,
   stopCamera,
+  changeMode,
   commandModeActive,
   commandCandidate,
   commandCandidateProgress,
 } = useRecognitionSession()
 
 const finalSentence = ref('')
+const polishedResult = ref('')
+const isSubmitting = ref(false)
 const exitDialogVisible = ref(false)
 
 watch(
   () => actionTick.value,
   () => {
-    if (actionType.value !== 'CONFIRM' || !actionToast.value) {
+    if (actionType.value === 'CONFIRM' && actionToast.value) {
+      if (finalSentence.value) {
+        finalSentence.value += actionToast.value
+      } else {
+        finalSentence.value = actionToast.value
+      }
       return
     }
 
-    if (finalSentence.value) {
-      finalSentence.value += ' ' + actionToast.value
-    } else {
-      finalSentence.value = actionToast.value
+    if (actionType.value === 'SUBMIT') {
+      handleSubmit()
     }
   }
 )
+
+const handleSubmit = async () => {
+  if (!finalSentence.value || isSubmitting.value) {
+    return
+  }
+
+  isSubmitting.value = true
+
+  try {
+    const { default: request } = await import('@/utils/request')
+    const response = await request({
+      url: '/sign/polish',
+      method: 'post',
+      data: { content: finalSentence.value },
+    })
+
+    if (response && response.data) {
+      polishedResult.value = response.data
+      finalSentence.value = response.data
+      ElMessage.success('AI 润色完成')
+    }
+  } catch (error) {
+    console.error('AI 润色请求失败:', error)
+    ElMessage.warning('AI 润色暂不可用，保留原始内容')
+  } finally {
+    isSubmitting.value = false
+  }
+}
 
 const handleExit = () => {
   if (isCameraActive.value) {

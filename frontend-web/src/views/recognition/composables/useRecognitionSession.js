@@ -89,10 +89,10 @@ export function useRecognitionSession() {
     }
 
     const actionMap = {
-      SWITCH: {
-        title: '模式切换',
-        text: `当前模式：${modeLabelMap[actionValue] || actionValue || modeLabelMap[selectedMode.value] || selectedMode.value}`,
-        duration: 1500,
+      NEXT: {
+        title: '切换候选',
+        text: actionValue || '下一个候选词',
+        duration: 800,
       },
       CLEAR: {
         title: '整段清空',
@@ -103,6 +103,11 @@ export function useRecognitionSession() {
         title: '确认完成',
         text: actionValue || '已确认',
         duration: 1200,
+      },
+      SUBMIT: {
+        title: '提交整句',
+        text: '正在提交到后端润色...',
+        duration: 2000,
       },
     }
 
@@ -201,17 +206,22 @@ export function useRecognitionSession() {
       inputFps.value = Number(payload.inputFps || 0)
       processedFps.value = Number(payload.processedFps || 0)
       latency.value = Number(payload.latencyMs || 0)
-      gestureStream.value = []
-      pinyinBuffer.value = ''
-      stabilityProgress.value = 0
-      overlayResult.value = null
       commandModeActive.value = Boolean(payload.commandModeActive)
       commandCandidate.value = ''
       commandCandidateProgress.value = 0
 
-      if (payload.modeChangedByCommand) {
-        selectedMode.value = payload.mode || selectedMode.value
+      if (payload.actionType === 'NEXT') {
+        // NEXT: 只更新候选词高亮，不清空任何东西
+        updateCandidateState(payload)
+        showActionToast(payload.actionType, payload.actionToast)
+        return
       }
+
+      // 其他 action 都清空识别流和 spelling
+      gestureStream.value = []
+      pinyinBuffer.value = ''
+      stabilityProgress.value = 0
+      overlayResult.value = null
 
       if (payload.actionType === 'DELETE') {
         deleteProgressValue.value = Math.max(progressBeforeAction, 1)

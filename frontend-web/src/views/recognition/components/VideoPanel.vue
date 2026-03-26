@@ -49,7 +49,7 @@
             class="action-toast"
             :class="{
               'is-clear-effect': actionType === 'CLEAR',
-              'is-switch-effect': actionType === 'SWITCH',
+              'is-submit-effect': actionType === 'SUBMIT',
             }"
           >
             <div class="action-toast-backdrop"></div>
@@ -125,7 +125,8 @@ const GESTURE_CONFIG = {
   CONFIRM: { label: '确认', hint: '保持手势', color: '#25a165', symbol: '✓' },
   DELETE:  { label: '删除', hint: '继续按住', color: '#d74a4a', symbol: '←' },
   CLEAR:   { label: '清空', hint: '继续按住', color: '#f0822b', symbol: '✕' },
-  SWITCH:  { label: '切换', hint: '保持手势', color: '#4a8fd7', symbol: '⇄' },
+  NEXT:    { label: '下一个', hint: '保持手势', color: '#4a8fd7', symbol: '→' },
+  SUBMIT:  { label: '提交', hint: '保持手势', color: '#8b5cf6', symbol: '↑' },
 }
 
 const RING_R = 22

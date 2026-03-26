@@ -101,6 +101,7 @@
             round
             size="small"
           >
+            <span class="candidate-index">{{ idx + 1 }}</span>
             {{ word }}
           </el-tag>
           <span v-if="candidates.length === 0" class="no-candidate">暂无候选内容</span>
@@ -528,6 +529,26 @@ onBeforeUnmount(() => {
   background: #216d4b;
   border-color: #216d4b;
   box-shadow: 0 10px 18px rgba(33, 109, 75, 0.18);
+}
+
+.candidate-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(33, 109, 75, 0.12);
+  color: #226145;
+  font-size: 10px;
+  font-weight: 800;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.candidate-tag.active .candidate-index {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 
 .no-candidate {

@@ -6,7 +6,7 @@ from typing import Deque, Dict, Optional, Set
 
 from aiortc import RTCPeerConnection
 
-from ..pinyin_converter import PinyinConverter
+from ..pinyin_converter import PinyinConverter, digits_to_candidates
 
 
 class SessionState:
@@ -66,11 +66,11 @@ class SessionState:
         self.confirm_ready = True
         self.delete_ready = True
         self.clear_ready = True
-        self.switch_ready = True
+        self.next_ready = True
+        self.submit_ready = True
 
         self.pending_delete_started_at: Optional[float] = None
         self.pending_clear_started_at: Optional[float] = None
-        self.last_switch_confirmed_at: Optional[float] = None
 
     async def send_json(self, payload: Dict[str, object]) -> None:
         if self.channel is None or self.channel.readyState != "open":
@@ -155,7 +155,7 @@ class SessionState:
         return self._calculate_fps(self.processed_timestamps)
 
     def _is_in_switch_suppression(self) -> bool:
-        """SWITCH 冷却期内返回 True，过期后自动清理时间戳。"""
+        """模式切换冷却期内返回 True，过期后自动清理时间戳。"""
         if self.switch_suppression_until is None:
             return False
         if time.perf_counter() < self.switch_suppression_until:
@@ -236,7 +236,8 @@ class SessionState:
         self.confirm_ready = True
         self.delete_ready = True
         self.clear_ready = True
-        self.switch_ready = True
+        self.next_ready = True
+        self.submit_ready = True
         self.pending_delete_started_at = None
         self.pending_clear_started_at = None
         self.reset_display_state()
@@ -290,7 +291,8 @@ class SessionState:
         self.confirm_ready = True
         self.delete_ready = True
         self.clear_ready = True
-        self.switch_ready = True
+        self.next_ready = True
+        self.submit_ready = True
         self.pending_delete_started_at = None
         self.pending_clear_started_at = None
         if self.command_recognizer is not None:
@@ -318,9 +320,13 @@ class SessionState:
             self.clear_ready = True
             self.pending_clear_started_at = None
 
-        if command_gesture != "SWITCH" and command_candidate != "SWITCH":
-            self.switch_ready = True
+        if command_gesture != "NEXT" and command_candidate != "NEXT":
+            self.next_ready = True
 
+        if command_gesture != "SUBMIT" and command_candidate != "SUBMIT":
+            self.submit_ready = True
+
+        # --- CONFIRM: 选中当前高亮候选词 → 放入已接受词语 ---
         if command_gesture == "CONFIRM" and self.confirm_ready:
             self.confirm_ready = False
             confirmed_text = self.hanzi_candidate or self.raw_pinyin_buffer
@@ -333,6 +339,7 @@ class SessionState:
                 metadata["actionToast"] = confirmed_text
                 return metadata
 
+        # --- DELETE: 删掉 cached_buffer 最后一个字母 ---
         if command_candidate == "DELETE" and self.delete_ready:
             if self.pending_delete_started_at is None:
                 self.pending_delete_started_at = now
@@ -351,6 +358,7 @@ class SessionState:
                 metadata["actionToast"] = "Deleted"
                 return metadata
 
+        # --- CLEAR: 清空所有缓存 ---
         if command_candidate == "CLEAR" and self.clear_ready:
             if self.pending_clear_started_at is None:
                 self.pending_clear_started_at = now
@@ -366,33 +374,32 @@ class SessionState:
                 metadata["actionToast"] = "Cleared"
                 return metadata
 
-        if command_gesture != "SWITCH" or not self.switch_ready:
+        # --- NEXT: 切换到下一个候选词 ---
+        if command_gesture == "NEXT" and self.next_ready:
+            self.next_ready = False
+            if self.hanzi_candidates and len(self.hanzi_candidates) > 1:
+                self.candidate_index = (self.candidate_index + 1) % len(self.hanzi_candidates)
+                self.hanzi_candidate = self.hanzi_candidates[self.candidate_index]
+                metadata["actionPerformed"] = True
+                metadata["actionType"] = "NEXT"
+                metadata["actionToast"] = self.hanzi_candidate
             return metadata
 
-        if (
-            self.last_switch_confirmed_at is not None
-            and now - self.last_switch_confirmed_at < self.switch_min_interval_seconds
-        ):
-            self.switch_ready = False
+        # --- SUBMIT: 提交整句到后端 AI 润色 ---
+        if command_gesture == "SUBMIT" and self.submit_ready:
+            self.submit_ready = False
+            self.command_reentry_requires_release = True
+            self.deactivate_command_mode()
+            metadata["actionPerformed"] = True
+            metadata["actionType"] = "SUBMIT"
+            metadata["actionToast"] = ""
             return metadata
 
-        self.switch_ready = False
-        self.last_switch_confirmed_at = now
-        self.command_reentry_requires_release = True
-        self.mode = "letters" if self.mode == "digits" else "digits"
-        self.reset_display_state(clear_cached=True)
-        self.deactivate_command_mode()
-        # 切换后启动冷却，抑制接下来 N 秒的字符识别输出
-        self.switch_suppression_until = time.perf_counter() + self.switch_suppression_seconds
-        metadata["modeChangedByCommand"] = True
-        metadata["actionPerformed"] = True
-        metadata["actionType"] = "SWITCH"
-        metadata["actionToast"] = self.mode
         return metadata
 
     def _command_candidate_progress(self, command_candidate: str, command_result: Dict) -> float:
         """计算当前候选手势的完成进度 [0.0, 1.0]。
-        DELETE/CLEAR 为时间 hold 进度；CONFIRM/SWITCH 为帧计数/触发阈值比。
+        DELETE/CLEAR 为时间 hold 进度；CONFIRM/NEXT/SUBMIT 为帧计数/触发阈值比。
         """
         if not command_candidate:
             return 0.0
@@ -406,8 +413,8 @@ class SessionState:
                 return 0.0
             return min(1.0, (now - self.pending_clear_started_at) / max(self.clear_hold_seconds, 0.001))
         counters = dict(command_result.get("commandCounters") or {})
-        if command_candidate == "SWITCH":
-            threshold = int(command_result.get("commandSwitchThreshold") or 0)
+        if command_candidate == "SUBMIT":
+            threshold = int(command_result.get("commandSubmitThreshold") or 0)
         else:
             threshold = int(command_result.get("commandThreshold") or 0)
         if threshold > 0:
@@ -430,9 +437,17 @@ class SessionState:
         display_text = command_gesture or command_candidate
         mode_changed = bool(metadata.get("modeChangedByCommand"))
         action_performed = bool(metadata.get("actionPerformed"))
+        action_type = str(metadata.get("actionType") or "")
 
         if mode_changed or action_performed:
             display_text = ""
+
+        # NEXT 只切换候选词高亮，不清空任何显示状态，
+        # 否则 reset_display_state → _refresh_pinyin_state 会把
+        # apply_command_actions 刚设好的 candidate_index 强制归零。
+        is_next_action = action_type == "NEXT"
+        should_reset = (mode_changed or action_performed) and not is_next_action
+        should_suppress = mode_changed or action_performed
 
         return {
             "type": "result",
@@ -453,10 +468,10 @@ class SessionState:
             "commandCandidateProgress": self._command_candidate_progress(command_candidate, command_result),
             "modeChangedByCommand": mode_changed,
             "actionPerformed": action_performed,
-            "actionType": str(metadata.get("actionType") or ""),
+            "actionType": action_type,
             "actionToast": str(metadata.get("actionToast") or ""),
-            "resetDisplayState": mode_changed or action_performed,
-            "suppressDisplayStateUpdate": mode_changed or action_performed,
+            "resetDisplayState": should_reset,
+            "suppressDisplayStateUpdate": should_suppress,
         }
 
     def _mark_timestamp(self, bucket: Deque[float]) -> None:
@@ -527,9 +542,6 @@ class SessionState:
         return round(min(1.0, max(0.0, elapsed / self.stable_token_duration_seconds)), 3)
 
     def _current_pinyin_buffer(self) -> str:
-        if self.mode != "letters":
-            return ""
-
         current = self.cached_buffer
         if self.spelling_buffer and self.spelling_buffer != self.last_cached_token:
             current += self.spelling_buffer
@@ -544,7 +556,15 @@ class SessionState:
             self.candidate_index = 0
             return
 
-        candidates = self.pinyin_converter.convert_with_candidates(self.raw_pinyin_buffer, num=5)
-        self.hanzi_candidates = candidates
-        self.candidate_index = 0
-        self.hanzi_candidate = candidates[0] if candidates else ""
+        if self.mode == "digits":
+            # 数字模式：生成数字候选（原数字、中文小写、中文大写）
+            candidates = digits_to_candidates(self.raw_pinyin_buffer)
+            self.hanzi_candidates = candidates
+            self.candidate_index = 0
+            self.hanzi_candidate = candidates[0] if candidates else ""
+        else:
+            # 字母模式：模糊拼音转换（支持声母缩写）
+            candidates = self.pinyin_converter.convert_with_candidates(self.raw_pinyin_buffer, num=9)
+            self.hanzi_candidates = candidates
+            self.candidate_index = 0
+            self.hanzi_candidate = candidates[0] if candidates else ""
