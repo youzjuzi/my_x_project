@@ -46,6 +46,7 @@
             :delete-progress-tick="deleteProgressTick"
             :delete-progress-value="deleteProgressValue"
             :stability-progress="stabilityProgress"
+            :pending-words="pendingWords"
             :final-sentence="finalSentence"
             @copy="copyResult"
             @clear="clearAll"
@@ -109,6 +110,7 @@ const {
   commandCandidateProgress,
 } = useRecognitionSession()
 
+const pendingWords = ref('')
 const finalSentence = ref('')
 const polishedResult = ref('')
 const isSubmitting = ref(false)
@@ -118,11 +120,8 @@ watch(
   () => actionTick.value,
   () => {
     if (actionType.value === 'CONFIRM' && actionToast.value) {
-      if (finalSentence.value) {
-        finalSentence.value += actionToast.value
-      } else {
-        finalSentence.value = actionToast.value
-      }
+      // CONFIRM：词语暂存到已接受词语，等待 SUBMIT 统一发送
+      pendingWords.value += actionToast.value
       return
     }
 
@@ -133,28 +132,33 @@ watch(
 )
 
 const handleSubmit = async () => {
-  if (!finalSentence.value || isSubmitting.value) {
+  if (!pendingWords.value || isSubmitting.value) {
     return
   }
 
   isSubmitting.value = true
+  const wordsToSubmit = pendingWords.value
+  pendingWords.value = ''
 
   try {
-    const { default: request } = await import('@/utils/request')
-    const response = await request({
-      url: '/sign/polish',
-      method: 'post',
-      data: { content: finalSentence.value },
-    })
-
-    if (response && response.data) {
-      polishedResult.value = response.data
-      finalSentence.value = response.data
-      ElMessage.success('AI 润色完成')
-    }
+    // TODO: 后续接入 AI 润色，当前开发阶段直接把暂存词语移到识别结果
+    finalSentence.value += wordsToSubmit
+    // const { default: request } = await import('@/utils/request')
+    // const response = await request({
+    //   url: '/sign/polish',
+    //   method: 'post',
+    //   data: { content: wordsToSubmit },
+    // })
+    // if (response && response.data) {
+    //   polishedResult.value = response.data
+    //   finalSentence.value += response.data
+    //   ElMessage.success('AI 润色完成')
+    // }
   } catch (error) {
-    console.error('AI 润色请求失败:', error)
-    ElMessage.warning('AI 润色暂不可用，保留原始内容')
+    console.error('提交失败:', error)
+    // 失败时把词语还回暂存区
+    pendingWords.value = wordsToSubmit + pendingWords.value
+    ElMessage.warning('提交失败，词语已还原')
   } finally {
     isSubmitting.value = false
   }
@@ -185,6 +189,7 @@ const navigateBack = () => {
 }
 
 const clearAll = () => {
+  pendingWords.value = ''
   finalSentence.value = ''
 }
 

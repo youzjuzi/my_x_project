@@ -113,8 +113,8 @@
           <span class="label">已接受词语</span>
           <span class="tip">您通过手势确认的词语会暂存在这里。</span>
         </div>
-        <div class="accepted-words-content" :class="{ empty: !finalSentence }">
-          {{ finalSentence || '暂无内容，请组合并确认词语。' }}
+        <div class="accepted-words-content" :class="{ empty: !pendingWords }">
+          {{ pendingWords || '暂无内容，请组合并确认词语。' }}
         </div>
       </div>
     </div>
@@ -200,6 +200,10 @@ const props = defineProps({
   stabilityProgress: {
     type: Number,
     default: 0,
+  },
+  pendingWords: {
+    type: String,
+    default: '',
   },
   finalSentence: {
     type: String,
