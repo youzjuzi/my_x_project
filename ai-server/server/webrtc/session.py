@@ -196,6 +196,7 @@ class SessionState:
                 self.spelling_buffer = ""
                 self.pending_stable_text = ""
                 self.pending_stable_started_at = None
+                self.last_cached_token = ""
                 self._refresh_pinyin_state()
                 return
 
@@ -205,6 +206,7 @@ class SessionState:
                 self.spelling_buffer = ""
                 self.pending_stable_text = ""
                 self.pending_stable_started_at = None
+                self.last_cached_token = ""  # <--- 修改点：修复连续相同字符无法输入的 Bug
                 self._refresh_pinyin_state()
                 return
 

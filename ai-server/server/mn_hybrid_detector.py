@@ -208,8 +208,12 @@ def classify_mnt_robust(hand, fist_family, th_gap=TH_GAP, th_e=TH_E, th_seg=TH_S
     seg_dist, t = point_to_segment_distance_and_t(thumb_tip, seg_top, seg_bottom)
     seg_dist_norm = seg_dist / scale
 
-    # 逼迫大拇指必须“深插”到根部缝隙中 (-0.2 到 0.65)
-    inserted_xy = (seg_dist_norm < th_seg) and (-0.2 <= t <= 0.65)
+    # 逼迫大拇指必须“深插”到根部缝隙中，针对 N 进一步收紧容差避免误触
+    t_min, t_max = -0.2, 0.65
+    if best_name == "N":
+        t_max = 0.45  # N 的 y 轴投影容差收紧，拇指不能搭在指头尖端附近
+
+    inserted_xy = (seg_dist_norm < th_seg) and (t_min <= t <= t_max)
 
     gap_ids = get_gap_ids(best_name)
     gap_z = avg_z(hand, gap_ids)

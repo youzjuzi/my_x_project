@@ -154,6 +154,35 @@ def classify_pq_robust(
     }
 
 
+def classify_f_only(hand):
+    scale = palm_scale(hand)
+    thumb_tip = point_xy(hand[4])
+    index_tip = point_xy(hand[8])
+    
+    # 距离需要相对于手掌大小
+    dist_thumb_index = dist_xy(thumb_tip, index_tip) / scale
+    
+    # 后三指必须伸立
+    middle_ok, _, _ = is_finger_straight(hand, 9, 10, 11, 12, FINGER_STRAIGHT_THRESHOLD)
+    ring_ok, _, _ = is_finger_straight(hand, 13, 14, 15, 16, FINGER_STRAIGHT_THRESHOLD)
+    pinky_ok, _, _ = is_finger_straight(hand, 17, 18, 19, 20, FINGER_STRAIGHT_THRESHOLD)
+    
+    # 判定捏合的容差。考虑到透视，可以放宽到 0.25
+    touching = dist_thumb_index < 0.25
+    
+    info = {
+        "dist_ti": dist_thumb_index,
+        "touching": touching,
+        "middle_ok": middle_ok,
+        "ring_ok": ring_ok,
+        "pinky_ok": pinky_ok
+    }
+    
+    if touching and middle_ok and ring_ok and pinky_ok:
+        return "F", info
+    return "not_f", info
+
+
 def stabilize_cls(history, vote_min=VOTE_MIN):
     if len(history) == 0:
         return "none"
@@ -234,9 +263,9 @@ class PQHybridDetector:
             self.last_yolo_payload = yolo_payload
             yolo_text = yolo_payload["text"]
             special_candidate = self._pick_special_candidate(yolo_payload["hands"])
-            # 修改点 1：把 T 加入到可以激活 MediaPipe 的候选列表中
-            # 双手出现时禁止激活单手字母检测，避免误触发 Q/P 等手势
-            if special_candidate in ("P", "Q", "M", "N", "T", "I", "D") and yolo_payload["handCount"] <= 1:
+            # 修改点 1：把 F 加入到可以激活 MediaPipe 的候选列表中
+            # 双手出现时禁止激活单手字母检测，避免误触发
+            if special_candidate in ("P", "Q", "M", "N", "T", "I", "D", "F") and yolo_payload["handCount"] <= 1:
                 self._activate_mediapipe(special_candidate)
 
         mp_payload = None
@@ -397,6 +426,10 @@ class PQHybridDetector:
                 raw_cls, info = classify_mnt_only(hand)
                 self.cls_history.append(raw_cls)
                 stable_cls = stabilize_cls(self.cls_history, vote_min=VOTE_MIN)
+            elif self.expected_label == "F":
+                raw_cls, info = classify_f_only(hand)
+                self.cls_history.append(raw_cls)
+                stable_cls = stabilize_cls(self.cls_history, vote_min=VOTE_MIN)
             elif self.expected_label == "I":
                 dynamic_result = self.ij_session.update(hand)
                 raw_cls = dynamic_result["raw"]
@@ -442,6 +475,20 @@ class PQHybridDetector:
                 (255, 255, 255),
                 2,
             )
+            if self.expected_label == "F":
+                cv2.putText(
+                    output,
+                    "F_info dist={0:.2f} touch={1} ms={2}".format(
+                        info.get("dist_ti", -1.0),
+                        info.get("touching", False),
+                        info.get("middle_ok", False)
+                    ),
+                    (20, 125),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.58,
+                    (255, 255, 255),
+                    2,
+                )
             # 修改点 5：修改这里让 M, N, T 的相关辅助信息正确展示
             if self.expected_label in ("M", "N", "T"):
                 cv2.putText(
@@ -545,8 +592,8 @@ class PQHybridDetector:
     def _pick_special_candidate(self, hands):
         for hand in hands:
             text = hand.get("text", "")
-            # 修改点 6：确保 T 能被选中作为特殊候选者
-            if text in ("P", "Q", "M", "N", "T", "I", "D"):
+            # 确保 F 能被选中作为特殊候选者
+            if text in ("P", "Q", "M", "N", "T", "I", "D", "F"):
                 return text
         return None
 

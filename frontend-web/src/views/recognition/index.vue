@@ -143,19 +143,28 @@ const handleSubmit = async () => {
   pendingWords.value = ''
 
   try {
-    // TODO: 后续接入 AI 润色，当前开发阶段直接把暂存词语移到识别结果
-    finalSentence.value += wordsToSubmit
-    // const { default: request } = await import('@/utils/request')
-    // const response = await request({
-    //   url: '/sign/polish',
-    //   method: 'post',
-    //   data: { content: wordsToSubmit },
-    // })
-    // if (response && response.data) {
-    //   polishedResult.value = response.data
-    //   finalSentence.value += response.data
-    //   ElMessage.success('AI 润色完成')
-    // }
+    const response = await fetch('http://127.0.0.1:8002/webrtc/polish', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ content: wordsToSubmit })
+    })
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}))
+      throw new Error(errData.detail || '网络请求失败')
+    }
+
+    const result = await response.json()
+    if (result && result.polishedText) {
+      finalSentence.value += result.polishedText + ' '
+      polishedResult.value = result.polishedText
+      ElMessage.success('AI 润色成功')
+    } else {
+      // 容错：如果未返回结果直接拼接原词
+      finalSentence.value += wordsToSubmit + ' '
+    }
   } catch (error) {
     console.error('提交失败:', error)
     // 失败时把词语还回暂存区

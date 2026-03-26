@@ -1,9 +1,14 @@
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 AI_ROOT = ROOT.parent
+
+# 自动从 ai-server/.env 读取环境变量
+load_dotenv(AI_ROOT / ".env")
 
 HOST = "127.0.0.1"
 PORT = 8001
@@ -26,3 +31,8 @@ MN_EXIT_GRACE_SECONDS = 2.4
 IJ_DZ_EXIT_GRACE_SECONDS = 2.4
 
 JPEG_QUALITY = 80
+
+# 大语言模型接口配置 (DeepSeek等)
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com")
+LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-chat")
