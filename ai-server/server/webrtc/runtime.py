@@ -41,6 +41,12 @@ async def run_inference_loop(session: SessionState, get_detector: Callable[[str]
                 )
                 result = await loop.run_in_executor(None, func)
                 hand_count = int(result.get("handCount") or 0)
+
+                # 双手在画面中时，YOLOv5 的字符识别不可靠（常误识别为 Q），
+                # 清空 text 防止污染 vote_buffer
+                if hand_count >= 2:
+                    result["text"] = ""
+
                 if session.command_recognizer is not None:
                     session.update_command_reentry_gate(hand_count)
                 if (

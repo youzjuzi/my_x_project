@@ -22,7 +22,7 @@ class SessionState:
         delete_hold_seconds: float = 1.5,
         clear_hold_seconds: float = 1.5,
         vote_window_frames: int = 20,
-        switch_suppression_seconds: float = 2.0,
+        action_suppression_seconds: float = 1.5,
     ) -> None:
         self.pc = pc
         self.mode = mode if mode in ("digits", "letters") else "digits"
@@ -32,7 +32,7 @@ class SessionState:
         self.stable_token_duration_seconds = stable_token_duration_seconds
         self.delete_hold_seconds = delete_hold_seconds
         self.clear_hold_seconds = clear_hold_seconds
-        self.switch_suppression_seconds = switch_suppression_seconds
+        self.action_suppression_seconds = action_suppression_seconds
 
         self.channel = None
         self.track_tasks: Set[asyncio.Task] = set()
@@ -55,7 +55,7 @@ class SessionState:
         self.pending_stable_text = ""
         self.pending_stable_started_at: Optional[float] = None
         self.last_cached_token = ""
-        self.switch_suppression_until: Optional[float] = None
+        self.action_suppression_until: Optional[float] = None
 
         self.command_mode_active = False
         self.command_mode_started_at: Optional[float] = None
@@ -154,14 +154,18 @@ class SessionState:
     def processed_fps(self) -> float:
         return self._calculate_fps(self.processed_timestamps)
 
-    def _is_in_switch_suppression(self) -> bool:
-        """模式切换冷却期内返回 True，过期后自动清理时间戳。"""
-        if self.switch_suppression_until is None:
+    def _is_in_action_suppression(self) -> bool:
+        """命令动作执行后的冷却期内返回 True，过期后自动清理。"""
+        if self.action_suppression_until is None:
             return False
-        if time.perf_counter() < self.switch_suppression_until:
+        if time.perf_counter() < self.action_suppression_until:
             return True
-        self.switch_suppression_until = None
+        self.action_suppression_until = None
         return False
+
+    def _start_action_suppression(self) -> None:
+        """启动命令动作后的识别冷却期。"""
+        self.action_suppression_until = time.perf_counter() + self.action_suppression_seconds
 
     def _compute_vote_winner(self, min_ratio: float = 0.45) -> str:
         """从最近 N 帧的原始识别结果中投票，返回占比达到 min_ratio 的赢家，否则返回空串。"""
@@ -177,10 +181,16 @@ class SessionState:
 
     def update_display_state(self, result: Dict[str, object]) -> None:
         is_command_result = result.get("engine") == "mediapipe-command"
-        raw_spelling = "" if is_command_result else str(result.get("text") or "").strip()
+        hand_count = int(result.get("handCount") or 0)
+
+        # ---- 双手过滤：YOLOv5 只训练了单手，2 只手时结果不可靠（经常误识别为 Q）----
+        if not is_command_result and hand_count >= 2:
+            raw_spelling = ""
+        else:
+            raw_spelling = "" if is_command_result else str(result.get("text") or "").strip()
 
         if not is_command_result:
-            if self._is_in_switch_suppression():
+            if self._is_in_action_suppression():
                 # 冷却期内：清空 vote_buffer 防止污染，保持空白输出
                 self._vote_buffer.clear()
                 self.spelling_buffer = ""
@@ -335,6 +345,7 @@ class SessionState:
                 self.command_reentry_requires_release = True
                 self.reset_display_state(clear_cached=True)
                 self.deactivate_command_mode()
+                self._start_action_suppression()
                 metadata["actionPerformed"] = True
                 metadata["actionType"] = "CONFIRM"
                 metadata["actionToast"] = confirmed_text
@@ -354,6 +365,7 @@ class SessionState:
                 self.last_cached_token = ""
                 self.reset_display_state()
                 self.deactivate_command_mode()
+                self._start_action_suppression()
                 metadata["actionPerformed"] = True
                 metadata["actionType"] = "DELETE"
                 metadata["actionToast"] = "Deleted"
@@ -370,6 +382,7 @@ class SessionState:
                 self.command_reentry_requires_release = True
                 self.reset_display_state(clear_cached=True)
                 self.deactivate_command_mode()
+                self._start_action_suppression()
                 metadata["actionPerformed"] = True
                 metadata["actionType"] = "CLEAR"
                 metadata["actionToast"] = "Cleared"
@@ -392,6 +405,7 @@ class SessionState:
             self.submit_ready = False
             self.command_reentry_requires_release = True
             self.deactivate_command_mode()
+            self._start_action_suppression()
             metadata["actionPerformed"] = True
             metadata["actionType"] = "SUBMIT"
             metadata["actionToast"] = ""
