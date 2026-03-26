@@ -74,8 +74,11 @@ import VideoPanel from './components/VideoPanel.vue'
 import InteractionPanel from './components/InteractionPanel.vue'
 import ExitConfirmDialog from './components/ExitConfirmDialog.vue'
 import { useRecognitionSession } from './composables/useRecognitionSession'
+import useUserStore from '@/store/modules/user'
+import { saveHistory } from '@/api/translationHistory'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const {
   isCameraActive,
@@ -127,6 +130,13 @@ watch(
       return
     }
 
+    if (actionType.value === 'CLEAR') {
+      // CLEAR：清除已暂存（接受）的词语，但保留已提交的最终句子
+      pendingWords.value = ''
+      ElMessage.warning('已清空暂存词语')
+      return
+    }
+
     if (actionType.value === 'SUBMIT') {
       handleSubmit()
     }
@@ -161,9 +171,21 @@ const handleSubmit = async () => {
       finalSentence.value += result.polishedText + ' '
       polishedResult.value = result.polishedText
       ElMessage.success('AI 润色成功')
+      saveHistory({
+        userId: userStore.userId,
+        originalWords: wordsToSubmit,
+        resultSentence: result.polishedText,
+        isAiPolished: 1
+      }).catch(err => console.error('保存历史记录失败:', err))
     } else {
       // 容错：如果未返回结果直接拼接原词
       finalSentence.value += wordsToSubmit + ' '
+      saveHistory({
+        userId: userStore.userId,
+        originalWords: wordsToSubmit,
+        resultSentence: wordsToSubmit,
+        isAiPolished: 0
+      }).catch(err => console.error('保存降级历史记录失败:', err))
     }
   } catch (error) {
     console.error('提交失败:', error)

@@ -153,6 +153,18 @@ public class TranslationHistoryServiceImpl extends ServiceImpl<TranslationHistor
         }
     }
 
+    @Override
+    public void saveHistoryRecord(Long userId, String originalWords, String resultSentence, Integer isAiPolished) {
+        TranslationHistory history = new TranslationHistory();
+        history.setUserId(userId);
+        history.setOriginalWords(originalWords);
+        history.setResultSentence(resultSentence);
+        history.setIsAiPolished(isAiPolished);
+        history.setCreateTime(LocalDateTime.now());
+        history.setIsDeleted(0);
+        this.save(history);
+    }
+
     private void notifyFrontend(Integer userId, String result) {
         log.info("准备通知前端 - 用户: {}", userId);
         try {

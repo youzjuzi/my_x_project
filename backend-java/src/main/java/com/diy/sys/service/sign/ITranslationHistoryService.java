@@ -17,6 +17,9 @@ public interface ITranslationHistoryService extends IService<TranslationHistory>
 
     void saveTranslationAsync(Integer userId, String content);
 
+    // 新增保存历史方法
+    void saveHistoryRecord(Long userId, String originalWords, String resultSentence, Integer isAiPolished);
+
     Map<String, Object> getHistoryList(Integer userId, Long pageNo, Long pageSize, String startDate, String endDate,
             String keyword);
 

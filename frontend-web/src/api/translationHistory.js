@@ -22,3 +22,15 @@ export function getActivityDates(params) {
         params
     });
 }
+
+/**
+ * 保存手语识别翻译历史
+ * @param {Object} data - { userId, originalWords, resultSentence, isAiPolished }
+ */
+export function saveHistory(data) {
+    return request({
+        url: '/sign/history/save',
+        method: 'post',
+        data
+    });
+}

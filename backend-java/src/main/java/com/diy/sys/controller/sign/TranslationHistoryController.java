@@ -65,4 +65,14 @@ public class TranslationHistoryController {
         List<String> dates = translationHistoryService.getActivityDates(userId, year, month);
         return Result.success(dates, "查询成功");
     }
+
+    /**
+     * 保存识别翻译历史
+     */
+    @Operation(summary = "保存手语识别记录")
+    @PostMapping("/save")
+    public Result<String> saveHistory(@RequestBody com.diy.sys.entity.sign.TranslationHistory req) {
+        translationHistoryService.saveHistoryRecord(req.getUserId(), req.getOriginalWords(), req.getResultSentence(), req.getIsAiPolished());
+        return Result.success("保存成功", null);
+    }
 }
