@@ -35,45 +35,51 @@
         <span class="section-meta">{{ stabilityPercent }}%</span>
       </div>
 
-      <div class="input-display">
-        <div class="pinyin-track" :style="trackStyle"></div>
-        <span
-          class="pinyin-text"
-          :class="{ animating: hasInput }"
-          :style="pinyinStyle"
-        >
-          {{ pinyinBuffer || '等待当前字符' }}
-        </span>
-      </div>
-
-      <div class="cache-display">
-        <div class="cache-header">
-          <span class="label">稳定缓存</span>
-          <span class="tip">已锁定字符会保留在这里，直到触发删除或清空。</span>
+      <div class="spell-cache-row">
+        <div class="cache-display">
+          <div class="cache-header">
+            <span class="label">稳定缓存</span>
+          </div>
+          <div class="cache-value" :class="{ empty: !hasCacheContent }">
+            <template v-if="hasCacheContent">
+              <span
+                v-for="(char, index) in cacheChars"
+                :key="`cache-${index}-${char}`"
+                class="cache-char"
+              >
+                {{ char }}
+              </span>
+              <span
+                v-if="deletedCacheChar"
+                :key="`deleted-${deletedCacheTick}`"
+                class="cache-char deleting"
+              >
+                {{ deletedCacheChar }}
+              </span>
+            </template>
+            <span v-else>暂无已锁定字符</span>
+            <div
+              v-if="rewindTrackVisible"
+              class="cache-delete-track"
+              :style="rewindTrackStyle"
+            ></div>
+          </div>
         </div>
-        <div class="cache-value" :class="{ empty: !hasCacheContent }">
-          <template v-if="hasCacheContent">
+
+        <div class="input-wrapper">
+          <div class="cache-header">
+            <span class="label">等待</span>
+          </div>
+          <div class="input-display">
+            <div class="pinyin-track" :style="trackStyle"></div>
             <span
-              v-for="(char, index) in cacheChars"
-              :key="`cache-${index}-${char}`"
-              class="cache-char"
+              class="pinyin-text"
+              :class="{ animating: hasInput }"
+              :style="pinyinStyle"
             >
-              {{ char }}
+              {{ pinyinBuffer || '…' }}
             </span>
-            <span
-              v-if="deletedCacheChar"
-              :key="`deleted-${deletedCacheTick}`"
-              class="cache-char deleting"
-            >
-              {{ deletedCacheChar }}
-            </span>
-          </template>
-          <span v-else>暂无已锁定字符</span>
-          <div
-            v-if="rewindTrackVisible"
-            class="cache-delete-track"
-            :style="rewindTrackStyle"
-          ></div>
+          </div>
         </div>
       </div>
 
@@ -100,6 +106,16 @@
           <span v-if="candidates.length === 0" class="no-candidate">暂无候选内容</span>
         </div>
       </div>
+
+      <div class="accepted-words-area">
+        <div class="candidates-header">
+          <span class="label">已接受词语</span>
+          <span class="tip">您通过手势确认的词语会暂存在这里。</span>
+        </div>
+        <div class="accepted-words-content" :class="{ empty: !finalSentence }">
+          {{ finalSentence || '暂无内容，请组合并确认词语。' }}
+        </div>
+      </div>
     </div>
 
     <div class="panel-section result-section">
@@ -121,7 +137,7 @@
       <div class="final-result-card" :class="{ empty: !finalSentence }">
         <div class="result-content">
           <p class="result-label">结果</p>
-          <div class="result-text">{{ finalSentence || '当前流程下，确认后的候选词不会追加到这里。' }}</div>
+          <div class="result-text">{{ finalSentence || '组装的句子将同步到此处。' }}</div>
         </div>
 
         <div class="result-toolbar">
@@ -352,14 +368,30 @@ onBeforeUnmount(() => {
   color: #879690;
 }
 
-.input-display {
-  position: relative;
+.spell-cache-row {
+  display: flex;
+  gap: 10px;
   margin-bottom: 10px;
-  padding: 12px 14px;
+  align-items: stretch;
+}
+
+.input-wrapper {
+  width: 90px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.input-display {
+  flex: 1;
+  position: relative;
   border-radius: 16px;
   background: #f4f7f5;
   border: 1px solid #e3ece7;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pinyin-track {
@@ -388,11 +420,14 @@ onBeforeUnmount(() => {
 }
 
 .cache-display {
-  margin-bottom: 10px;
+  flex: 1;
+  min-width: 0;
   padding: 10px 12px;
   border-radius: 16px;
   background: #fbfcfb;
   border: 1px solid #e3ece7;
+  display: flex;
+  flex-direction: column;
 }
 
 .cache-header {
@@ -404,6 +439,7 @@ onBeforeUnmount(() => {
 }
 
 .cache-value {
+  flex: 1;
   position: relative;
   min-height: 40px;
   display: flex;
@@ -497,6 +533,33 @@ onBeforeUnmount(() => {
 .no-candidate {
   font-size: 12px;
   color: #97a5a0;
+}
+
+.accepted-words-area {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.accepted-words-content {
+  padding: 12px;
+  border-radius: 12px;
+  background: #f4f7f5;
+  border: 1px solid #e3ece7;
+  color: #17312b;
+  font-size: 18px;
+  font-weight: 700;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+
+  &.empty {
+    color: #8a9893;
+    font-size: 14px;
+    font-weight: normal;
+  }
 }
 
 .result-header {

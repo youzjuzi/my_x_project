@@ -17,16 +17,20 @@ COMMAND_SWITCH = "SWITCH"
 
 
 class HandsCommandParser:
-    def __init__(self, trigger_threshold: int = TRIGGER_THRESHOLD, switch_trigger_threshold: int = 20, miss_tolerance: int = 5) -> None:
+    def __init__(self, trigger_threshold: int = TRIGGER_THRESHOLD, switch_trigger_threshold: int = 20, miss_tolerance: int = 8, switch_tolerance: int = 5) -> None:
         self.trigger_threshold = trigger_threshold
         self.switch_trigger_threshold = switch_trigger_threshold
+        # miss_tolerance: 手势「消失/丢失」时，允许连续丢失多少帧才清空进度（用于处理识别掉帧）
         self.miss_tolerance = miss_tolerance
+        # switch_tolerance: 手势「切换」时，允许多少帧的过渡缓冲才重置（用于处理换手势时的抖动）
+        self.switch_tolerance = switch_tolerance
         self.confirm_counter = 0
         self.delete_counter = 0
         self.clear_counter = 0
         self.enter_counter = 0
         self.switch_counter = 0
         self._miss_counter = 0
+        self._switch_miss_counter = 0
         self._last_candidate = ""
 
     def _get_palm_scale(self, hand_landmarks) -> float:
@@ -37,19 +41,24 @@ class HandsCommandParser:
 
     def _is_full_open_palm(self, hand_landmarks) -> bool:
         palm_scale = self._get_palm_scale(hand_landmarks)
+        wrist = hand_landmarks[0]
+        
+        # 优化1：使用距离替代绝对的 Y 轴坐标，实现旋转不变性 (无论手朝向哪里都能识别)
         fingers_up = all(
-            hand_landmarks[i].y < hand_landmarks[i - 2].y
+            math.hypot(hand_landmarks[i].x - wrist.x, hand_landmarks[i].y - wrist.y) >
+            math.hypot(hand_landmarks[i - 2].x - wrist.x, hand_landmarks[i - 2].y - wrist.y)
             for i in [8, 12, 16, 20]
         )
-        # 用食指尖到小指尖的距离（不依赖 x 轴方向），对手的旋转更鲁棒
-        import math
+        
+        # 优化2：稍微放宽“间距” (spread) 的要求，0.8 对部分用户偏严苛，容易断触
         spread_dist = math.hypot(
             hand_landmarks[8].x - hand_landmarks[20].x,
             hand_landmarks[8].y - hand_landmarks[20].y,
         )
-        is_spread = spread_dist > 0.8 * palm_scale
+        is_spread = spread_dist > 0.65 * palm_scale
+        
         return fingers_up and is_spread
-
+    
     def _is_single_index_up(self, hand_landmarks) -> bool:
         palm_scale = self._get_palm_scale(hand_landmarks)
         index_up = hand_landmarks[8].y < hand_landmarks[6].y - 0.25 * palm_scale
@@ -104,6 +113,7 @@ class HandsCommandParser:
         self.enter_counter = 0
         self.switch_counter = 0
         self._miss_counter = 0
+        self._switch_miss_counter = 0
         self._last_candidate = ""
 
     def snapshot(self) -> Dict[str, int]:
@@ -135,19 +145,35 @@ class HandsCommandParser:
 
     def detect_command(self, multi_hand_landmarks) -> str:
         candidate = self.detect_candidate(multi_hand_landmarks)
+
+        # 情况1：没有检测到任何手势（掉帧/遮挡）
+        # 使用较大的 miss_tolerance，不轻易清空已有进度
         if not candidate:
             self._miss_counter += 1
+            self._switch_miss_counter = 0
             if self._miss_counter > self.miss_tolerance:
                 self.reset()
             return ""
 
-        # 切换到不同候选时立即重置
-        if candidate != self._last_candidate:
-            self.reset()
-            self._last_candidate = candidate
+        # 情况2：检测到的手势与上一帧不同（手势切换）
+        # 使用较小的 switch_tolerance，切换时较快重置，防止串台
+        if self._last_candidate and candidate != self._last_candidate:
+            self._switch_miss_counter += 1
+            self._miss_counter = 0  # 有手势，不计丢失帧
+            if self._switch_miss_counter > self.switch_tolerance:
+                # 超过切换容错期，确实在换手势，重置进度
+                self.reset()
+                self._last_candidate = candidate
+                self._switch_miss_counter = 0
+            # 在容错期内（单帧识别抖动），暂停输出但不清空进度
+            return ""
 
+        # 情况3：手势连续或第一次检测到，正常累加
+        self._last_candidate = candidate
         self._miss_counter = 0
+        self._switch_miss_counter = 0
 
+        # 进度条累加逻辑
         if candidate == COMMAND_CONFIRM:
             self.confirm_counter += 1
             if self.confirm_counter >= self.trigger_threshold:

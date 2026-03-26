@@ -117,7 +117,11 @@ watch(
       return
     }
 
-    finalSentence.value += actionToast.value
+    if (finalSentence.value) {
+      finalSentence.value += ' ' + actionToast.value
+    } else {
+      finalSentence.value = actionToast.value
+    }
   }
 )
 
