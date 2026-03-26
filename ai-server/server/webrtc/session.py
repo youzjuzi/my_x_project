@@ -443,6 +443,8 @@ class SessionState:
         counters = dict(command_result.get("commandCounters") or {})
         if command_candidate == "SUBMIT":
             threshold = int(command_result.get("commandSubmitThreshold") or 0)
+        elif command_candidate == "CONFIRM":
+            threshold = int(command_result.get("commandConfirmThreshold") or 0)
         else:
             threshold = int(command_result.get("commandThreshold") or 0)
         if threshold > 0:

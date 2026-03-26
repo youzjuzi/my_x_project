@@ -17,9 +17,10 @@ COMMAND_SUBMIT = "SUBMIT"
 
 
 class HandsCommandParser:
-    def __init__(self, trigger_threshold: int = TRIGGER_THRESHOLD, submit_trigger_threshold: int = 20, miss_tolerance: int = 8, switch_tolerance: int = 5) -> None:
+    def __init__(self, trigger_threshold: int = TRIGGER_THRESHOLD, submit_trigger_threshold: int = 40, confirm_trigger_threshold: int = 35, miss_tolerance: int = 8, switch_tolerance: int = 5) -> None:
         self.trigger_threshold = trigger_threshold
         self.submit_trigger_threshold = submit_trigger_threshold
+        self.confirm_trigger_threshold = confirm_trigger_threshold
         # miss_tolerance: 手势「消失/丢失」时，允许连续丢失多少帧才清空进度（用于处理识别掉帧）
         self.miss_tolerance = miss_tolerance
         # switch_tolerance: 手势「切换」时，允许多少帧的过渡缓冲才重置（用于处理换手势时的抖动）
@@ -50,12 +51,12 @@ class HandsCommandParser:
             for i in [8, 12, 16, 20]
         )
         
-        # 优化2：稍微放宽“间距” (spread) 的要求，0.8 对部分用户偏严苛，容易断触
+        # 优化2：稍微放宽“间距” (spread) 的要求，0.65 对部分用户偏严苛，改为 0.45，手指即便稍微并拢也能识别
         spread_dist = math.hypot(
             hand_landmarks[8].x - hand_landmarks[20].x,
             hand_landmarks[8].y - hand_landmarks[20].y,
         )
-        is_spread = spread_dist > 0.65 * palm_scale
+        is_spread = spread_dist > 0.45 * palm_scale
         
         return fingers_up and is_spread
     
@@ -90,20 +91,31 @@ class HandsCommandParser:
         )
 
     def _is_single_thumb_up(self, hand_landmarks) -> bool:
-        thumb_is_up = (
-            hand_landmarks[4].y < hand_landmarks[3].y
-            and hand_landmarks[4].y < hand_landmarks[5].y
-        )
-        index_is_folded = hand_landmarks[8].y > hand_landmarks[6].y
-        middle_is_folded = hand_landmarks[12].y > hand_landmarks[10].y
-        ring_is_folded = hand_landmarks[16].y > hand_landmarks[14].y
-        pinky_is_folded = hand_landmarks[20].y > hand_landmarks[18].y
+        wrist = hand_landmarks[0]
+        
+        def dist(idx):
+            return math.hypot(hand_landmarks[idx].x - wrist.x, hand_landmarks[idx].y - wrist.y)
+            
+        # 判断其余四指是否收拢（指尖距离手腕的距离 < 第一指节离手腕的距离，这在任意旋转角度下都成立）
+        index_folded = dist(8) < dist(6)
+        middle_folded = dist(12) < dist(10)
+        ring_folded = dist(16) < dist(14)
+        pinky_folded = dist(20) < dist(18)
+        
+        # 拇指是否伸直
+        thumb_extended = dist(4) > dist(3)
+        
+        # 拇指是否是向上的（拇指尖 y 最小）
+        thumb_tip_y = hand_landmarks[4].y
+        is_highest = all(thumb_tip_y < hand_landmarks[i].y for i in [8, 12, 16, 20])
+        
         return (
-            thumb_is_up
-            and index_is_folded
-            and middle_is_folded
-            and ring_is_folded
-            and pinky_is_folded
+            is_highest
+            and thumb_extended
+            and index_folded
+            and middle_folded
+            and ring_folded
+            and pinky_folded
         )
 
     def reset(self) -> None:
@@ -176,7 +188,7 @@ class HandsCommandParser:
         # 进度条累加逻辑
         if candidate == COMMAND_CONFIRM:
             self.confirm_counter += 1
-            if self.confirm_counter >= self.trigger_threshold:
+            if self.confirm_counter >= self.confirm_trigger_threshold:
                 self.confirm_counter = 0
                 return COMMAND_CONFIRM
         elif candidate == COMMAND_DELETE:
@@ -216,13 +228,20 @@ class HandCommandRecognizer:
         self.landmarker = mp.tasks.vision.HandLandmarker.create_from_options(options)
         self.parser = HandsCommandParser()
         self.start_time = time.monotonic()
+        self._last_timestamp_ms = -1
         self._hold_frames = 0
         self._last_command = ""
 
     def process_frame(self, frame) -> Dict[str, object]:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        
+        # 确保时间戳严格单调递增
         timestamp_ms = int((time.monotonic() - self.start_time) * 1000)
+        if timestamp_ms <= self._last_timestamp_ms:
+            timestamp_ms = self._last_timestamp_ms + 1
+        self._last_timestamp_ms = timestamp_ms
+        
         result = self.landmarker.detect_for_video(mp_image, timestamp_ms)
         multi_hand_landmarks = result.hand_landmarks or []
 
@@ -243,6 +262,7 @@ class HandCommandRecognizer:
             "commandCounters": self.parser.snapshot(),
             "commandThreshold": self.parser.trigger_threshold,
             "commandSubmitThreshold": self.parser.submit_trigger_threshold,
+            "commandConfirmThreshold": self.parser.confirm_trigger_threshold,
         }
 
     def reset(self) -> None:
