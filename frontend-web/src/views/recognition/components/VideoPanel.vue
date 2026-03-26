@@ -95,10 +95,16 @@
           </div>
         </template>
 
-        <div v-if="isCameraActive" class="live-badge">
+        <div v-if="isCameraActive" class="live-badge" :class="connectionState">
           <span class="live-dot"></span>
-          <span>识别中</span>
-          <span class="latency-val">{{ latency > 0 ? `${latency}ms` : '--' }}</span>
+          <span>{{
+            connectionState === 'connected' ? '识别中' :
+            connectionState === 'connecting' || connectionState === 'new' ? '连接中' :
+            '断开连接'
+          }}</span>
+          <span v-if="connectionState === 'connected'" class="latency-val">
+            {{ latency > 0 ? `${latency}ms` : '--' }}
+          </span>
         </div>
 
         <div v-if="isCameraActive" class="hud-subtitle-container">
@@ -180,6 +186,10 @@ const props = defineProps({
   isCameraActive: {
     type: Boolean,
     default: false,
+  },
+  connectionState: {
+    type: String,
+    default: 'idle',
   },
   isRecognitionReady: {
     type: Boolean,
@@ -861,6 +871,31 @@ onBeforeUnmount(() => {
   font-size: 12px;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.live-badge.connecting,
+.live-badge.new {
+  background: rgba(43, 31, 14, 0.6);
+  border-color: rgba(240, 181, 75, 0.3);
+  color: #fae1b5;
+  .live-dot {
+    background: #f0b54b;
+    box-shadow: 0 0 8px rgba(240, 181, 75, 0.8);
+  }
+}
+
+.live-badge.disconnected,
+.live-badge.failed,
+.live-badge.closed {
+  background: rgba(43, 14, 14, 0.6);
+  border-color: rgba(242, 95, 92, 0.3);
+  color: #fad1cf;
+  .live-dot {
+    background: #f25f5c;
+    box-shadow: 0 0 8px rgba(242, 95, 92, 0.8);
+    animation: none;
+  }
 }
 
 .live-dot {

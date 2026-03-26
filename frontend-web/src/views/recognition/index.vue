@@ -15,6 +15,7 @@
         <el-col :span="16" :xs="24">
           <VideoPanel
             :is-camera-active="isCameraActive"
+            :connection-state="connectionState"
             :is-recognition-ready="isRecognitionReady"
             :input-fps="inputFps"
             :processed-fps="processedFps"
@@ -78,6 +79,7 @@ const router = useRouter()
 
 const {
   isCameraActive,
+  connectionState,
   connectionText,
   selectedMode,
   inputFps,
