@@ -95,15 +95,59 @@
           </div>
         </template>
 
-        <div v-if="isCameraActive" class="status-strip">
-          <div class="strip-main">
-            <span class="live-chip">识别进行中</span>
-            <span class="strip-text">正在持续接收视频并返回检测结果</span>
-          </div>
-          <div class="strip-metrics">
-            <span>输入帧率 {{ inputFps > 0 ? inputFps : '--' }}</span>
-            <span>识别帧率 {{ processedFps > 0 ? processedFps : '--' }}</span>
-            <span>延迟 {{ latency > 0 ? `${latency}ms` : '--' }}</span>
+        <div v-if="isCameraActive" class="live-badge">
+          <span class="live-dot"></span>
+          <span>识别中</span>
+          <span class="latency-val">{{ latency > 0 ? `${latency}ms` : '--' }}</span>
+        </div>
+
+        <div v-if="isCameraActive" class="hud-subtitle-container">
+          <div class="spell-cache-row">
+            <div class="cache-display">
+              <!-- <div class="cache-header">
+                <span class="label">稳定缓存</span>
+              </div> -->
+              <div class="cache-value" :class="{ empty: !hasCacheContent }">
+                <template v-if="hasCacheContent">
+                  <span
+                    v-for="(char, index) in cacheChars"
+                    :key="`cache-${index}-${char}`"
+                    class="cache-char"
+                  >
+                    {{ char }}
+                  </span>
+                  <span
+                    v-if="deletedCacheChar"
+                    :key="`deleted-${deletedCacheTick}`"
+                    class="cache-char deleting"
+                  >
+                    {{ deletedCacheChar }}
+                  </span>
+                </template>
+                <span v-else>等待手势动作...</span>
+                <div
+                  v-if="rewindTrackVisible"
+                  class="cache-delete-track"
+                  :style="rewindTrackStyle"
+                ></div>
+              </div>
+            </div>
+
+            <div class="input-wrapper">
+              <!-- <div class="cache-header">
+                <span class="label">等待</span>
+              </div> -->
+              <div class="input-display">
+                <div class="pinyin-track" :style="trackStyle"></div>
+                <span
+                  class="pinyin-text"
+                  :class="{ animating: hasInput }"
+                  :style="pinyinStyle"
+                >
+                  {{ pinyinBuffer || '…' }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -118,7 +162,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { VideoCameraFilled } from '@element-plus/icons-vue'
 
 const GESTURE_CONFIG = {
@@ -189,6 +233,34 @@ const props = defineProps({
     type: Number,
     default: 0,
   },
+  pinyinBuffer: {
+    type: String,
+    default: '',
+  },
+  cachedBuffer: {
+    type: String,
+    default: '',
+  },
+  deletedCacheChar: {
+    type: String,
+    default: '',
+  },
+  deletedCacheTick: {
+    type: Number,
+    default: 0,
+  },
+  deleteProgressTick: {
+    type: Number,
+    default: 0,
+  },
+  deleteProgressValue: {
+    type: Number,
+    default: 0,
+  },
+  stabilityProgress: {
+    type: Number,
+    default: 0,
+  },
 })
 
 defineEmits(['start', 'stop'])
@@ -197,6 +269,48 @@ const currentGesture = computed(() => GESTURE_CONFIG[props.commandCandidate] || 
 const ringOffset = computed(() =>
   RING_C * (1 - Math.max(0, Math.min(1, props.commandCandidateProgress)))
 )
+
+const normalizedProgress = computed(() => {
+  const value = Number(props.stabilityProgress || 0)
+  return Math.max(0, Math.min(1, value))
+})
+
+const hasInput = computed(() => Boolean(props.pinyinBuffer))
+const cacheChars = computed(() => Array.from(props.cachedBuffer || ''))
+const hasCacheContent = computed(() => cacheChars.value.length > 0 || Boolean(props.deletedCacheChar))
+const rewindTrackVisible = ref(false)
+const rewindTrackScale = ref(0)
+let rewindTrackTimer = null
+
+const clearRewindTrackTimer = () => {
+  if (!rewindTrackTimer) {
+    return
+  }
+  window.clearTimeout(rewindTrackTimer)
+  rewindTrackTimer = null
+}
+
+const pinyinStyle = computed(() => {
+  const progress = normalizedProgress.value
+  const hue = Math.round(140 - progress * 140)
+  const translateY = Math.round(progress * -8)
+  const scale = 1 + progress * 0.08
+  const glow = 10 + progress * 18
+
+  return {
+    color: `hsl(${hue} 72% 52%)`, 
+    transform: `translateY(${translateY}px) scale(${scale})`,
+    textShadow: `0 0 ${glow}px rgba(221, 76, 76, ${0.12 + progress * 0.28})`,
+  }
+})
+
+const trackStyle = computed(() => ({
+  transform: `scaleX(${normalizedProgress.value})`,
+}))
+
+const rewindTrackStyle = computed(() => ({
+  transform: `scaleX(${rewindTrackScale.value})`,
+}))
 
 const videoRef = ref(null)
 const overlayCanvasRef = ref(null)
@@ -374,6 +488,37 @@ watch(
   },
   { deep: true },
 )
+
+watch(
+  () => props.deleteProgressTick,
+  () => {
+    clearRewindTrackTimer()
+
+    const progress = Math.max(0, Math.min(1, Number(props.deleteProgressValue || 0)))
+
+    if (progress <= 0) {
+      rewindTrackVisible.value = false
+      rewindTrackScale.value = 0
+      return
+    }
+
+    rewindTrackVisible.value = true
+    rewindTrackScale.value = progress
+
+    window.requestAnimationFrame(() => {
+      rewindTrackScale.value = 0
+    })
+
+    rewindTrackTimer = window.setTimeout(() => {
+      rewindTrackVisible.value = false
+      rewindTrackTimer = null
+    }, 1000)
+  }
+)
+
+onBeforeUnmount(() => {
+  clearRewindTrackTimer()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -700,52 +845,43 @@ watch(
   pointer-events: none;
 }
 
-.status-strip {
+.live-badge {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
+  right: 16px;
+  top: 16px;
   z-index: 3;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: rgba(17, 26, 22, 0.62);
-  color: #f6fbf8;
-  backdrop-filter: blur(10px);
-}
-
-.strip-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.live-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
+  gap: 6px;
+  padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(73, 188, 118, 0.18);
-  color: #99f0bc;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.strip-text,
-.strip-metrics {
+  background: rgba(17, 26, 22, 0.45);
+  backdrop-filter: blur(8px);
+  color: rgba(246, 251, 248, 0.9);
   font-size: 12px;
-  color: rgba(246, 251, 248, 0.86);
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.strip-metrics {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: rgba(246, 251, 248, 0.72);
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3ddc97;
+  box-shadow: 0 0 8px rgba(61, 220, 151, 0.8);
+  animation: livePulse 1.5s infinite;
+}
+
+.latency-val {
+  color: #a8e8c8;
+  font-family: monospace;
+  margin-left: 2px;
+}
+
+@keyframes livePulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.4; }
+  100% { opacity: 1; }
 }
 
 .control-zone {
@@ -967,6 +1103,8 @@ watch(
     opacity: 1;
   }
 
+
+
   100% {
     opacity: 0;
     transform: translateX(115%);
@@ -1060,28 +1198,150 @@ watch(
     border-radius: 18px;
   }
 
-  .status-strip {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .action-toast-card {
-    min-width: 0;
-    width: 100%;
-    padding: 18px 20px 16px;
-  }
-
-  .action-toast-text {
-    font-size: 24px;
-  }
-
-  .strip-main,
-  .strip-metrics {
-    flex-wrap: wrap;
-  }
-
   .control-zone {
     align-items: stretch;
+  }
+}
+
+.hud-subtitle-container {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.spell-cache-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  background: rgba(14, 21, 18, 0.6);
+  backdrop-filter: blur(12px);
+  padding: 8px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.input-wrapper {
+  width: 90px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.input-display {
+  flex: 1;
+  position: relative;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+}
+
+.pinyin-track {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 4px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #3ddc97 0%, #f0b54b 55%, #f25f5c 100%);
+  transition: transform 0.12s linear;
+}
+
+.pinyin-text {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  transition: color 0.12s linear, transform 0.12s linear, text-shadow 0.12s linear;
+
+  &.animating {
+    will-change: transform, color, text-shadow;
+  }
+}
+
+.cache-display {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.cache-value {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: rgba(61, 220, 151, 0.15);
+  color: #a8e8c8;
+  font-size: 22px;
+  font-weight: 800;
+  word-break: break-all;
+  overflow: hidden;
+
+  &.empty {
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 600;
+    font-size: 14px;
+    justify-content: center;
+  }
+}
+
+.cache-delete-track {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 4px;
+  transform-origin: right center;
+  background: linear-gradient(90deg, #3ddc97 0%, #f0b54b 55%, #f25f5c 100%);
+  transition: transform 1s ease-out;
+  box-shadow: 0 0 18px rgba(242, 95, 92, 0.3);
+}
+
+.cache-char {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0.9em;
+  color: #fff;
+}
+
+.cache-char.deleting {
+  color: #f25f5c;
+  text-shadow: 0 0 16px rgba(242, 95, 92, 0.4);
+  animation: reverseDelete 1s ease forwards;
+}
+
+@keyframes reverseDelete {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  20% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.6);
+    opacity: 0;
+    color: #4a1e1e;
   }
 }
 </style>
