@@ -210,6 +210,7 @@ class PQHybridDetector:
         self.expected_label = None  # type: Optional[str]
         self.mismatch_started_at = None  # type: Optional[float]
         self.cls_history = deque(maxlen=VOTE_WINDOW)  # type: Deque[str]
+        self._last_timestamp_ms = -1
         self.ij_session = DynamicLetterSession("I")
         self.dz_session = DynamicLetterSession("D")
         self.last_yolo_payload = {
@@ -279,7 +280,7 @@ class PQHybridDetector:
             "expectedLabel": self.expected_label or "",
             "mediapipeActive": self.mp_active,
             "mediapipeGraceRemaining": self._grace_remaining(),
-            "hands": yolo_payload["hands"] if engine == "yolo" else [],
+            "hands": yolo_payload["hands"] if engine == "yolo" else (mp_payload.get("hands", []) if mp_payload else []),
             "mediapipe": mp_payload or {},
         }
         if include_annotated:
@@ -362,7 +363,13 @@ class PQHybridDetector:
     def _run_mediapipe(self, frame, output):
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        
+        # 确保时间戳严格单调递增
         timestamp_ms = int((time.monotonic() - self.start_time) * 1000)
+        if timestamp_ms <= self._last_timestamp_ms:
+            timestamp_ms = self._last_timestamp_ms + 1
+        self._last_timestamp_ms = timestamp_ms
+        
         result = self.landmarker.detect_for_video(mp_image, timestamp_ms)
 
         raw_cls = "not_active"
@@ -484,10 +491,55 @@ class PQHybridDetector:
                 2,
             )
 
+        # 从骨骼关键点计算手部边界框，让前端统一画框
+        mp_hands = []
+        if result.hand_landmarks:
+            height, width = frame.shape[:2]
+            for hi, hand_lm in enumerate(result.hand_landmarks):
+                xs = [lm.x * width for lm in hand_lm]
+                ys = [lm.y * height for lm in hand_lm]
+                margin_px = 20
+                bx1 = max(0, int(min(xs)) - margin_px)
+                by1 = max(0, int(min(ys)) - margin_px)
+                bx2 = min(width, int(max(xs)) + margin_px)
+                by2 = min(height, int(max(ys)) + margin_px)
+                
+                # 过滤内部不确定的标签，提升用户体验
+                if stable_cls in ("not_active", "none", "uncertain", "not_mnt", "not_pq", "not_fist"):
+                    display_text = "Analyzing..."
+                    label_text = raw_cls if raw_cls not in ("not_active", "none", "uncertain", "not_mnt", "not_pq", "not_fist") else ""
+                else:
+                    display_text = f"MP: {stable_cls}"
+                    label_text = stable_cls
+
+                mp_hands.append({
+                    "handIndex": hi + 1,
+                    "confidence": 1.0,
+                    "box": [bx1, by1, bx2, by2],
+                    "text": label_text,
+                    "detections": [{
+                        "label": display_text,
+                        "confidence": 1.0,
+                        "box": [bx1, by1, bx2, by2],
+                    }],
+                })
+                # 同时在 annotated frame 上画框
+                cv2.rectangle(output, (bx1, by1), (bx2, by2), (180, 105, 255), 2)
+                cv2.putText(
+                    output,
+                    display_text,
+                    (bx1, max(15, by1 - 8)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (180, 105, 255),
+                    2,
+                )
+
         return {
             "raw": raw_cls,
             "stable": stable_cls,
             "handCount": hand_count,
+            "hands": mp_hands,
         }
 
     def _pick_special_candidate(self, hands):

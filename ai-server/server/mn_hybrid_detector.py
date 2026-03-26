@@ -1,10 +1,10 @@
 import math
 
 FINGER_STRAIGHT_THRESHOLD = 160
-TH_GAP = 0.55
+TH_GAP = 0.60
 TH_E = 0.45
-TH_SEG = 0.18
-TH_Z = 0.10
+TH_SEG = 0.20
+TH_Z = 0.15
 
 
 def point_xy(lm):
