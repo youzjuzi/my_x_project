@@ -1,0 +1,63 @@
+# AI 模型和权重文件 (包含各类大模型和训练检查点)
+*.pt
+*.pth
+*.safetensors
+*.bin
+*.onnx
+*.ckpt
+*.h5
+*.pb
+*.tflite
+models/
+weights/
+checkpoints/
+
+# 前端构建文件和依赖 (对应 frontend-web)
+node_modules/
+dist/
+build/
+.next/
+.nuxt/
+out/
+.pnpm-store/
+.cache/
+
+# Java 后端相关构建文件 (对应 backend-java)
+target/
+.gradle/
+.mvn/
+*.jar
+*.war
+*.class
+
+# Python 环境和编译缓存 (对应 ai-server)
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env/
+.venv/
+env/
+.pytest_cache/
+
+# 数据库备份、转储文件和本地日志
+*.sql
+*.log
+*.sqlite
+*.sqlite3
+
+# IDE 及操作系统缓存
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 其他无需大模型读取的资源
+*.jpg
+*.png
+*.gif
+*.mp4
+*.mp3
+*.zip
+*.tar.gz
+*.rar
