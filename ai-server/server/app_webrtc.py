@@ -13,8 +13,8 @@ from openai import AsyncOpenAI
 
 from . import config
 from .detector import DetectorRegistry
-from .hand_command import HandCommandRecognizer
-from .pq_hybrid_detector import PQHybridDetector
+from .strategies.hand_command import HandCommandRecognizer
+from .strategies.pq_hybrid_detector import PQHybridDetector
 from .webrtc import OfferPayload, SessionState, receive_video_track, run_inference_loop, wait_for_ice_gathering
 
 

@@ -1,4 +1,11 @@
 import torch
+import sys
+import pathlib
+
+# 修复 Windows 加载 Linux 路径权重文件的 PosixPath 报错
+if sys.platform.startswith("win"):
+    pathlib.PosixPath = pathlib.WindowsPath
+
 from models.common import DetectMultiBackend
 from utils.augmentations import letterbox
 from utils.general import check_img_size, cv2, non_max_suppression, scale_boxes

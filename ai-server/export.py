@@ -60,6 +60,12 @@ import pandas as pd
 import torch
 from torch.utils.mobile_optimizer import optimize_for_mobile
 
+# 修复 Windows 加载 Linux 路径权重文件的 PosixPath 报错
+import sys
+import pathlib
+if sys.platform.startswith("win"):
+    pathlib.PosixPath = pathlib.WindowsPath
+
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
 if str(ROOT) not in sys.path:

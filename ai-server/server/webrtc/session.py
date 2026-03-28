@@ -6,7 +6,7 @@ from typing import Deque, Dict, Optional, Set
 
 from aiortc import RTCPeerConnection
 
-from ..pinyin_converter import PinyinConverter, digits_to_candidates
+from ..strategies.pinyin_converter import PinyinConverter, digits_to_candidates
 
 
 class SessionState:
