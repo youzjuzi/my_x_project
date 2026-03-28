@@ -20,7 +20,7 @@ from .webrtc import OfferPayload, SessionState, receive_video_track, run_inferen
 
 MODEL_SETTINGS = {
     "digits": {
-        "source_module": "test.test_hand_digits",
+        "source_module": "server.yolo_stage",
         "hand_weights": config.HAND_WEIGHTS,
         "target_weights": config.DIGIT_WEIGHTS,
         "imgsz": config.IMGSZ,
