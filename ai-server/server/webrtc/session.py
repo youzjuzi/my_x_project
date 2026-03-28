@@ -354,7 +354,6 @@ class SessionState:
         if command_gesture == "CONFIRM" and self.confirm_ready:
             self.confirm_ready = False
             confirmed_text = self.hanzi_candidate or self.raw_pinyin_buffer
-            print(f"[CONFIRM] hanzi_candidate={self.hanzi_candidate!r}, candidate_index={self.candidate_index}, candidates={self.hanzi_candidates}, confirmed_text={confirmed_text!r}")
             if confirmed_text:
                 self.command_reentry_requires_release = True
                 self.reset_display_state(clear_cached=True)
@@ -411,7 +410,6 @@ class SessionState:
                 metadata["actionPerformed"] = True
                 metadata["actionType"] = "NEXT"
                 metadata["actionToast"] = self.hanzi_candidate
-                print(f"[NEXT] candidate_index={self.candidate_index}, hanzi_candidate={self.hanzi_candidate!r}")
             return metadata
 
         # --- SUBMIT: 提交整句到后端 AI 润色 ---
@@ -598,7 +596,6 @@ class SessionState:
         # 只有候选列表真正改变（拼音变了）时才重置为 0。
         changed = candidates != self.hanzi_candidates
         if changed:
-            print(f"[REFRESH] candidates CHANGED: old={self.hanzi_candidates}, new={candidates}, resetting index 0")
             self.hanzi_candidates = candidates
             self.candidate_index = 0
         else:

@@ -1,4 +1,5 @@
 import os
+import torch
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -23,7 +24,7 @@ HAND_CONF = 0.30
 DIGIT_CONF = 0.25
 LETTER_CONF = 0.25
 IOU_THRES = 0.45
-DEVICE = "0"
+DEVICE = "0" if torch.cuda.is_available() else "cpu"  # 有 CUDA GPU 自动用 GPU，否则回退到 CPU
 MAX_DET = 100
 MARGIN = 10
 PQ_EXIT_GRACE_SECONDS = 3.0

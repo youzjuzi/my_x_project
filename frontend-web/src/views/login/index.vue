@@ -155,6 +155,15 @@
           </el-input>
         </el-form-item>
 
+        <!-- 注册滑动验证码 -->
+        <el-form-item>
+          <SliderCaptcha
+            ref="registerSliderCaptcha"
+            @success="onRegisterCaptchaSuccess"
+            @fail="onRegisterCaptchaFail"
+          />
+        </el-form-item>
+
         <el-button :loading="loading" type="primary" style="width:100%;" @click.prevent="handleRegisterSubmit">
           注 册
         </el-button>
@@ -233,7 +242,10 @@ export default defineComponent({
       redirect: undefined,
       otherQuery: {},
       captchaVerified: false,
-      captchaId: ''
+      captchaId: '',
+      // 注册验证码状态
+      registerCaptchaVerified: false,
+      registerCaptchaId: ''
     };
   },
   watch: {
@@ -268,6 +280,9 @@ export default defineComponent({
         email: '',
         phone: ''
       };
+      // 切换回登录时，重置注册验证码状态
+      this.registerCaptchaVerified = false;
+      this.registerCaptchaId = '';
     },
     showRegPwd() {
       if (this.regPasswordType === 'password') {
@@ -302,6 +317,16 @@ export default defineComponent({
     onCaptchaFail() {
       this.captchaVerified = false;
       this.captchaId = '';
+    },
+    // 注册验证码成功回调
+    onRegisterCaptchaSuccess(captchaId: string) {
+      this.registerCaptchaVerified = true;
+      this.registerCaptchaId = captchaId;
+    },
+    // 注册验证码失败回调
+    onRegisterCaptchaFail() {
+      this.registerCaptchaVerified = false;
+      this.registerCaptchaId = '';
     },
     // 登录
     handleLogin() {
@@ -345,6 +370,11 @@ export default defineComponent({
     },
     // 注册提交
     handleRegisterSubmit() {
+      // 先校验滑动验证码
+      if (!this.registerCaptchaVerified) {
+        ElMessage.warning('请先完成滑动验证');
+        return;
+      }
       (this.$refs.registerForm as IForm).validate(async (valid) => {
         if (valid) {
           this.loading = true;
@@ -357,6 +387,10 @@ export default defineComponent({
             this.switchToLogin();
           } catch (error) {
             ElMessage.error('注册失败，请重试！');
+            // 注册失败重置验证码
+            this.registerCaptchaVerified = false;
+            this.registerCaptchaId = '';
+            (this.$refs.registerSliderCaptcha as any)?.reset();
           } finally {
             this.loading = false;
           }

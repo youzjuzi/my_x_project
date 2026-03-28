@@ -1,6 +1,0 @@
-# MediaPipe-only environment for scripts in this directory.
-# Recommended Python: 3.10-3.12
-
-mediapipe>=0.10.14,<0.11
-opencv-python>=4.8,<5
-numpy>=1.26,<3

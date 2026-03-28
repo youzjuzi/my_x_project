@@ -10,7 +10,7 @@ import numpy as np
 from .ij_dz_dynamic_detector import DynamicLetterSession
 # 注意这里：根据你之前提供的代码，文件名如果是 mn_hybrid_detector.py，导入函数就是 classify_mnt_only
 from .mn_hybrid_detector import classify_mnt_only 
-from test_hand_letters import YOLOStage, clamp_box, cv2, draw_box, select_device
+from test.test_hand_letters import YOLOStage, clamp_box, cv2, draw_box, select_device
 
 
 FINGER_STRAIGHT_THRESHOLD = 160
