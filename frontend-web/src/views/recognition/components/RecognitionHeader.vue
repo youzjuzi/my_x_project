@@ -10,12 +10,8 @@
 
     <div class="page-intro">
       <div class="intro-main">
-        <p class="eyebrow">手语识别</p>
-        <h1>通过摄像头实时识别手势内容</h1>
-        <p class="description">
-          当前页面通过 WebRTC 接入识别服务，支持数字、字母与双手功能手势联动，
-          可在同一画面中完成识别、切换与缓存调试。
-        </p>
+        <h1>AI 实时手语解析舱 · 让每次挥手都有回音</h1>
+
       </div>
 
       <div class="intro-actions">

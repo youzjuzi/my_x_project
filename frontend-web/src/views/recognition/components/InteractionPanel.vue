@@ -1,37 +1,11 @@
 <template>
   <div class="interaction-panel">
-    <div class="panel-section capture-section">
-      <div class="section-header">
-        <div class="header-title">
-          <el-icon><Aim /></el-icon>
-          <span>识别流</span>
-        </div>
-        <span class="section-meta">{{ gestureStream.length }} 项</span>
-      </div>
-
-      <div class="gesture-stream">
-        <transition-group name="list">
-          <div
-            v-for="(item, index) in gestureStream"
-            :key="item.id"
-            class="gesture-bubble"
-            :class="{ latest: index === gestureStream.length - 1 }"
-          >
-            {{ item.char }}
-          </div>
-        </transition-group>
-        <div v-if="gestureStream.length === 0" class="empty-tip">
-          启动摄像头后，这里会实时显示识别过程。
-        </div>
-      </div>
-    </div>
 
 
 
     <div class="panel-section sequence-section">
       <div class="candidates-header">
-        <span class="label">候选内容</span>
-        <span class="tip">候选词由服务端根据当前拼音实时生成。</span>
+        <span class="label">拼音候选</span>
       </div>
       <div class="candidates-content">
         <div v-if="hanziCandidate" class="candidate-preview">
@@ -50,17 +24,16 @@
             <span class="candidate-index">{{ idx + 1 }}</span>
             {{ word }}
           </el-tag>
-          <span v-if="candidates.length === 0" class="no-candidate">暂无候选内容</span>
+          <span v-if="candidates.length === 0" class="no-candidate">等待输入...</span>
         </div>
       </div>
 
       <div class="accepted-words-area">
         <div class="candidates-header">
-          <span class="label">已接受词语</span>
-          <span class="tip">您通过手势确认的词语会暂存在这里。</span>
+          <span class="label">已确认词语</span>
         </div>
         <div class="accepted-words-content" :class="{ empty: !pendingWords }">
-          {{ pendingWords || '暂无内容，请组合并确认词语。' }}
+          {{ pendingWords || '暂无内容' }}
         </div>
       </div>
     </div>
@@ -83,8 +56,9 @@
 
       <div class="final-result-card" :class="{ empty: !finalSentence }">
         <div class="result-content">
-          <p class="result-label">结果</p>
-          <div class="result-text">{{ finalSentence || '组装的句子将同步到此处。' }}</div>
+          <div class="result-text" :class="{ placeholder: !finalSentence }">
+            {{ finalSentence || '等待识别...' }}
+          </div>
         </div>
 
         <div class="result-toolbar">
@@ -137,10 +111,11 @@ defineEmits(['copy', 'clear', 'speak'])
   display: flex;
   flex-direction: column;
   gap: 10px;
+  height: 100%;
 }
 
 .panel-section {
-  padding: 14px 16px;
+  padding: 10px 16px 14px;
   border-radius: 22px;
   background: #ffffff;
   border: 1px solid rgba(18, 42, 35, 0.08);
@@ -237,13 +212,15 @@ defineEmits(['copy', 'clear', 'speak'])
 }
 
 .candidates-content {
-  padding: 12px;
+  padding: 12px 14px;
   border-radius: 12px;
   background: #f4f7f5;
   border: 1px solid #e3ece7;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 10px;
+  min-height: 52px;
 }
 
 .candidate-preview {
@@ -311,14 +288,14 @@ defineEmits(['copy', 'clear', 'speak'])
 }
 
 .accepted-words-content {
-  padding: 12px;
+  padding: 12px 14px;
   border-radius: 12px;
   background: #f4f7f5;
   border: 1px solid #e3ece7;
   color: #17312b;
   font-size: 18px;
   font-weight: 700;
-  min-height: 46px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -369,6 +346,12 @@ defineEmits(['copy', 'clear', 'speak'])
   line-height: 1.55;
   color: #19342d;
   font-weight: 700;
+
+  &.placeholder {
+    color: #a4b5ae;
+    font-size: 16px;
+    font-weight: 400;
+  }
 }
 
 .result-toolbar {

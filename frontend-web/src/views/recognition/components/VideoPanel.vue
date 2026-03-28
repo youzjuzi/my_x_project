@@ -159,11 +159,7 @@
       </div>
     </div>
 
-    <div class="control-zone">
-      <p class="footer-tip">
-        {{ isCameraActive ? '识别结果将通过 app_webrtc 实时返回。' : '开启摄像头后即可在当前页面进行识别。' }}
-      </p>
-    </div>
+
   </div>
 </template>
 

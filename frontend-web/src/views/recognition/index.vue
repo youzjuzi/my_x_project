@@ -249,7 +249,16 @@ onBeforeUnmount(() => {
 .recognition-container {
   min-height: calc(100vh - 84px);
   padding: 16px 20px 18px;
-  background: #f8faf9;
+  /* 替换掉单纯的死白/亮灰，改用舒适的极浅青色渐变网格底纹 */
+  background-color: #edf2f0;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(200, 230, 215, 0.4) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(210, 235, 230, 0.4) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(195, 225, 205, 0.3) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(215, 240, 225, 0.4) 0px, transparent 50%),
+    radial-gradient(rgba(45, 105, 80, 0.05) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 24px 24px;
+  background-position: 0 0, 0 0, 0 0, 0 0, -1px -1px;
   overflow: hidden;
 }
 
@@ -260,6 +269,17 @@ onBeforeUnmount(() => {
 
 .main-layout {
   margin: 0;
+  align-items: stretch;
+
+  :deep(.el-col) {
+    display: flex;
+    flex-direction: column;
+
+    > * {
+      flex: 1;
+      min-height: 0; /* 避免子元素被撑破 */
+    }
+  }
 }
 
 @media (max-width: 992px) {
