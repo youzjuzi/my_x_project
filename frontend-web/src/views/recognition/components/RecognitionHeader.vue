@@ -1,4 +1,5 @@
 <template>
+  <HelpGuideDialog v-model="helpVisible" />
   <div class="hero-row">
     <div class="nav-header">
       <div class="back-capsule" @click="$emit('back')" aria-label="返回">
@@ -15,6 +16,11 @@
       </div>
 
       <div class="intro-actions">
+        <!-- 帮助引导入口按钮 -->
+        <div class="help-btn" @click="helpVisible = true" role="button" tabindex="0" aria-label="使用帮助">
+          <el-icon><QuestionFilled /></el-icon>
+          <span>帮助</span>
+        </div>
         <div class="mode-display" @click="handleModeToggle" role="button" tabindex="0" aria-label="切换识别模式">
           <div class="mode-icon-block">{{ selectedMode === 'digits' ? '123' : 'Aa' }}</div>
           <div class="mode-info">
@@ -55,7 +61,11 @@
 </template>
 
 <script setup>
-import { ArrowLeft, Switch } from '@element-plus/icons-vue'
+import { ref } from 'vue'
+import { ArrowLeft, Switch, QuestionFilled } from '@element-plus/icons-vue'
+import HelpGuideDialog from './HelpGuideDialog.vue'
+
+const helpVisible = ref(false)
 
 const props = defineProps({
   selectedMode: {
@@ -149,6 +159,36 @@ const handleModeToggle = () => {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.help-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #edf7f2 0%, #e8f4ef 100%);
+  border: 1px solid rgba(33, 109, 75, 0.15);
+  color: #216d4b;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+  .el-icon {
+    font-size: 18px;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(33, 109, 75, 0.12);
+    border-color: rgba(33, 109, 75, 0.35);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
 }
 
 .mode-display {
