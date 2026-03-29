@@ -153,7 +153,7 @@ const handleSubmit = async () => {
   pendingWords.value = ''
 
   try {
-    const response = await fetch('http://127.0.0.1:8002/webrtc/polish', {
+    const response = await fetch(`${import.meta.env.VITE_AI_SERVER_URL || 'http://127.0.0.1:8002'}/webrtc/polish`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

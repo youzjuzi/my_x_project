@@ -1,4 +1,4 @@
-const DEFAULT_WEBRTC_URL = 'http://127.0.0.1:8002/webrtc/offer'
+const DEFAULT_WEBRTC_URL = (import.meta.env.VITE_AI_SERVER_URL || 'http://127.0.0.1:8002') + '/webrtc/offer'
 
 function waitForIceGatheringComplete(pc) {
   if (pc.iceGatheringState === 'complete') {
