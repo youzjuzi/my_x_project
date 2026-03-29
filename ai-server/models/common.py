@@ -506,8 +506,15 @@ class DetectMultiBackend(nn.Module):
             check_requirements(("onnx", "onnxruntime-gpu" if cuda else "onnxruntime"))
             import onnxruntime
 
+            sess_options = onnxruntime.SessionOptions()
+            # 开启 ONNX 所有底层的图优化（算子融合、常量折叠等）
+            sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+            # 针对实时视频流，限制 intra_op 线程数可以减少上下文切换开销（根据实验，设为 2~4 最佳）
+            sess_options.intra_op_num_threads = 4
+            sess_options.execution_mode = onnxruntime.ExecutionMode.ORT_SEQUENTIAL
+
             providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if cuda else ["CPUExecutionProvider"]
-            session = onnxruntime.InferenceSession(w, providers=providers)
+            session = onnxruntime.InferenceSession(w, sess_options=sess_options, providers=providers)
             output_names = [x.name for x in session.get_outputs()]
             meta = session.get_modelmeta().custom_metadata_map  # metadata
             if "stride" in meta:

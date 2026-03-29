@@ -37,7 +37,7 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import PracticeHeader from './components/PracticeHeader.vue'
 import CameraPanel from './components/CameraPanel.vue'
 import ReferencePanel from './components/ReferencePanel.vue'
@@ -67,6 +67,10 @@ const {
 
 onMounted(() => {
   initFromRoute()
+})
+
+onUnmounted(() => {
+  stopCamera()
 })
 </script>
 

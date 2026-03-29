@@ -5,18 +5,29 @@ from typing import Callable
 
 from .presenter import build_result_payload
 from .session import SessionState
+from .. import cpu_perf  # CPU 性能优化配置
 
 
 async def run_inference_loop(session: SessionState, get_detector: Callable[[str], object]) -> None:
     try:
         loop = asyncio.get_running_loop()
+        _frame_counter = 0  # 用于 CPU 限帧计数
         while True:
             image = await session.take_latest_frame()
+
+            # ② CPU 限帧：非采样帧直接跳过，不送入模型
+            _frame_counter += 1
+            if cpu_perf.ENABLED and (_frame_counter % cpu_perf.INFERENCE_EVERY_N != 0):
+                continue
+
+            # ③ CPU 降分辨率：推理前按比例缩小图像
+            infer_image = cpu_perf.maybe_downsample(image)
+
             if session.command_mode_active and session.command_recognizer is not None:
                 command_result = await loop.run_in_executor(
                     None,
                     session.command_recognizer.process_frame,
-                    image,
+                    infer_image,
                 )
                 command_metadata = session.apply_command_actions(command_result)
                 session.update_command_mode(command_result)
@@ -28,7 +39,7 @@ async def run_inference_loop(session: SessionState, get_detector: Callable[[str]
                     detector = get_detector(session.mode)
                     func = functools.partial(
                         detector.process_frame,
-                        image,
+                        infer_image,
                         include_annotated=False,
                     )
                     result = await loop.run_in_executor(None, func)
@@ -36,7 +47,7 @@ async def run_inference_loop(session: SessionState, get_detector: Callable[[str]
                 detector = get_detector(session.mode)
                 func = functools.partial(
                     detector.process_frame,
-                    image,
+                    infer_image,
                     include_annotated=False,
                 )
                 result = await loop.run_in_executor(None, func)
@@ -57,7 +68,7 @@ async def run_inference_loop(session: SessionState, get_detector: Callable[[str]
                     command_result = await loop.run_in_executor(
                         None,
                         session.command_recognizer.process_frame,
-                        image,
+                        infer_image,
                     )
                     command_metadata = session.apply_command_actions(command_result)
                     session.update_command_mode(command_result)

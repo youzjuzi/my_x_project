@@ -11,8 +11,10 @@ AI Server 主入口
 
 import uvicorn
 from server import config
+from server import cpu_perf  # CPU 性能优化模块
 
 def main():
+    cpu_perf.log_status()
     print("🚀 正在启动 WebRTC 检测服务...")
     print(f"""
 ╔══════════════════════════════════════════════════════════════╗

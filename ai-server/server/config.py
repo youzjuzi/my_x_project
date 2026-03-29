@@ -18,19 +18,29 @@ WEBRTC_PORT = 8002
 DEVICE = "0" if torch.cuda.is_available() else "cpu"  # 有 CUDA GPU 自动用 GPU，否则回退到 CPU
 _EXT = ".onnx" if DEVICE == "cpu" else ".pt"
 
-# 智能读取环境变量并支持 `.pt` 回退到 `.onnx`
+# 智能读取环境变量：自动区分 GPU 专用模型 (.pt) 与 CPU 专用模型 (.onnx)
 def _get_model_path(env_key: str, default_rel_path: str) -> str:
-    # 优先从 .env 读取配置的路径，未配置则使用默认路径
+    # 1. 如果当前环境是 CPU（要求加载 ONNX），优先寻找带 _ONNX 后缀的终极优化配置
+    if _EXT == ".onnx":
+        onnx_env_key = f"{env_key}_ONNX"
+        if onnx_env_key in os.environ:
+            path_str = os.environ[onnx_env_key]
+            if not os.path.isabs(path_str):
+                path_str = str(AI_ROOT / path_str)
+            if os.path.exists(path_str):
+                return path_str
+
+    # 2. 如果没找到专属配置，或者当前是 GPU 环境，读取基础配置
     path_str = os.environ.get(env_key, default_rel_path)
-    # 如果定义的是相对路径，则拼接到 AI_ROOT
     if not os.path.isabs(path_str):
         path_str = str(AI_ROOT / path_str)
     
-    # 智能后缀替换：如果环境配置写的是.pt但当前无GPU，则尝试加载更快已转换好的.onnx
+    # 3. 智能老本降级：如果只有 .pt，但必须跑 CPU，偷偷去找有没有同名的 .onnx
     if path_str.endswith(".pt") and _EXT == ".onnx":
-        onnx_path = path_str.replace(".pt", ".onnx")
-        if os.path.exists(onnx_path):
-            return onnx_path
+        fallback_onnx = path_str.replace(".pt", ".onnx")
+        if os.path.exists(fallback_onnx):
+            return fallback_onnx
+            
     return path_str
 
 HAND_WEIGHTS = _get_model_path("HAND_WEIGHTS", "runs/hand_detect_yolov5s_b32/weights/best.pt")
