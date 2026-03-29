@@ -27,7 +27,7 @@ async def run_inference_loop(session: SessionState, get_detector: Callable[[str]
                 command_result = await loop.run_in_executor(
                     None,
                     session.command_recognizer.process_frame,
-                    infer_image,
+                    image,  # ⚠️ 修正：MediaPipe 需要输入原始分辨率，缩小会导致它的特征追踪断代而巨卡
                 )
                 command_metadata = session.apply_command_actions(command_result)
                 session.update_command_mode(command_result)
@@ -68,7 +68,7 @@ async def run_inference_loop(session: SessionState, get_detector: Callable[[str]
                     command_result = await loop.run_in_executor(
                         None,
                         session.command_recognizer.process_frame,
-                        infer_image,
+                        image, # ⚠️ 修正：MediaPipe 需要原始分辨率来保持手部追踪器的持续工作而不触发报错
                     )
                     command_metadata = session.apply_command_actions(command_result)
                     session.update_command_mode(command_result)

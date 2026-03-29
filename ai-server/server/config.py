@@ -11,7 +11,8 @@ AI_ROOT = ROOT.parent
 # 自动从 ai-server/.env 读取环境变量
 load_dotenv(AI_ROOT / ".env")
 
-HOST = "127.0.0.1"
+# 允许局域网其他设备访问（0.0.0.0 代替 127.0.0.1）
+HOST = "0.0.0.0"
 PORT = 8001
 WEBRTC_PORT = 8002
 
