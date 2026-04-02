@@ -1,9 +1,9 @@
 import asyncio
 
-from .session import SessionState
+from ..scenes import BaseSession
 
 
-async def receive_video_track(track, session: SessionState) -> None:
+async def receive_video_track(track, session: BaseSession) -> None:
     try:
         while True:
             frame = await track.recv()

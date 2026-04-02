@@ -6,10 +6,8 @@ from typing import Deque, Dict, Optional, Set
 
 from aiortc import RTCPeerConnection
 
-from ..strategies.pinyin_converter import PinyinConverter, digits_to_candidates
 
-
-class SessionState:
+class BaseSession:
     def __init__(
         self,
         pc: RTCPeerConnection,
@@ -50,7 +48,6 @@ class SessionState:
         self.hanzi_candidate = ""
         self.hanzi_candidates = []
         self.candidate_index = 0
-        self.pinyin_converter = PinyinConverter()
 
         self.pending_stable_text = ""
         self.pending_stable_started_at: Optional[float] = None
@@ -155,7 +152,6 @@ class SessionState:
         return self._calculate_fps(self.processed_timestamps)
 
     def _is_in_action_suppression(self) -> bool:
-        """命令动作执行后的冷却期内返回 True，过期后自动清理。"""
         if self.action_suppression_until is None:
             return False
         if time.perf_counter() < self.action_suppression_until:
@@ -164,11 +160,9 @@ class SessionState:
         return False
 
     def _start_action_suppression(self) -> None:
-        """启动命令动作后的识别冷却期。"""
         self.action_suppression_until = time.perf_counter() + self.action_suppression_seconds
 
     def _compute_vote_winner(self, min_ratio: float = 0.45) -> str:
-        """从最近 N 帧的原始识别结果中投票，返回占比达到 min_ratio 的赢家，否则返回空串。"""
         if not self._vote_buffer:
             return ""
         counts = Counter(c for c in self._vote_buffer if c)
@@ -180,65 +174,10 @@ class SessionState:
         return ""
 
     def update_display_state(self, result: Dict[str, object]) -> None:
-        is_command_result = result.get("engine") == "mediapipe-command"
-        hand_count = int(result.get("handCount") or 0)
-
-        # ---- 双手过滤：YOLOv5 只训练了单手，2 只手时结果不可靠（经常误识别为 Q）----
-        if not is_command_result and hand_count >= 2:
-            raw_spelling = ""
-        else:
-            raw_spelling = "" if is_command_result else str(result.get("text") or "").strip()
-
-        if not is_command_result:
-            if self._is_in_action_suppression():
-                # 冷却期内：清空 vote_buffer 防止污染，保持空白输出
-                self._vote_buffer.clear()
-                self.spelling_buffer = ""
-                self.pending_stable_text = ""
-                self.pending_stable_started_at = None
-                self.last_cached_token = ""
-                self._refresh_pinyin_state()
-                return
-
-            # 没有检测到手 或 识别结果为空时，立即清空投票缓冲和进度，不留"粘性"
-            if hand_count == 0 or not raw_spelling:
-                self._vote_buffer.clear()
-                self.spelling_buffer = ""
-                self.pending_stable_text = ""
-                self.pending_stable_started_at = None
-                self.last_cached_token = ""  # <--- 修改点：修复连续相同字符无法输入的 Bug
-                self._refresh_pinyin_state()
-                return
-
-            self._vote_buffer.append(raw_spelling)
-
-        # 投票赢家作为所有下游的输入，过滤帧间抖动
-        vote_winner = self._compute_vote_winner() if not is_command_result else ""
-        self.spelling_buffer = vote_winner
-
-        if not is_command_result:
-            self._update_cached_buffer(vote_winner)
-
-        self._refresh_pinyin_state()
-
-        if is_command_result:
-            return
-
-        # process_items 只在投票赢家发生变化时追加，不再对每帧原始结果追加
-        if vote_winner and (not self.process_items or self.process_items[-1] != vote_winner):
-            self.process_items.append(vote_winner)
+        raise NotImplementedError
 
     def display_snapshot(self) -> Dict[str, object]:
-        return {
-            "processItems": list(self.process_items),
-            "spellingBuffer": self.spelling_buffer,
-            "cachedBuffer": self.cached_buffer,
-            "hanziCandidate": self.hanzi_candidate,
-            "hanziCandidates": list(self.hanzi_candidates),
-            "candidateIndex": self.candidate_index,
-            "stabilityProgress": self.stability_progress(),
-            "stabilityDurationMs": int(self.stable_token_duration_seconds * 1000),
-        }
+        raise NotImplementedError
 
     def reset_display_state(self, clear_cached: bool = False) -> None:
         self.process_items.clear()
@@ -323,112 +262,9 @@ class SessionState:
             self.command_recognizer.reset()
 
     def apply_command_actions(self, command_result: Dict[str, object]) -> Dict[str, object]:
-        metadata: Dict[str, object] = {
-            "modeChangedByCommand": False,
-            "actionPerformed": False,
-            "actionType": "",
-            "actionToast": "",
-        }
-        command_gesture = str(command_result.get("commandGesture") or "").strip()
-        command_candidate = str(command_result.get("commandCandidate") or "").strip()
-        now = time.perf_counter()
-
-        if command_gesture != "CONFIRM" and command_candidate != "CONFIRM":
-            self.confirm_ready = True
-
-        if command_gesture != "DELETE" and command_candidate != "DELETE":
-            self.delete_ready = True
-            self.pending_delete_started_at = None
-
-        if command_gesture != "CLEAR" and command_candidate != "CLEAR":
-            self.clear_ready = True
-            self.pending_clear_started_at = None
-
-        if command_gesture != "NEXT" and command_candidate != "NEXT":
-            self.next_ready = True
-
-        if command_gesture != "SUBMIT" and command_candidate != "SUBMIT":
-            self.submit_ready = True
-
-        # --- CONFIRM: 选中当前高亮候选词 → 放入已接受词语 ---
-        if command_gesture == "CONFIRM" and self.confirm_ready:
-            self.confirm_ready = False
-            confirmed_text = self.hanzi_candidate or self.raw_pinyin_buffer
-            if confirmed_text:
-                self.command_reentry_requires_release = True
-                self.reset_display_state(clear_cached=True)
-                self.deactivate_command_mode()
-                self._start_action_suppression()
-                metadata["actionPerformed"] = True
-                metadata["actionType"] = "CONFIRM"
-                metadata["actionToast"] = confirmed_text
-                return metadata
-
-        # --- DELETE: 删掉 cached_buffer 最后一个字母 ---
-        if command_candidate == "DELETE" and self.delete_ready:
-            if self.pending_delete_started_at is None:
-                self.pending_delete_started_at = now
-
-            if now - self.pending_delete_started_at >= self.delete_hold_seconds:
-                self.delete_ready = False
-                self.pending_delete_started_at = None
-                self.command_reentry_requires_release = True
-                if self.cached_buffer:
-                    self.cached_buffer = self.cached_buffer[:-1]
-                self.last_cached_token = ""
-                self.reset_display_state()
-                self.deactivate_command_mode()
-                self._start_action_suppression()
-                metadata["actionPerformed"] = True
-                metadata["actionType"] = "DELETE"
-                metadata["actionToast"] = "Deleted"
-                return metadata
-
-        # --- CLEAR: 清空所有缓存 ---
-        if command_candidate == "CLEAR" and self.clear_ready:
-            if self.pending_clear_started_at is None:
-                self.pending_clear_started_at = now
-
-            if now - self.pending_clear_started_at >= self.clear_hold_seconds:
-                self.clear_ready = False
-                self.pending_clear_started_at = None
-                self.command_reentry_requires_release = True
-                self.reset_display_state(clear_cached=True)
-                self.deactivate_command_mode()
-                self._start_action_suppression()
-                metadata["actionPerformed"] = True
-                metadata["actionType"] = "CLEAR"
-                metadata["actionToast"] = "Cleared"
-                return metadata
-
-        # --- NEXT: 切换到下一个候选词 ---
-        if command_gesture == "NEXT" and self.next_ready:
-            self.next_ready = False
-            if self.hanzi_candidates and len(self.hanzi_candidates) > 1:
-                self.candidate_index = (self.candidate_index + 1) % len(self.hanzi_candidates)
-                self.hanzi_candidate = self.hanzi_candidates[self.candidate_index]
-                metadata["actionPerformed"] = True
-                metadata["actionType"] = "NEXT"
-                metadata["actionToast"] = self.hanzi_candidate
-            return metadata
-
-        # --- SUBMIT: 提交整句到后端 AI 润色 ---
-        if command_gesture == "SUBMIT" and self.submit_ready:
-            self.submit_ready = False
-            self.command_reentry_requires_release = True
-            self.deactivate_command_mode()
-            self._start_action_suppression()
-            metadata["actionPerformed"] = True
-            metadata["actionType"] = "SUBMIT"
-            metadata["actionToast"] = ""
-            return metadata
-
-        return metadata
+        raise NotImplementedError
 
     def _command_candidate_progress(self, command_candidate: str, command_result: Dict) -> float:
-        """计算当前候选手势的完成进度 [0.0, 1.0]。
-        DELETE/CLEAR 为时间 hold 进度；CONFIRM/NEXT/SUBMIT 为帧计数/触发阈值比。
-        """
         if not command_candidate:
             return 0.0
         now = time.perf_counter()
@@ -449,7 +285,6 @@ class SessionState:
             threshold = int(command_result.get("commandThreshold") or 0)
         if threshold > 0:
             count = int(counters.get(command_candidate) or 0)
-            # counter 归零说明刚触发，返回 1.0 避免进度条瞬间消失
             if count == 0 and str(command_result.get("commandGesture") or "") == command_candidate:
                 return 1.0
             return min(1.0, count / threshold)
@@ -472,9 +307,6 @@ class SessionState:
         if mode_changed or action_performed:
             display_text = ""
 
-        # NEXT 只切换候选词高亮，不清空任何显示状态，
-        # 否则 reset_display_state → _refresh_pinyin_state 会把
-        # apply_command_actions 刚设好的 candidate_index 强制归零。
         is_next_action = action_type == "NEXT"
         should_reset = (mode_changed or action_performed) and not is_next_action
         should_suppress = mode_changed or action_performed
@@ -578,29 +410,4 @@ class SessionState:
         return current.lower()
 
     def _refresh_pinyin_state(self) -> None:
-        self.raw_pinyin_buffer = self._current_pinyin_buffer()
-
-        if not self.raw_pinyin_buffer:
-            self.hanzi_candidate = ""
-            self.hanzi_candidates = []
-            self.candidate_index = 0
-            return
-
-        if self.mode == "digits":
-            candidates = digits_to_candidates(self.raw_pinyin_buffer)
-        else:
-            candidates = self.pinyin_converter.convert_with_candidates(self.raw_pinyin_buffer, num=9)
-
-        # 候选列表没有变化时（相同拼音 buffer 反复刷新），保留用户已切换的 candidate_index，
-        # 避免每帧 update_display_state → _refresh_pinyin_state 把手动切换的高亮归零。
-        # 只有候选列表真正改变（拼音变了）时才重置为 0。
-        changed = candidates != self.hanzi_candidates
-        if changed:
-            self.hanzi_candidates = candidates
-            self.candidate_index = 0
-        else:
-            # 列表不变：确保 index 没有越界
-            if self.candidate_index >= len(candidates):
-                self.candidate_index = 0
-
-        self.hanzi_candidate = candidates[self.candidate_index] if candidates else ""
+        raise NotImplementedError

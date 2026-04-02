@@ -272,6 +272,7 @@ export function useRecognitionSession() {
 
     webrtcClient = createRecognitionWebRtcClient({
       mediaStream: stream,
+      scene: 'recognition',
       mode: selectedMode.value,
       onResult: handleServerMessage,
       onOpen: () => {

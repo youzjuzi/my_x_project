@@ -4,11 +4,11 @@ import traceback
 from typing import Callable
 
 from .presenter import build_result_payload
-from .session import SessionState
+from ..scenes import BaseSession
 from .. import cpu_perf  # CPU 性能优化配置
 
 
-async def run_inference_loop(session: SessionState, get_detector: Callable[[str], object]) -> None:
+async def run_inference_loop(session: BaseSession, get_detector: Callable[[str], object]) -> None:
     try:
         loop = asyncio.get_running_loop()
         _frame_counter = 0  # 用于 CPU 限帧计数
@@ -36,7 +36,7 @@ async def run_inference_loop(session: SessionState, get_detector: Callable[[str]
                 elif command_metadata.get("modeChangedByCommand") or command_metadata.get("actionPerformed"):
                     result = session.build_command_result(command_result, image.shape, command_metadata)
                 else:
-                    detector = get_detector(session.mode)
+                    detector = await loop.run_in_executor(None, get_detector, session.mode)
                     func = functools.partial(
                         detector.process_frame,
                         infer_image,
@@ -44,7 +44,7 @@ async def run_inference_loop(session: SessionState, get_detector: Callable[[str]
                     )
                     result = await loop.run_in_executor(None, func)
             else:
-                detector = get_detector(session.mode)
+                detector = await loop.run_in_executor(None, get_detector, session.mode)
                 func = functools.partial(
                     detector.process_frame,
                     infer_image,

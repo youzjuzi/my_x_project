@@ -69,6 +69,7 @@
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { getScenePolishUrl } from '@/services/webrtcClient'
 import RecognitionHeader from './components/RecognitionHeader.vue'
 import VideoPanel from './components/VideoPanel.vue'
 import InteractionPanel from './components/InteractionPanel.vue'
@@ -153,7 +154,7 @@ const handleSubmit = async () => {
   pendingWords.value = ''
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_AI_SERVER_URL || 'http://127.0.0.1:8002'}/webrtc/polish`, {
+    const response = await fetch(getScenePolishUrl('recognition'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

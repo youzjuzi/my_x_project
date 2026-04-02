@@ -1,9 +1,9 @@
 from typing import Dict
 
-from .session import SessionState
+from ..scenes import BaseSession
 
 
-def build_result_payload(session: SessionState, result: Dict[str, object]) -> Dict[str, object]:
+def build_result_payload(session: BaseSession, result: Dict[str, object]) -> Dict[str, object]:
     if result.get("resetDisplayState"):
         session.reset_display_state()
     if not result.get("suppressDisplayStateUpdate"):

@@ -4,7 +4,31 @@
  * 不要在此处写业务逻辑，只负责建立连接、收发数据
  */
 
-const DEFAULT_WEBRTC_URL = (import.meta.env.VITE_AI_SERVER_URL || 'http://127.0.0.1:8002') + '/webrtc/offer'
+const DEFAULT_AI_SERVER_BASE_URL = import.meta.env.VITE_AI_SERVER_URL || 'http://127.0.0.1:8002'
+
+const DEFAULT_SCENE_PREFIXES = {
+  recognition: '/recognition',
+  practice: '/practice',
+  challenge: '/challenge',
+}
+
+const SCENE_BASE_URLS = {
+  recognition: import.meta.env.VITE_AI_RECOGNITION_SERVER_URL || `${DEFAULT_AI_SERVER_BASE_URL}${DEFAULT_SCENE_PREFIXES.recognition}`,
+  practice: import.meta.env.VITE_AI_PRACTICE_SERVER_URL || `${DEFAULT_AI_SERVER_BASE_URL}${DEFAULT_SCENE_PREFIXES.practice}`,
+  challenge: import.meta.env.VITE_AI_CHALLENGE_SERVER_URL || `${DEFAULT_AI_SERVER_BASE_URL}${DEFAULT_SCENE_PREFIXES.challenge}`,
+}
+
+function resolveSceneBaseUrl(scene = 'recognition') {
+  return SCENE_BASE_URLS[scene] || `${DEFAULT_AI_SERVER_BASE_URL}${DEFAULT_SCENE_PREFIXES.recognition}`
+}
+
+export function getSceneWebRtcOfferUrl(scene = 'recognition') {
+  return `${resolveSceneBaseUrl(scene)}/webrtc/offer`
+}
+
+export function getScenePolishUrl(scene = 'recognition') {
+  return `${resolveSceneBaseUrl(scene)}/webrtc/polish`
+}
 
 function waitForIceGatheringComplete(pc) {
   if (pc.iceGatheringState === 'complete') {
@@ -34,6 +58,7 @@ function waitForIceGatheringComplete(pc) {
  * @param {object} options
  * @param {MediaStream}  options.mediaStream            - 摄像头媒体流
  * @param {string}       [options.offerUrl]             - WebRTC offer 接口地址
+ * @param {string}       [options.scene='recognition']  - 场景：recognition / practice / challenge
  * @param {string}       [options.mode='letters']       - 识别模式：letters / digits
  * @param {function}     options.onResult               - 收到 AI 推送数据的回调
  * @param {function}     [options.onOpen]               - DataChannel 建立成功回调
@@ -44,7 +69,8 @@ function waitForIceGatheringComplete(pc) {
 export function createRecognitionWebRtcClient(options) {
   const {
     mediaStream,
-    offerUrl = DEFAULT_WEBRTC_URL,
+    scene = 'recognition',
+    offerUrl = getSceneWebRtcOfferUrl(scene),
     mode = 'letters',
     onResult,
     onOpen,
@@ -108,7 +134,6 @@ export function createRecognitionWebRtcClient(options) {
 
       dataChannel.onopen = () => {
         if (typeof onOpen === 'function') onOpen()
-        // 连接建立后立即告知服务端当前模式
         dataChannel.send(`mode:${currentMode}`)
       }
 
@@ -165,7 +190,6 @@ export function createRecognitionWebRtcClient(options) {
   return {
     connect,
     disconnect,
-    /** 动态切换识别模式（连接中也可调用）*/
     setMode(nextMode) {
       currentMode = nextMode
       if (dataChannel && dataChannel.readyState === 'open') {

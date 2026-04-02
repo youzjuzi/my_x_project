@@ -25,9 +25,9 @@ def main():
 ╚══════════════════════════════════════════════════════════════╝
     """)
     
-    # 启动 FastAPI WebRTC 服务，相当于 python -m server.app_webrtc
+    # 启动 FastAPI WebRTC 服务，相当于 python -m server.app
     uvicorn.run(
-        "server.app_webrtc:app",
+        "server.app:app",
         host=config.HOST,
         port=config.WEBRTC_PORT,
         reload=False

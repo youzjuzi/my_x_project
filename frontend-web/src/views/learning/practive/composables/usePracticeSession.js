@@ -137,6 +137,7 @@ export function usePracticeSession() {
 
     webrtcClient = createRecognitionWebRtcClient({
       mediaStream: stream,
+      scene: 'practice',
       mode: webrtcMode.value,
       onResult: handleServerMessage,
       onOpen: () => { connectionState.value = 'connected' },
