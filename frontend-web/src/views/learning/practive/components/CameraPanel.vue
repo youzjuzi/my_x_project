@@ -60,12 +60,24 @@
 
     <!-- 左上角：标签 -->
     <div class="panel-label">我的练习</div>
+
+    <!-- 过关庆祝层 -->
+    <PassCelebration
+      :visible="showCelebration"
+      :char="targetChar"
+      :passed-count="passedCountForMode"
+      :total-count="totalCount"
+      :mode="mode"
+      @next="$emit('next-char')"
+      @dismiss="$emit('dismiss-celebration')"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { VideoCameraFilled } from '@element-plus/icons-vue'
+import PassCelebration from './PassCelebration.vue'
 
 const props = defineProps({
   stream:             { type: MediaStream, default: null },
@@ -77,9 +89,18 @@ const props = defineProps({
   hitCount:           { type: Number, default: 0 },
   requiredCount:      { type: Number, default: 3 },
   overlayResult:      { type: Object, default: null },
+  // ----- 新增 -----
+  showCelebration:    { type: Boolean, default: false },
+  targetChar:         { type: String, default: '' },
+  passedCount:        { type: Number, default: 0 },   // 当前模式已掌握数
+  totalCount:         { type: Number, default: 26 },  // 当前模式总数
+  mode:               { type: String, default: 'letters' },
 })
 
-defineEmits(['start-camera'])
+defineEmits(['start-camera', 'next-char', 'dismiss-celebration'])
+
+// 透传给 PassCelebration 的已掌握数量
+const passedCountForMode = computed(() => props.passedCount)
 
 const videoRef = ref(null)
 const overlayCanvasRef = ref(null)

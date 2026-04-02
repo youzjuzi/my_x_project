@@ -5,6 +5,7 @@
       :target-char="targetChar"
       :current-char-list="currentCharList"
       :is-camera-active="isCameraActive"
+      :is-char-passed="isCharPassed"
       @back="goBack"
       @switch-mode="switchMode"
       @select-char="selectChar"
@@ -24,7 +25,14 @@
         :hit-count="hitCount"
         :required-count="REQUIRED_COUNT"
         :overlay-result="overlayResult"
+        :show-celebration="showCelebration"
+        :target-char="targetChar"
+        :passed-count="getPassedCount(activeMode)"
+        :total-count="activeMode === 'letters' ? 26 : 10"
+        :mode="activeMode"
         @start-camera="startCamera"
+        @next-char="nextChar"
+        @dismiss-celebration="dismissCelebration"
       />
 
       <!-- 右侧：参考图 -->
@@ -57,10 +65,15 @@ const {
   overlayResult,
   hitCount,
   isPassed,
+  showCelebration,
+  isCharPassed,
+  getPassedCount,
   startCamera,
   stopCamera,
   switchMode,
   selectChar,
+  nextChar,
+  dismissCelebration,
   goBack,
   initFromRoute,
 } = usePracticeSession()

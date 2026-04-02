@@ -26,9 +26,13 @@
           v-for="char in currentCharList"
           :key="char"
           class="char-chip"
-          :class="{ active: targetChar === char }"
+          :class="{ active: targetChar === char, passed: isCharPassed(char, activeMode) }"
           @click="$emit('select-char', char)"
-        >{{ char }}</button>
+        >
+          {{ char }}
+          <!-- 已掌握标志 -->
+          <span v-if="isCharPassed(char, activeMode)" class="passed-dot" aria-label="已掌握" />
+        </button>
       </div>
 
       <!-- 摄像头状态徽章 -->
@@ -61,10 +65,12 @@
 import { ArrowLeft } from '@element-plus/icons-vue'
 
 defineProps({
-  activeMode:      { type: String,  default: 'letters' },
-  targetChar:      { type: String,  default: 'A' },
-  currentCharList: { type: Array,   default: () => [] },
-  isCameraActive:  { type: Boolean, default: false },
+  activeMode:      { type: String,   default: 'letters' },
+  targetChar:      { type: String,   default: 'A' },
+  currentCharList: { type: Array,    default: () => [] },
+  isCameraActive:  { type: Boolean,  default: false },
+  // 已掌握字符查询函数
+  isCharPassed:    { type: Function, default: () => false },
 })
 
 defineEmits(['back', 'switch-mode', 'select-char', 'start-camera', 'stop-camera'])
@@ -141,6 +147,7 @@ defineEmits(['back', 'switch-mode', 'select-char', 'start-camera', 'stop-camera'
 }
 
 .char-chip {
+  position: relative;
   min-width: 34px;
   height: 34px;
   border-radius: 8px;
@@ -164,6 +171,25 @@ defineEmits(['back', 'switch-mode', 'select-char', 'start-camera', 'stop-camera'
     border-color: #216d4b;
     box-shadow: 0 4px 12px rgba(33, 109, 75, 0.25);
   }
+
+  // 已掌握状态：淡绿色背景
+  &.passed:not(.active) {
+    background: #dcf0e6;
+    border-color: rgba(34, 197, 94, 0.35);
+    color: #166534;
+  }
+}
+
+// 已掌握小绿点（右上角）
+.passed-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
 }
 
 .camera-badge {

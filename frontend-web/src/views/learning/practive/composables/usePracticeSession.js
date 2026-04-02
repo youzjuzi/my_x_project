@@ -1,7 +1,8 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
-import { createRecognitionWebRtcClient } from '@/views/recognition/services/webrtcClient'
+import { createRecognitionWebRtcClient } from '@/services/webrtcClient'
+import { usePassedChars } from './usePassedChars'
 
 // ========== 字符数据常量 ==========
 export const LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)) // A-Z
@@ -11,6 +12,9 @@ export const REQUIRED_COUNT = 3 // 连续识别正确多少次算过关
 export function usePracticeSession() {
   const route = useRoute()
   const router = useRouter()
+
+  // ========== 已掌握字符 localStorage 管理 ==========
+  const { markPassed, isCharPassed, getPassedCount } = usePassedChars()
 
   // ========== 字符选择状态 ==========
   const activeMode = ref('letters')   // 'letters' | 'numbers'
@@ -49,6 +53,15 @@ export function usePracticeSession() {
     return isLetter
       ? `https://avatar.youzilite.us.kg/letter/${targetChar.value}.png`
       : `https://avatar.youzilite.us.kg/number/${targetChar.value}.png`
+  })
+
+  // ========== 监听过关：存储 + 简单提示 ==========
+  watch(isPassed, (passed) => {
+    if (!passed) return
+    // 写入 localStorage（临时存储）
+    markPassed(targetChar.value, activeMode.value)
+    // 底部简单提示
+    ElMessage.success(`${targetChar.value} 已掌握！点击下一个字符继续`)
   })
 
   // ========== 练习判定 ==========
@@ -220,6 +233,9 @@ export function usePracticeSession() {
     // 练习判定
     hitCount,
     isPassed,
+    // 已掌握信息（供 Header 查询）
+    isCharPassed,
+    getPassedCount,
     // 方法
     startCamera,
     stopCamera,

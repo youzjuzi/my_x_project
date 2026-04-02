@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { createRecognitionWebRtcClient } from '../services/webrtcClient'
+import { createRecognitionWebRtcClient } from '@/services/webrtcClient'
 
 export function useRecognitionSession() {
   const isCameraActive = ref(false)
