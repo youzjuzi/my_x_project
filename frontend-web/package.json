@@ -6,6 +6,8 @@
   "scripts": {
     "dev:test": "vite --mode dev_test",
     "dev:prod": "vite --mode dev_prod",
+    "dev:local": "vite --mode dev_local",
+    "dev:cloud": "vite --mode dev_cloud",
     "build:test": "vite build --mode build_test",
     "build:prod": "vite build --mode build_prod",
     "preview": "vite preview --port 4173",

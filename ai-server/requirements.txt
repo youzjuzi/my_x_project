@@ -7,8 +7,12 @@ opencv-python>=4.8,<5
 Pillow
 PyYAML>=5.3.1
 scipy>=1.4.1
-torch>=1.7.0
-torchvision>=0.8.1
+# 请先使用带有特定 CUDA 版本索引的 pip 指令手动安装 PyTorch 以获得 GPU 加速体验：
+# （你的显卡驱动支持到 CUDA 13.1，建议使用较新的 cu124 版本包）
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+# 之后再运行 pip install -r requirements.txt
+# torch>=1.7.0
+# torchvision>=0.8.1
 tqdm>=4.41.0
 
 # logging -------------------------------------
