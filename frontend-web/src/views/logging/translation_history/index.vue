@@ -192,8 +192,21 @@ const fetchHistory = async () => {
   }
 }
 
-const parseWords = (jsonStr: string) => {
-  try { return JSON.parse(jsonStr) } catch(e) { return [jsonStr] }
+const parseWords = (rawValue: string) => {
+  const text = String(rawValue ?? '').trim()
+  if (!text) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(text)
+    if (Array.isArray(parsed)) {
+      return parsed.map(item => String(item))
+    }
+    return [String(parsed)]
+  } catch (error) {
+    return [text]
+  }
 }
 
 onMounted(() => {
