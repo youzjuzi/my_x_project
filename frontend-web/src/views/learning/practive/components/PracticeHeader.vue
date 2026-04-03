@@ -1,12 +1,10 @@
 <template>
   <div class="top-bar">
-    <!-- 返回按钮 -->
     <div class="back-btn" @click="$emit('back')" aria-label="返回">
       <el-icon><ArrowLeft /></el-icon>
     </div>
 
     <div class="char-selector">
-      <!-- 模式切换：字母 / 数字 -->
       <div class="mode-tabs">
         <button
           class="mode-tab"
@@ -18,30 +16,31 @@
           :class="{ active: activeMode === 'numbers' }"
           @click="$emit('switch-mode', 'numbers')"
         >数字</button>
+        <button
+          class="mode-tab"
+          :class="{ active: activeMode === 'commands' }"
+          @click="$emit('switch-mode', 'commands')"
+        >功能手势</button>
       </div>
 
-      <!-- 字符选择列表 -->
       <div class="char-list">
         <button
-          v-for="char in currentCharList"
-          :key="char"
+          v-for="item in currentCharList"
+          :key="item.value"
           class="char-chip"
-          :class="{ active: targetChar === char, passed: isCharPassed(char, activeMode) }"
-          @click="$emit('select-char', char)"
+          :class="{ active: targetChar === item.value, passed: isCharPassed(item.value, activeMode), wide: item.label.length > 2 }"
+          @click="$emit('select-char', item.value)"
         >
-          {{ char }}
-          <!-- 已掌握标志 -->
-          <span v-if="isCharPassed(char, activeMode)" class="passed-dot" aria-label="已掌握" />
+          {{ item.label }}
+          <span v-if="isCharPassed(item.value, activeMode)" class="passed-dot" aria-label="已掌握" />
         </button>
       </div>
 
-      <!-- 摄像头状态徽章 -->
       <div class="camera-badge">
         <span class="status-dot" :class="{ active: isCameraActive }"></span>
         {{ isCameraActive ? '识别中' : '等待开启' }}
       </div>
 
-      <!-- 开启/关闭按钮 -->
       <el-button
         v-if="!isCameraActive"
         type="primary"
@@ -65,11 +64,10 @@
 import { ArrowLeft } from '@element-plus/icons-vue'
 
 defineProps({
-  activeMode:      { type: String,   default: 'letters' },
-  targetChar:      { type: String,   default: 'A' },
-  currentCharList: { type: Array,    default: () => [] },
-  isCameraActive:  { type: Boolean,  default: false },
-  // 已掌握字符查询函数
+  activeMode:      { type: String, default: 'letters' },
+  targetChar:      { type: String, default: 'A' },
+  currentCharList: { type: Array, default: () => [] },
+  isCameraActive:  { type: Boolean, default: false },
   isCharPassed:    { type: Function, default: () => false },
 })
 
@@ -150,6 +148,7 @@ defineEmits(['back', 'switch-mode', 'select-char', 'start-camera', 'stop-camera'
   position: relative;
   min-width: 34px;
   height: 34px;
+  padding: 0 10px;
   border-radius: 8px;
   border: 1px solid rgba(33, 109, 75, 0.12);
   background: #f4f8f6;
@@ -172,15 +171,18 @@ defineEmits(['back', 'switch-mode', 'select-char', 'start-camera', 'stop-camera'
     box-shadow: 0 4px 12px rgba(33, 109, 75, 0.25);
   }
 
-  // 已掌握状态：淡绿色背景
   &.passed:not(.active) {
     background: #dcf0e6;
     border-color: rgba(34, 197, 94, 0.35);
     color: #166534;
   }
+
+  &.wide {
+    min-width: 64px;
+    font-size: 13px;
+  }
 }
 
-// 已掌握小绿点（右上角）
 .passed-dot {
   position: absolute;
   top: 3px;

@@ -8,6 +8,34 @@ from ..scenes import BaseSession
 from .. import cpu_perf  # CPU 性能优化配置
 
 
+def _build_command_practice_result(session: BaseSession, command_result, image_shape) -> dict:
+    command_gesture = str(command_result.get("commandGesture") or "").strip()
+    command_candidate = str(command_result.get("commandCandidate") or "").strip()
+    display_text = command_gesture or command_candidate
+
+    return {
+        "type": "result",
+        "mode": session.mode,
+        "engine": "mediapipe-command",
+        "latencyMs": 0.0,
+        "imageWidth": int(image_shape[1]),
+        "imageHeight": int(image_shape[0]),
+        "handCount": int(command_result.get("commandHandCount") or 0),
+        "text": display_text,
+        "hands": [],
+        "commandModeActive": True,
+        "commandGesture": command_gesture,
+        "commandHandCount": int(command_result.get("commandHandCount") or 0),
+        "commandCandidate": command_candidate,
+        "commandCounters": dict(command_result.get("commandCounters") or {}),
+        "commandThreshold": int(command_result.get("commandThreshold") or 0),
+        "commandCandidateProgress": session._command_candidate_progress(command_candidate, command_result),
+        "actionPerformed": False,
+        "actionType": "",
+        "actionToast": "",
+    }
+
+
 async def run_inference_loop(session: BaseSession, get_detector: Callable[[str], object]) -> None:
     try:
         loop = asyncio.get_running_loop()
@@ -23,7 +51,14 @@ async def run_inference_loop(session: BaseSession, get_detector: Callable[[str],
             # ③ CPU 降分辨率：推理前按比例缩小图像
             infer_image = cpu_perf.maybe_downsample(image)
 
-            if session.command_mode_active and session.command_recognizer is not None:
+            if session.mode == "commands" and session.command_recognizer is not None:
+                command_result = await loop.run_in_executor(
+                    None,
+                    session.command_recognizer.process_frame,
+                    image,
+                )
+                result = _build_command_practice_result(session, command_result, image.shape)
+            elif session.command_mode_active and session.allows_detector_command_mode():
                 command_result = await loop.run_in_executor(
                     None,
                     session.command_recognizer.process_frame,
@@ -58,17 +93,14 @@ async def run_inference_loop(session: BaseSession, get_detector: Callable[[str],
                 if hand_count >= 2:
                     result["text"] = ""
 
-                if session.command_recognizer is not None:
+                if session.allows_detector_command_mode():
                     session.update_command_reentry_gate(hand_count)
-                if (
-                    session.command_recognizer is not None
-                    and session.can_activate_command_mode(hand_count)
-                ):
+                if session.allows_detector_command_mode() and session.can_activate_command_mode(hand_count):
                     session.activate_command_mode()
                     command_result = await loop.run_in_executor(
                         None,
                         session.command_recognizer.process_frame,
-                        image, # ⚠️ 修正：MediaPipe 需要原始分辨率来保持手部追踪器的持续工作而不触发报错
+                        image,  # ⚠️ 修正：MediaPipe 需要原始分辨率来保持手部追踪器的持续工作而不触发报错
                     )
                     command_metadata = session.apply_command_actions(command_result)
                     session.update_command_mode(command_result)

@@ -8,6 +8,12 @@ from aiortc import RTCPeerConnection
 
 
 class BaseSession:
+    def supported_modes(self) -> tuple[str, ...]:
+        return ("digits", "letters")
+
+    def allows_detector_command_mode(self) -> bool:
+        return self.command_recognizer is not None
+
     def __init__(
         self,
         pc: RTCPeerConnection,
@@ -23,7 +29,9 @@ class BaseSession:
         action_suppression_seconds: float = 1.5,
     ) -> None:
         self.pc = pc
-        self.mode = mode if mode in ("digits", "letters") else "letters"
+        supported_modes = self.supported_modes()
+        fallback_mode = "letters" if "letters" in supported_modes else supported_modes[0]
+        self.mode = mode if mode in supported_modes else fallback_mode
         self.command_recognizer = command_recognizer
         self.command_mode_timeout_seconds = command_mode_timeout_seconds
         self.switch_min_interval_seconds = switch_min_interval_seconds
@@ -82,7 +90,7 @@ class BaseSession:
                 "type": "ready",
                 "transport": "webrtc",
                 "message": "WebRTC connected. Browser media track is streaming.",
-                "modes": ["digits", "letters"],
+                "modes": list(self.supported_modes()),
                 "defaultMode": self.mode,
             }
         )
@@ -98,7 +106,7 @@ class BaseSession:
 
         if text.startswith("mode:"):
             requested_mode = text.split(":", 1)[1].strip()
-            if requested_mode not in ("digits", "letters"):
+            if requested_mode not in self.supported_modes():
                 await self.send_json({"type": "error", "message": f"Unsupported mode: {requested_mode}"})
                 return
 
@@ -108,7 +116,8 @@ class BaseSession:
             await self.send_json({"type": "mode_changed", "mode": self.mode})
             return
 
-        await self.send_json({"type": "info", "message": "Send mode:<digits|letters> or ping on the data channel."})
+        supported = "|".join(self.supported_modes())
+        await self.send_json({"type": "info", "message": f"Send mode:<{supported}> or ping on the data channel."})
 
     def attach_channel(self, channel) -> None:
         self.channel = channel

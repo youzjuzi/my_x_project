@@ -14,7 +14,6 @@
     />
 
     <div class="stage">
-      <!-- 左侧：摄像头画面 + 稳定度 HUD -->
       <CameraPanel
         :stream="localStream"
         :is-camera-active="isCameraActive"
@@ -26,19 +25,20 @@
         :required-count="REQUIRED_COUNT"
         :overlay-result="overlayResult"
         :show-celebration="showCelebration"
-        :target-char="targetChar"
+        :target-label="targetLabel"
         :passed-count="getPassedCount(activeMode)"
-        :total-count="activeMode === 'letters' ? 26 : 10"
+        :total-count="totalCount"
         :mode="activeMode"
         @start-camera="startCamera"
         @next-char="nextChar"
         @dismiss-celebration="dismissCelebration"
       />
 
-      <!-- 右侧：参考图 -->
       <ReferencePanel
-        :target-char="targetChar"
+        :target-label="targetLabel"
         :reference-image-url="referenceImageUrl"
+        :reference-hint="referenceHint"
+        :reference-description="referenceDescription"
       />
     </div>
   </div>
@@ -55,7 +55,11 @@ const {
   activeMode,
   targetChar,
   currentCharList,
+  totalCount,
+  targetLabel,
   referenceImageUrl,
+  referenceHint,
+  referenceDescription,
   isCameraActive,
   connectionState,
   isRecognitionReady,

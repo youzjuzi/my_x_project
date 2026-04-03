@@ -64,7 +64,7 @@
     <!-- 过关庆祝层 -->
     <PassCelebration
       :visible="showCelebration"
-      :char="targetChar"
+      :char="targetLabel"
       :passed-count="passedCountForMode"
       :total-count="totalCount"
       :mode="mode"
@@ -91,7 +91,7 @@ const props = defineProps({
   overlayResult:      { type: Object, default: null },
   // ----- 新增 -----
   showCelebration:    { type: Boolean, default: false },
-  targetChar:         { type: String, default: '' },
+  targetLabel:        { type: String, default: '' },
   passedCount:        { type: Number, default: 0 },   // 当前模式已掌握数
   totalCount:         { type: Number, default: 26 },  // 当前模式总数
   mode:               { type: String, default: 'letters' },

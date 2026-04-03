@@ -69,12 +69,16 @@ const props = defineProps({
   char:        { type: String,  default: '' },
   passedCount: { type: Number,  default: 0 },
   totalCount:  { type: Number,  default: 26 },
-  mode:        { type: String,  default: 'letters' }, // 'letters' | 'numbers'
+  mode:        { type: String,  default: 'letters' },
 })
 
 const emit = defineEmits(['next', 'dismiss'])
 
-const modeLabel = computed(() => props.mode === 'numbers' ? '数字' : '字母')
+const modeLabel = computed(() => {
+  if (props.mode === 'numbers') return '数字'
+  if (props.mode === 'commands') return '功能手势'
+  return '字母'
+})
 
 const onNext    = () => emit('next')
 const onDismiss = () => emit('dismiss')

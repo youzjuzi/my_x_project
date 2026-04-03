@@ -4,10 +4,29 @@ import { useRoute, useRouter } from 'vue-router'
 import { createRecognitionWebRtcClient } from '@/services/webrtcClient'
 import { usePassedChars } from './usePassedChars'
 
-// ========== 字符数据常量 ==========
-export const LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)) // A-Z
-export const NUMBERS = Array.from({ length: 10 }, (_, i) => String(i))                   // 0-9
-export const REQUIRED_COUNT = 3 // 连续识别正确多少次算过关
+export const LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i))
+export const NUMBERS = Array.from({ length: 10 }, (_, i) => String(i))
+export const COMMANDS = [
+  { value: 'CONFIRM', label: '确认', description: '双手同时张开五指', hint: '双手掌心展开，对准镜头保持稳定' },
+  { value: 'DELETE', label: '删除', description: '双手食指同时向下', hint: '双手其余手指收起，食指朝下保持稳定' },
+  { value: 'CLEAR', label: '清空', description: '双手同时握拳', hint: '双手握拳并保持，触发一次清空手势' },
+  { value: 'NEXT', label: '下一个', description: '双手食指同时向上', hint: '双手其余手指收起，食指朝上保持稳定' },
+  { value: 'SUBMIT', label: '提交', description: '双手同时竖起大拇指', hint: '双手竖起拇指，其余手指收拢后保持稳定' },
+]
+export const REQUIRED_COUNT = 3
+
+const LETTER_ITEMS = LETTERS.map((value) => ({ value, label: value }))
+const NUMBER_ITEMS = NUMBERS.map((value) => ({ value, label: value }))
+const COMMAND_VALUE_SET = new Set(COMMANDS.map((item) => item.value))
+const COMMAND_LABEL_MAP = Object.fromEntries(COMMANDS.map((item) => [item.value, item.label]))
+
+function findItem(items, value) {
+  return items.find((item) => item.value === value) || items[0]
+}
+
+function getCommandLabel(token) {
+  return COMMAND_LABEL_MAP[token] || token
+}
 
 export function usePracticeSession() {
   const route = useRoute()
@@ -33,26 +52,57 @@ export function usePracticeSession() {
 
   let webrtcClient = null
 
-  const currentCharList = computed(() =>
-    activeMode.value === 'letters' ? LETTERS : NUMBERS
-  )
+  const currentCharList = computed(() => {
+    if (activeMode.value === 'numbers') return NUMBER_ITEMS
+    if (activeMode.value === 'commands') return COMMANDS
+    return LETTER_ITEMS
+  })
 
-  const webrtcMode = computed(() =>
-    activeMode.value === 'numbers' ? 'digits' : 'letters'
-  )
+  const totalCount = computed(() => currentCharList.value.length)
+
+  const targetConfig = computed(() => {
+    const fallback = { value: targetChar.value, label: targetChar.value, description: '', hint: '' }
+    return findItem(currentCharList.value, targetChar.value) || fallback
+  })
+
+  const webrtcMode = computed(() => {
+    if (activeMode.value === 'numbers') return 'digits'
+    if (activeMode.value === 'commands') return 'commands'
+    return 'letters'
+  })
 
   const referenceImageUrl = computed(() => {
-    const isLetter = LETTERS.includes(targetChar.value)
-    return isLetter
-      ? `https://avatar.youzilite.us.kg/letter/${targetChar.value}.png`
-      : `https://avatar.youzilite.us.kg/number/${targetChar.value}.png`
+    if (activeMode.value === 'commands') {
+      return ''
+    }
+
+    const value = targetConfig.value.value
+    return activeMode.value === 'letters'
+      ? `https://avatar.youzilite.us.kg/letter/${value}.png`
+      : `https://avatar.youzilite.us.kg/number/${value}.png`
+  })
+
+  const referenceTitle = computed(() => targetConfig.value.label)
+
+  const referenceHint = computed(() => {
+    if (activeMode.value === 'commands') {
+      return targetConfig.value.description || '请根据提示完成双手功能手势。'
+    }
+    return '请参照图片做出对应手势，对准摄像头保持稳定'
+  })
+
+  const referenceDescription = computed(() => {
+    if (activeMode.value === 'commands') {
+      return targetConfig.value.hint || ''
+    }
+    return ''
   })
 
   watch(isPassed, (passed) => {
     if (!passed) return
     markPassed(targetChar.value, activeMode.value)
     showCelebration.value = true
-    ElMessage.success(`${targetChar.value} 已掌握！点击下一个字符继续`)
+    ElMessage.success(`${targetConfig.value.label} 已掌握！点击下一个继续`)
   })
 
   const checkHit = (matchedToken) => {
@@ -104,8 +154,9 @@ export function usePracticeSession() {
     }
 
     overlayResult.value = payload
-    pinyinBuffer.value = String(payload.spellingBuffer || '')
-    stabilityProgress.value = Number(payload.stabilityProgress || 0)
+    const rawDisplayToken = String(payload.spellingBuffer || payload.commandGesture || payload.commandCandidate || '')
+    pinyinBuffer.value = activeMode.value === 'commands' ? getCommandLabel(rawDisplayToken) : rawDisplayToken
+    stabilityProgress.value = Number(payload.stabilityProgress || payload.commandCandidateProgress || 0)
   }
 
   const disconnectWebRtc = () => {
@@ -149,7 +200,7 @@ export function usePracticeSession() {
       await connectWebRtc(stream)
     } catch (err) {
       console.error(err)
-      stream?.getTracks().forEach(t => t.stop())
+      stream?.getTracks().forEach((t) => t.stop())
       isCameraActive.value = false
       localStream.value = null
       connectionState.value = 'idle'
@@ -161,17 +212,17 @@ export function usePracticeSession() {
     disconnectWebRtc()
     isCameraActive.value = false
     resetPracticeState()
-    localStream.value?.getTracks().forEach(t => t.stop())
+    localStream.value?.getTracks().forEach((t) => t.stop())
     localStream.value = null
   }
 
   const switchMode = (mode) => {
     activeMode.value = mode
-    targetChar.value = mode === 'letters' ? 'A' : '0'
+    targetChar.value = currentCharList.value[0]?.value || 'A'
     resetPracticeState()
 
     if (webrtcClient) {
-      try { webrtcClient.setMode(mode === 'numbers' ? 'digits' : 'letters') }
+      try { webrtcClient.setMode(webrtcMode.value) }
       catch (err) { console.error(err) }
     }
   }
@@ -183,9 +234,9 @@ export function usePracticeSession() {
 
   const nextChar = () => {
     const list = currentCharList.value
-    const currentIndex = list.indexOf(targetChar.value)
+    const currentIndex = list.findIndex((item) => item.value === targetChar.value)
     const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % list.length : 0
-    targetChar.value = list[nextIndex]
+    targetChar.value = list[nextIndex]?.value || targetChar.value
     resetPracticeState()
   }
 
@@ -199,18 +250,37 @@ export function usePracticeSession() {
   }
 
   const initFromRoute = () => {
-    const target = route.query.target
-    if (target) {
-      targetChar.value = String(target).toUpperCase()
-      activeMode.value = NUMBERS.includes(target) ? 'numbers' : 'letters'
+    const rawTarget = route.query.target
+    if (!rawTarget) {
+      return
     }
+
+    const target = String(rawTarget).toUpperCase()
+    if (COMMAND_VALUE_SET.has(target)) {
+      activeMode.value = 'commands'
+      targetChar.value = target
+      return
+    }
+
+    if (NUMBERS.includes(target)) {
+      activeMode.value = 'numbers'
+      targetChar.value = target
+      return
+    }
+
+    activeMode.value = 'letters'
+    targetChar.value = target
   }
 
   return {
     activeMode,
     targetChar,
     currentCharList,
+    totalCount,
+    targetLabel: referenceTitle,
     referenceImageUrl,
+    referenceHint,
+    referenceDescription,
     isCameraActive,
     connectionState,
     isRecognitionReady,

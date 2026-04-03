@@ -1,10 +1,11 @@
 <template>
   <div class="reference-panel">
     <div class="panel-label">标准手势</div>
-    <div class="char-display">{{ targetChar }}</div>
+    <div class="char-display">{{ targetLabel }}</div>
 
     <div class="reference-image-wrap">
       <el-image
+        v-if="referenceImageUrl"
         :src="referenceImageUrl"
         fit="contain"
         class="reference-image"
@@ -16,9 +17,15 @@
           </div>
         </template>
       </el-image>
+
+      <div v-else class="command-guide-card">
+        <div class="command-guide-title">动作提示</div>
+        <p class="command-guide-main">{{ referenceHint }}</p>
+        <p v-if="referenceDescription" class="command-guide-sub">{{ referenceDescription }}</p>
+      </div>
     </div>
 
-    <p class="reference-hint">请参照图片做出对应手势，对准摄像头保持稳定</p>
+    <p v-if="referenceImageUrl" class="reference-hint">{{ referenceHint }}</p>
   </div>
 </template>
 
@@ -26,8 +33,10 @@
 import { Picture } from '@element-plus/icons-vue'
 
 defineProps({
-  targetChar: { type: String, default: 'A' },
+  targetLabel: { type: String, default: 'A' },
   referenceImageUrl: { type: String, default: '' },
+  referenceHint: { type: String, default: '' },
+  referenceDescription: { type: String, default: '' },
 })
 </script>
 
@@ -57,11 +66,12 @@ defineProps({
 }
 
 .char-display {
-  font-size: 80px;
+  font-size: 56px;
   font-weight: 900;
   color: #16312a;
   line-height: 1;
   letter-spacing: -0.02em;
+  text-align: center;
 }
 
 .reference-image-wrap {
@@ -81,6 +91,41 @@ defineProps({
     object-fit: contain;
     max-height: 100%;
   }
+}
+
+.command-guide-card {
+  width: 100%;
+  padding: 20px 18px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(215, 238, 227, 0.95), rgba(241, 247, 244, 0.98));
+  border: 1px solid rgba(33, 109, 75, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.command-guide-title {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(33, 109, 75, 0.1);
+  color: #216d4b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.command-guide-main {
+  margin: 14px 0 8px;
+  font-size: 18px;
+  line-height: 1.5;
+  color: #17312b;
+  font-weight: 800;
+}
+
+.command-guide-sub {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #5d746c;
 }
 
 .image-error {
