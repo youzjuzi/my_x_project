@@ -30,12 +30,9 @@
             <router-link to="/">
               <el-dropdown-item>首页</el-dropdown-item>
             </router-link>
-            <a target="_blank" href="https://github.com/midfar/vue3-element-admin">
-              <el-dropdown-item>项目地址</el-dropdown-item>
-            </a>
-            <a target="_blank" href="https://vue3-element-admin-site.midfar.com/">
-              <el-dropdown-item>文档地址</el-dropdown-item>
-            </a>
+            <el-dropdown-item @click="openSettings">
+              <span style="display:block;">设置</span>
+            </el-dropdown-item>
             <el-dropdown-item divided @click="logout">
               <span style="display:block;">退出登录</span>
             </el-dropdown-item>
@@ -60,6 +57,7 @@ import { CaretBottom } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 
 export default defineComponent({
+  emits: ['open-settings'],
   components: {
     Breadcrumb,
     Hamburger,
@@ -82,11 +80,13 @@ export default defineComponent({
     toggleSidebar() {
       store.app().toggleSidebar();
     },
+    openSettings() {
+      this.$emit('open-settings');
+    },
     async logout() {
       try {
         await store.user().logout();
         ElMessage.success('退出登录成功');
-        // 清除路由历史，跳转到登录页（不保留 redirect 参数）
         this.$router.replace('/login');
       } catch (error) {
         ElMessage.error('退出登录失败，请稍后重试');
@@ -157,8 +157,7 @@ export default defineComponent({
         &:hover {
           background: rgba(99, 102, 241, 0.08);
           color: #5340E8;
-          
-          // 所有类型的图标都变为主题紫色
+
           :deep(.el-icon),
           :deep(svg),
           :deep(.svg-icon),
@@ -168,16 +167,14 @@ export default defineComponent({
             color: #5340E8 !important;
             fill: #5340E8 !important;
           }
-          
-          // SVG 图标特殊处理
+
           :deep(svg.svg-icon) {
             fill: #5340E8 !important;
           }
         }
       }
     }
-    
-    // 搜索组件特殊处理
+
     #header-search {
       &.hover-effect:hover {
         :deep(.search-icon),
@@ -215,13 +212,13 @@ export default defineComponent({
           transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
       }
-      
+
       &:hover {
         .avatar-wrapper {
           .user-avatar {
             box-shadow: 0 0 0 2px rgba(83, 64, 232, 0.2);
           }
-          
+
           .el-icon-caret-bottom {
             color: #5340E8;
           }

@@ -4,11 +4,11 @@
     <sidebar class="sidebar-container" />
     <div :class="{ hasTagsView: needTagsView }" class="main-container">
       <div :class="{ 'fixed-header': fixedHeader }">
-        <navbar />
+        <navbar @open-settings="openSettingsPanel" />
         <tags-view v-if="needTagsView" />
       </div>
       <app-main />
-      <right-panel v-if="showSettings">
+      <right-panel v-if="showSettings" ref="rightPanel" :show-button="false">
         <settings />
       </right-panel>
     </div>
@@ -53,6 +53,9 @@ export default defineComponent({
   methods: {
     handleClickOutside() {
       store.app().closeSidebar({ withoutAnimation: false });
+    },
+    openSettingsPanel() {
+      this.$refs.rightPanel?.openPanel?.();
     }
   }
 });
@@ -60,7 +63,6 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 @use "@/styles/mixin.scss";
-// @use "@/styles/variables.module.scss";
 
 .app-wrapper {
   @include mixin.clearfix;

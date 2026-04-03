@@ -1,6 +1,5 @@
 <template>
   <div class="dashboard-container">
-    <github-corner class="github-corner" />
 
     <!-- 手语识别入口卡片 -->
     <el-card class="recognition-card" shadow="never">
@@ -143,7 +142,7 @@
 </template>
 
 <script>
-import GithubCorner from '@/components/GithubCorner';
+
 import ChallengeTimeline from '@/components/ChallengeTimeline/index.vue';
 import { defineComponent, markRaw } from 'vue';
 import { 
@@ -163,7 +162,6 @@ import {
 export default defineComponent({
   name: 'Dashboard',
   components: {
-    GithubCorner,
     ChallengeTimeline
   },
   data() {
@@ -260,12 +258,6 @@ export default defineComponent({
   position: relative;
   min-height: calc(100vh - 84px);
 
-  .github-corner {
-    position: absolute;
-    top: 0px;
-    border: 0;
-    right: 0;
-  }
 
   .recognition-card {
     margin-bottom: 32px;
@@ -746,3 +738,4 @@ export default defineComponent({
   }
 }
 </style>
+

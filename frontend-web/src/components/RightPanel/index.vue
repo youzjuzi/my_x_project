@@ -2,7 +2,7 @@
   <div ref="rightPanel" :class="{ show: show }" class="rightPanel-container">
     <div class="rightPanel-background" />
     <div class="rightPanel">
-      <div class="handle-button" :style="{ 'top': buttonTop + 'px', 'background-color': theme }" @click="handleClick">
+      <div v-if="showButton" class="handle-button" :style="{ 'top': buttonTop + 'px', 'background-color': theme }" @click="handleClick">
         <el-icon>
           <Close v-if="show" class="svg-icon disabled" />
           <Setting v-else class="svg-icon disabled" />
@@ -35,6 +35,10 @@ export default defineComponent({
     buttonTop: {
       default: 250,
       type: Number
+    },
+    showButton: {
+      default: true,
+      type: Boolean
     }
   },
   data() {
@@ -68,7 +72,20 @@ export default defineComponent({
   },
   methods: {
     handleClick() {
+      this.togglePanel();
+    },
+    openPanel() {
+      this.show = true;
+    },
+    closePanel() {
+      this.show = false;
+      window.removeEventListener('click', this.closeSidebar);
+    },
+    togglePanel() {
       this.show = !this.show;
+      if (!this.show) {
+        window.removeEventListener('click', this.closeSidebar);
+      }
     },
     addEventClick() {
       window.addEventListener('click', this.closeSidebar);
@@ -76,8 +93,7 @@ export default defineComponent({
     closeSidebar(evt) {
       const parent = evt.target.closest('.rightPanel');
       if (!parent) {
-        this.show = false;
-        window.removeEventListener('click', this.closeSidebar);
+        this.closePanel();
       }
     },
     insertToBody() {

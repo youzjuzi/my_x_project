@@ -27,6 +27,7 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue';
+import { ElMessage } from 'element-plus';
 import { DArrowRight, CircleCheckFilled } from '@element-plus/icons-vue';
 import { generateCaptcha, verifyCaptcha } from '@/api/captcha';
 
@@ -46,7 +47,8 @@ export default defineComponent({
       boxWidth: 0,
       maxLeft: 0,
       isSuccess: false,
-      captchaId: ''
+      captchaId: '',
+      hasShownDragHint: false
     };
   },
   mounted() {
@@ -85,6 +87,10 @@ export default defineComponent({
 
     startDrag(e: MouseEvent | TouchEvent) {
       if (this.isSuccess) return;
+      if (!this.hasShownDragHint) {
+        ElMessage.info('请拖动滑块到最右侧完成验证');
+        this.hasShownDragHint = true;
+      }
       
       this.isDragging = true;
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -141,6 +147,7 @@ export default defineComponent({
         
         if (res.code === 20000) {
           this.isSuccess = true;
+          ElMessage.success('滑动验证已通过，请继续操作');
           this.$emit('success', this.captchaId);
         } else {
           this.$emit('fail');
@@ -159,6 +166,7 @@ export default defineComponent({
       this.sliderLeft = 0;
       this.sliderWidth = 0;
       this.isSuccess = false;
+      this.hasShownDragHint = false;
       // 重新计算容器宽度 (防止窗口缩放)
       if (this.$refs.sliderBox) {
         this.boxWidth = (this.$refs.sliderBox as HTMLElement).clientWidth;
@@ -257,3 +265,5 @@ export default defineComponent({
   }
 }
 </style>
+
+
