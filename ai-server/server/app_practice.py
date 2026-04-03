@@ -1,14 +1,12 @@
 from . import config
 from .apps import create_scene_app
 from .scenes import PracticeSession
-from .strategies.hand_command import HandCommandRecognizer
 
 
 def build_session(pc, mode):
     return PracticeSession(
         pc,
         mode,
-        command_recognizer=HandCommandRecognizer(config.MEDIAPIPE_TASK),
     )
 
 
