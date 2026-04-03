@@ -1,13 +1,11 @@
 <template>
   <div class="challenge-container">
-    <!-- 顶部操作栏 -->
     <div class="top-actions" v-if="showConfig">
       <el-button type="info" :icon="Clock" @click="showHistoryDialog = true">
         查看挑战记录
       </el-button>
     </div>
 
-    <!-- 配置界面 -->
     <ChallengeConfig
       v-if="showConfig"
       :config="config"
@@ -16,7 +14,6 @@
       @start="handleStartChallenge"
     />
 
-    <!-- 游戏界面 -->
     <ChallengeGame
       v-if="!showConfig"
       :is-playing="isPlaying"
@@ -33,28 +30,30 @@
       :current-target-char="currentTargetChar"
       :last-detected-char="lastDetectedChar"
       :current-question="currentQuestion"
-      @start-game="startGame"
+      :stream="localStream"
+      :connection-state="connectionState"
+      :is-recognition-ready="isRecognitionReady"
+      :stability-progress="stabilityProgress"
+      :overlay-result="overlayResult"
+      @start-game="handleManualStart"
       @stop-game="() => stopGame(true)"
     />
 
-    <!-- 结果对话框 -->
     <ChallengeResult
       v-model="showResult"
       :score="score"
-      :completed-count="currentWordIndex + 1"
+      :completed-count="completedCount"
       :total-count="totalWords"
       :challenge-mode="challengeMode"
       :time-used="challengeTime - timeLeft"
-      :accuracy="totalWords > 0 ? (currentWordIndex + 1) / totalWords : 0"
-      :rank="getRank((currentWordIndex + 1) / totalWords)"
+      :accuracy="totalWords > 0 ? completedCount / totalWords : 0"
+      :rank="getRank(totalWords > 0 ? completedCount / totalWords : 0)"
       @back-to-config="handleBackToConfig"
       @restart="handleRestart"
     />
 
-    <!-- 挑战记录对话框 -->
     <ChallengeHistory v-model="showHistoryDialog" />
 
-    <!-- 暂停对话框 -->
     <ChallengePauseDialog
       v-model="showPauseDialog"
       @resume="handleResume"
@@ -78,7 +77,6 @@ import { startChallenge } from '@/api/challenge'
 import { useChallengeConfig } from './composables/useChallengeConfig'
 import { useChallengeGame } from './composables/useChallengeGame'
 
-// 使用 composables
 const configComposable = useChallengeConfig()
 const {
   showConfig,
@@ -90,10 +88,9 @@ const {
   currentQuestionSetName,
   handleConfigUpdate,
   loadQuestionSets,
-  loadQuestions
+  loadQuestions,
 } = configComposable
 
-// 传入 challengeTime 引用给游戏 composable
 const gameComposable = useChallengeGame(challengeTime)
 const {
   isPlaying,
@@ -108,7 +105,13 @@ const {
   lastDetectedChar,
   currentQuestion,
   challengeId,
+  localStream,
+  connectionState,
+  isRecognitionReady,
+  stabilityProgress,
+  overlayResult,
   totalWords,
+  completedCount,
   currentWordOriginal,
   currentTargetSequence,
   currentTargetChar,
@@ -116,21 +119,33 @@ const {
   stopGame,
   resumeGame,
   abandonChallenge,
-  handleMatchSuccess,
   updateCurrentMode,
-  getRank
+  getRank,
 } = gameComposable
 
 const showHistoryDialog = ref(false)
 
-// 开始挑战
+const beginChallengePlay = async () => {
+  const started = await startGame()
+  if (started) {
+    return true
+  }
+
+  if (challengeId.value) {
+    await abandonChallenge()
+  }
+  challengeId.value = ''
+  showConfig.value = true
+  ElMessage.warning('挑战识别未连接成功，已返回配置页')
+  return false
+}
+
 const handleStartChallenge = async () => {
   const questions = await loadQuestions()
   if (!questions || questions.length === 0) {
     return
   }
 
-  // 设置题目到游戏 composable
   currentQuestionList.value = questions
   currentWordIndex.value = 0
   currentQuestion.value = questions[0]
@@ -142,57 +157,56 @@ const handleStartChallenge = async () => {
       mode: challengeMode.value,
       questionSetId: challengeMode.value === 'questionSet' ? selectedQuestionSetId.value : null,
       questionIds,
-      timeLimit: challengeTime.value
+      timeLimit: challengeTime.value,
     })
 
     const data = res.data || {}
-    gameComposable.challengeId.value = data.challengeId || ''
-    
+    challengeId.value = data.challengeId || ''
     showConfig.value = false
-    setTimeout(() => {
-      gameComposable.startGame()
-    }, 100)
+    await beginChallengePlay()
   } catch (error) {
     console.error('开始挑战失败', error)
     ElMessage.error('开始挑战失败，请稍后重试')
   }
 }
 
-// 继续挑战
-const handleResume = () => {
-  gameComposable.resumeGame()
+const handleManualStart = async () => {
+  await beginChallengePlay()
 }
 
-// 从暂停对话框重新开始
+const handleResume = async () => {
+  const resumed = await resumeGame()
+  if (!resumed) {
+    ElMessage.warning('挑战识别未恢复成功，请重新开始')
+  }
+}
+
 const handleRestartFromPause = async () => {
   showPauseDialog.value = false
-  
+
   if (challengeId.value) {
     await abandonChallenge()
   }
-  
+
   challengeId.value = ''
   currentQuestionList.value = []
-  
   await handleStartChallenge()
 }
 
-// 从暂停对话框返回
 const handleReturnFromPause = async () => {
   showPauseDialog.value = false
-  
+
   if (challengeId.value) {
     await abandonChallenge()
   }
-  
+
   showConfig.value = true
   currentQuestionList.value = []
   challengeId.value = ''
 }
 
-// 返回配置
 const handleBackToConfig = async () => {
-  if (isPlaying.value && challengeId.value) {
+  if (challengeId.value && !showResult.value) {
     await abandonChallenge()
   }
   showResult.value = false
@@ -202,50 +216,49 @@ const handleBackToConfig = async () => {
   challengeId.value = ''
 }
 
-// 重新开始
 const handleRestart = async () => {
+  challengeId.value = ''
   showResult.value = false
   const questions = await loadQuestions()
-  if (questions && questions.length > 0) {
-    currentQuestionList.value = questions
-    currentWordIndex.value = 0
-    currentQuestion.value = questions[0]
-    updateCurrentMode()
-    
-    try {
-      const questionIds = questions.map((q: any) => q.id)
-      const res = await startChallenge({
-        mode: challengeMode.value,
-        questionSetId: challengeMode.value === 'questionSet' ? selectedQuestionSetId.value : null,
-        questionIds,
-        timeLimit: challengeTime.value
-      })
-      const data = res.data || {}
-      challengeId.value = data.challengeId || ''
-      startGame()
-    } catch (error) {
-      console.error('重新开始挑战失败', error)
-      ElMessage.error('重新开始挑战失败，请稍后重试')
-    }
+  if (!questions || questions.length === 0) {
+    return
+  }
+
+  currentQuestionList.value = questions
+  currentWordIndex.value = 0
+  currentQuestion.value = questions[0]
+  updateCurrentMode()
+
+  try {
+    const questionIds = questions.map((q: any) => q.id)
+    const res = await startChallenge({
+      mode: challengeMode.value,
+      questionSetId: challengeMode.value === 'questionSet' ? selectedQuestionSetId.value : null,
+      questionIds,
+      timeLimit: challengeTime.value,
+    })
+    const data = res.data || {}
+    challengeId.value = data.challengeId || ''
+    await beginChallengePlay()
+  } catch (error) {
+    console.error('重新开始挑战失败', error)
+    ElMessage.error('重新开始挑战失败，请稍后重试')
   }
 }
 
-// 初始化
 onMounted(() => {
   loadQuestionSets()
 })
 
-// 路由离开前，放弃进行中的挑战
 onBeforeRouteLeave(async (to, from, next) => {
-  if (isPlaying.value && challengeId.value) {
+  if (challengeId.value && !showResult.value) {
     await abandonChallenge()
   }
   next()
 })
 
-// 组件卸载时，放弃进行中的挑战
 onBeforeUnmount(async () => {
-  if (isPlaying.value && challengeId.value) {
+  if (challengeId.value && !showResult.value) {
     await abandonChallenge()
   }
   stopGame(false)
@@ -272,3 +285,4 @@ onUnmounted(() => {
   margin-bottom: 5px;
 }
 </style>
+
