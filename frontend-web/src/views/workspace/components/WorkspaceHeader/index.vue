@@ -38,7 +38,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Switch, QuestionFilled } from '@element-plus/icons-vue'
-import HelpGuideDialog from '../../../recognition/components/HelpGuideDialog.vue'
+import HelpGuideDialog from '../HelpGuideDialog/index.vue'
 
 const router = useRouter()
 const helpVisible = ref(false)

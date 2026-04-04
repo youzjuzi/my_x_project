@@ -63,7 +63,7 @@
 <script setup>
 import { ref } from 'vue'
 import { ArrowLeft, Switch, QuestionFilled } from '@element-plus/icons-vue'
-import HelpGuideDialog from './HelpGuideDialog.vue'
+import HelpGuideDialog from '../../workspace/components/HelpGuideDialog/index.vue'
 
 const helpVisible = ref(false)
 
