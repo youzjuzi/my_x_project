@@ -8,24 +8,28 @@
         <span class="label">拼音候选</span>
       </div>
       <div class="candidates-content">
-        <div v-if="hanziCandidate" class="candidate-preview">
-          {{ hanziCandidate }}
-        </div>
-        <div class="tags-wrapper">
-          <el-tag
-            v-for="(word, idx) in candidates"
-            :key="idx"
-            class="candidate-tag"
-            :class="{ active: idx === candidateIndex }"
-            effect="plain"
-            round
-            size="small"
-          >
-            <span class="candidate-index">{{ idx + 1 }}</span>
-            {{ word }}
-          </el-tag>
-          <span v-if="candidates.length === 0" class="no-candidate">等待输入...</span>
-        </div>
+        <!-- 只有当进度完成（已重置）且缓冲有字符，才展示候选词 -->
+        <template v-if="shouldShowCandidates">
+          <div v-if="hanziCandidate" class="candidate-preview">
+            {{ hanziCandidate }}
+          </div>
+          <div class="tags-wrapper">
+            <el-tag
+              v-for="(word, idx) in candidates"
+              :key="idx"
+              class="candidate-tag"
+              :class="{ active: idx === candidateIndex }"
+              effect="plain"
+              round
+              size="small"
+            >
+              <span class="candidate-index">{{ idx + 1 }}</span>
+              {{ word }}
+            </el-tag>
+          </div>
+        </template>
+        <!-- 尚未确认或进度还在进行中 -->
+        <span v-else class="no-candidate">{{ cachedBuffer ? '识别中...' : '等待输入...' }}</span>
       </div>
 
       <div class="accepted-words-area">
@@ -101,9 +105,28 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // 稳定性进度：0 = 无手势/已完成重置，>0 = 手势确认中
+  stabilityProgress: {
+    type: Number,
+    default: 0,
+  },
+  // 已确认字符缓冲：有内容才允许展示候选
+  cachedBuffer: {
+    type: String,
+    default: '',
+  },
 })
 
 defineEmits(['copy', 'clear', 'speak'])
+
+/**
+ * 候选词展示条件：
+ * - 进度条已完成重置（stabilityProgress < 0.05）
+ * - 且缓冲区有确认字符（cachedBuffer 非空）
+ */
+const shouldShowCandidates = computed(() =>
+  props.stabilityProgress < 0.05 && props.cachedBuffer?.length > 0
+)
 </script>
 
 <style lang="scss" scoped>
@@ -220,8 +243,8 @@ defineEmits(['copy', 'clear', 'speak'])
   flex-direction: column;
   justify-content: center;
   gap: 10px;
-  /* 固定高度：配候词和预览文字同时存在时不会政大布局 */
-  height: 96px;
+  /* 固定高度 160px，内容多时可滚动，不会政大布局 */
+  height: 160px;
   overflow-y: auto;
 }
 

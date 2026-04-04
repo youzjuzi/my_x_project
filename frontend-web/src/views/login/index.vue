@@ -343,9 +343,9 @@ export default defineComponent({
             store.user().login(this.loginForm)
               .then(() => {
                 ElMessage.success('登录成功');
-                // 登录成功后，清除 redirect 参数，强制跳转到首页
+                // 登录成功后，清除 redirect 参数，强制跳转到工作台首页
                 // 这样可以避免新用户登录后停留在之前用户访问的页面
-                this.$router.replace('/');
+                this.$router.replace('/workspace');
                 this.loading = false;
                 // 重置验证码状态
                 this.captchaVerified = false;

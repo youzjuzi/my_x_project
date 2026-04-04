@@ -98,10 +98,12 @@ export function useWorkspace() {
           isAiPolished: 0
         }).catch((err: any) => console.error('保存降级历史记录失败:', err))
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('提交失败:', error)
       pendingWords.value = wordsToSubmit + pendingWords.value
-      ElMessage.warning('提交失败，词语已还原')
+      // 展示真实错误原因，方便排查
+      const reason = error?.message || '未知错误'
+      ElMessage.warning(`提交失败，词语已还原（${reason}）`)
     } finally {
       isSubmitting.value = false
     }

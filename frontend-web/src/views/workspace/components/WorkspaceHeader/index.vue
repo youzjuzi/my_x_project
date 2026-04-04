@@ -69,7 +69,6 @@ const handleModeToggle = () => {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(18, 42, 35, 0.1);
-  /* 增强立体感 */
   box-shadow:
     0 2px 4px rgba(28, 43, 36, 0.04),
     0 8px 24px rgba(28, 43, 36, 0.08),
@@ -79,6 +78,8 @@ const handleModeToggle = () => {
   justify-content: space-between;
   gap: 10px;
   overflow: hidden;
+  /* 极窄时允许换行，防止按钮溢出 */
+  flex-wrap: wrap;
 }
 
 /* 左侧：工作台标识 chip（绿点 + 背景带绿意，指示当前模块） */

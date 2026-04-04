@@ -7,7 +7,7 @@
       </div>
 
       <div class="main-layout">
-        <!-- 左列：视频识别区，从标题下方直接开始，占满左侧高度 -->
+        <!-- 左列：视频识别区 + 快捷导航（摆在视频下方空白处） -->
         <div class="left-col">
           <VideoPanel
             :is-camera-active="isCameraActive"
@@ -35,6 +35,8 @@
             @start="startCamera"
             @stop="stopCamera"
           />
+          <!-- 快捷导航放在视频下方空白处 -->
+          <QuickNav />
         </div>
 
         <!-- 右列：控制栏 + 拼音/识别结果面板，左边缘与下方卡片对齐 -->
@@ -50,15 +52,14 @@
             :candidate-index="candidateIndex"
             :pending-words="pendingWords"
             :final-sentence="finalSentence"
+            :stability-progress="stabilityProgress"
+            :cached-buffer="cachedBuffer"
             @copy="copyResult"
             @clear="clearAll"
             @speak="speakResult"
           />
         </div>
       </div>
-
-      <!-- 底部快捷导航 -->
-      <QuickNav />
     </div>
   </div>
 </template>
@@ -116,6 +117,7 @@ const {
 <style scoped lang="scss">
 .workspace-page {
   min-height: calc(100vh - 84px);
+  min-width: 480px; /* 缩放过小时触发横向滚动，而不是内容崩裂 */
   padding: 16px 20px 18px;
   background-color: #edf2f0;
   background-image:
@@ -170,17 +172,14 @@ const {
   align-items: stretch;
 }
 
-/* 左列：视频区，比例 2（对应原 span=16） */
+/* 左列：视频区 + 快捷导航，比例 2（对应原 span=16） */
 .left-col {
   flex: 2;
   min-width: 0;
   display: flex;
   flex-direction: column;
-
-  > * {
-    flex: 1;
-    min-height: 0;
-  }
+  gap: 18px;
+  /* 移除原来的 > * { flex:1 }，让 VideoPanel 以 16:9 自然高度显示 */
 }
 
 /* 右列：控制栏 + 结果面板，比例 1（对应原 span=8） */

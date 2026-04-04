@@ -22,8 +22,10 @@ app = create_scene_app(
     description="FastAPI WebRTC service for browser camera streaming and mode-switchable hand recognition.",
     session_factory=build_session,
     static_dir=STATIC_DIR,
-    extra_router=polish_router,
 )
+
+# 单独注册润色路由，前缀与前端 URL 约定一致：/recognition/webrtc/polish
+app.include_router(polish_router, prefix="/recognition")
 
 
 def main() -> None:

@@ -1,10 +1,5 @@
 <template>
   <div class="quick-nav">
-    <!-- 区域标签 -->
-    <div class="nav-section-label">
-      <span class="label-dot" />
-      快捷导航
-    </div>
 
     <!-- 4 张功能卡片 -->
     <div class="nav-cards">
@@ -86,37 +81,12 @@ const handleClick = (item: typeof navItems[0]) => {
 </script>
 
 <style scoped lang="scss">
-/* 整体容器 */
-.quick-nav {
-  margin-top: 18px;
-}
 
-/* 区域标签 */
-.nav-section-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 12px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #4d7a62;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  user-select: none;
-}
 
-.label-dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #25a165;
-}
-
-/* 卡片行 */
+/* 卡片行：自适应网格，宽度不够时自动换行 */
 .nav-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 14px;
 }
 
