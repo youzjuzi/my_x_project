@@ -7,6 +7,13 @@
 
     <div class="right-menu">
       <template v-if="device !== 'mobile'">
+        <!-- 醒目的工作台入口 -->
+        <div class="right-menu-item" style="padding-right: 15px;">
+          <el-button type="primary" round class="workspace-btn" @click="$router.push('/workspace')">
+            识别页面
+          </el-button>
+        </div>
+
         <search id="header-search" class="right-menu-item" />
 
         <error-log class="errLog-container right-menu-item hover-effect" />
@@ -182,6 +189,20 @@ export default defineComponent({
           color: #5340E8 !important;
           fill: #5340E8 !important;
         }
+      }
+    }
+
+    .workspace-btn {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border: none;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+      font-weight: 600;
+      letter-spacing: 1px;
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
       }
     }
 

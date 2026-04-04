@@ -1,84 +1,35 @@
 <template>
   <div class="dashboard-container">
 
-    <!-- 手语识别入口卡片 -->
-    <el-card class="recognition-card" shadow="never">
-      <div class="mesh-background"></div>
-      <div class="recognition-content">
-        <div class="recognition-left">
-          <h2 class="recognition-title">欢迎使用<br>ASL 实时手语交互系统</h2>
-          <p class="recognition-desc">开启您的手语识别之旅，体验智能交互的无限可能</p>
-        </div>
-        <div class="recognition-right">
-          <button class="glass-button" @click="goToRecognition">
-            <el-icon><VideoCamera/></el-icon>
-            <span>开始识别</span>
-          </button>
-          <button class="glass-button debug-button" @click="goToSignDebug">
-            <el-icon><Edit/></el-icon>
-            <span>手语调试</span>
-          </button>
-          <div class="hand-illustration">
-            <!-- 全息磨砂玻璃手 -->
-            <svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg" class="holo-hand">
-              <defs>
-                <linearGradient id="holoGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" style="stop-color:#a5b4fc;stop-opacity:0.2" />
-                  <stop offset="50%" style="stop-color:#6366f1;stop-opacity:0.4" />
-                  <stop offset="100%" style="stop-color:#4f46e5;stop-opacity:0.1" />
-                </linearGradient>
-                <filter id="glassGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="5" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                  <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="rgba(99, 102, 241, 0.5)" />
-                </filter>
-              </defs>
-              
-              <g class="hand-shape" filter="url(#glassGlow)">
-                <!-- 平滑手掌轮廓 path (修正大拇指) -->
-                <path d="M90,225 
-                         C60,220 50,190 40,160 
-                         C35,145 20,130 25,115 
-                         C30,100 50,110 65,135 
-                         L70,110 
-                         L75,60 C78,45 90,45 92,60 
-                         L95,120 L100,120 
-                         L105,40 C108,25 120,25 122,40 
-                         L125,120 L130,120 
-                         L140,60 C143,45 155,55 152,70 
-                         L148,130 L152,135 
-                         L170,110 C180,115 175,130 165,145 
-                         C155,160 160,190 140,225 
-                         Z" 
-                      fill="url(#holoGradient)" 
-                      stroke="rgba(255, 255, 255, 0.4)" 
-                      stroke-width="1.5" />
-                
-                <!-- 掌心能量核心 -->
-                <circle cx="100" cy="140" r="15" fill="rgba(255, 255, 255, 0.2)" class="energy-core" />
-              </g>
-            </svg>
-        </div>
-        </div>
+    <!-- 欢迎区 -->
+    <div class="welcome-section">
+      <div class="welcome-text">
+        <h2 class="welcome-title">👋 欢迎回来，{{ userName || '同学' }}</h2>
+        <p class="welcome-desc">查看你的学习进展，继续手语学习之旅吧！</p>
       </div>
-    </el-card>
+      <el-button type="primary" round class="go-workspace-btn" @click="$router.push('/workspace')">
+        <el-icon><VideoCamera /></el-icon>
+        开始识别
+      </el-button>
+    </div>
 
-    <!-- 数据看板 -->
+    <!-- 四个数据卡片 -->
     <el-row :gutter="20" style="margin-top: 20px;">
-      <el-col :xs="24" :sm="12" :md="6" v-for="(stat, index) in statsData" :key="index">
-        <div class="stat-card" :class="`stat-card-${index}`">
+      <el-col :xs="24" :sm="12" :md="6" v-for="(stat, index) in statsCards" :key="index">
+        <div class="stat-card" :class="`stat-card-${index}`" :style="{ animationDelay: `${index * 0.08}s` }">
           <div class="stat-icon">
-            <el-icon :size="32">
-              <component :is="stat.icon" />
-            </el-icon>
+            <span class="stat-emoji">{{ stat.emoji }}</span>
           </div>
           <div class="stat-content">
-            <div class="stat-value">{{ stat.value }}</div>
+            <div class="stat-value">
+              <span v-if="statsLoading" class="stat-skeleton"></span>
+              <template v-else>{{ stat.value }}</template>
+            </div>
             <div class="stat-label">{{ stat.label }}</div>
           </div>
-          <div class="stat-badge" v-if="stat.trend" :class="stat.trend < 0 ? 'negative' : ''">
-            <el-icon :size="14" :class="stat.trend > 0 ? 'trend-up' : 'trend-down'">
-              <component :is="stat.trend > 0 ? ArrowUp : ArrowDown" />
+          <div class="stat-badge" v-if="stat.trend !== null && stat.trend !== undefined && !statsLoading" :class="stat.trend < 0 ? 'negative' : ''">
+            <el-icon :size="14">
+              <component :is="stat.trend >= 0 ? ArrowUp : ArrowDown" />
             </el-icon>
             <span>{{ Math.abs(stat.trend) }}%</span>
           </div>
@@ -86,54 +37,94 @@
       </el-col>
     </el-row>
 
-    <!-- 快捷入口 -->
+    <!-- 下方两栏 -->
     <el-row :gutter="20" style="margin-top: 20px;">
-      <!-- 游戏化挑战成就列表 -->
+      <!-- 挑战成就（真实数据） -->
       <el-col :xs="24" :md="12">
         <div class="panel-card challenge-timeline-card">
           <div class="panel-header">
             <div class="panel-title">
-              <el-icon :size="20" class="title-icon">
-                <component :is="TrophyIcon" />
-              </el-icon>
+              <span class="title-emoji">🏆</span>
               <span>挑战成就</span>
             </div>
-            <el-button text type="primary" size="small">查看全部</el-button>
+            <el-button text type="primary" size="small" @click="$router.push('/learning/challenge')">查看全部</el-button>
           </div>
           <div class="panel-content timeline-content">
-            <ChallengeTimeline :challenges="recentChallenges" />
+            <div v-if="challengeLoading" class="loading-state">
+              <el-icon class="is-loading" :size="24"><Loading /></el-icon>
+              <p>加载中...</p>
+            </div>
+            <ChallengeTimeline v-else :challenges="recentChallenges" />
           </div>
         </div>
       </el-col>
 
-      <!-- 每日手语词汇 -->
+      <!-- 学习热力图 -->
       <el-col :xs="24" :md="12">
-        <div class="panel-card daily-vocabulary">
+        <div class="panel-card heatmap-card">
           <div class="panel-header">
             <div class="panel-title">
-              <el-icon :size="20" class="title-icon">
-                <component :is="ReadingIcon" />
-              </el-icon>
-              <span>每日手语词汇</span>
+              <span class="title-emoji">📅</span>
+              <span>学习活跃度</span>
             </div>
-            <el-button text type="primary" size="small">学习更多</el-button>
+            <div class="heatmap-month-nav">
+              <el-button text size="small" @click="prevMonth">
+                <el-icon><ArrowLeft /></el-icon>
+              </el-button>
+              <span class="month-label">{{ heatmapYear }}年{{ heatmapMonth }}月</span>
+              <el-button text size="small" @click="nextMonth" :disabled="isCurrentMonth">
+                <el-icon><ArrowRight /></el-icon>
+              </el-button>
+            </div>
           </div>
-          <div class="panel-content">
-            <div 
-              v-for="(word, index) in dailyVocabulary" 
-              :key="index" 
-              class="vocab-item"
-            >
-              <div class="vocab-word">{{ word.word }}</div>
-              <div class="vocab-meaning">{{ word.meaning }}</div>
-              <div class="vocab-category">{{ word.category }}</div>
+          <div class="panel-content heatmap-content">
+            <div v-if="heatmapLoading" class="loading-state">
+              <el-icon class="is-loading" :size="24"><Loading /></el-icon>
+              <p>加载中...</p>
             </div>
-            <div v-if="dailyVocabulary.length === 0" class="empty-state">
-              <el-icon :size="48" color="#d1d5db">
-                <component :is="Document" />
-              </el-icon>
-              <p>暂无词汇</p>
-            </div>
+            <template v-else>
+              <!-- 星期标题行 -->
+              <div class="heatmap-weekdays">
+                <span v-for="day in ['日', '一', '二', '三', '四', '五', '六']" :key="day" class="weekday-label">{{ day }}</span>
+              </div>
+              <!-- 日历格子 -->
+              <div class="heatmap-grid">
+                <!-- 月初之前的空白格 -->
+                <div
+                  v-for="n in firstDayOfWeek"
+                  :key="'empty-' + n"
+                  class="heatmap-cell empty"
+                ></div>
+                <!-- 每天一格 -->
+                <div
+                  v-for="day in daysInMonth"
+                  :key="day"
+                  class="heatmap-cell"
+                  :class="{
+                    'active': activeDatesSet.has(formatDateStr(day)),
+                    'today': isToday(day)
+                  }"
+                  :title="formatDateStr(day) + (activeDatesSet.has(formatDateStr(day)) ? ' ✅ 已学习' : '')"
+                >
+                  <span class="day-num">{{ day }}</span>
+                </div>
+              </div>
+              <!-- 统计摘要 -->
+              <div class="heatmap-summary">
+                <div class="summary-item">
+                  <span class="summary-value">{{ activeDates.length }}</span>
+                  <span class="summary-label">活跃天数</span>
+                </div>
+                <div class="summary-item">
+                  <span class="summary-value">{{ daysInMonth }}</span>
+                  <span class="summary-label">本月总天</span>
+                </div>
+                <div class="summary-item">
+                  <span class="summary-value">{{ activityRate }}%</span>
+                  <span class="summary-label">活跃率</span>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </el-col>
@@ -142,110 +133,240 @@
 </template>
 
 <script>
-
 import ChallengeTimeline from '@/components/ChallengeTimeline/index.vue';
 import { defineComponent, markRaw } from 'vue';
-import { 
-  VideoCamera, 
-  Timer, 
-  DataBoard, 
-  PieChart,
+import { getDashboardStats } from '@/api/dashboard';
+import { getChallengeHistory } from '@/api/challenge';
+import { getActivityDates } from '@/api/translationHistory';
+import useUserStore from '@/store/modules/user';
+import {
+  VideoCamera,
   ArrowUp,
   ArrowDown,
-  Clock,
-  Reading,
-  Document,
-  Trophy,
-  Edit
+  ArrowLeft,
+  ArrowRight,
+  Loading
 } from '@element-plus/icons-vue';
 
 export default defineComponent({
   name: 'Dashboard',
   components: {
-    ChallengeTimeline
+    ChallengeTimeline,
+    VideoCamera,
+    ArrowLeft,
+    ArrowRight,
+    Loading
   },
   data() {
+    const now = new Date();
     return {
-      statsData: [
+      // 图标组件引用
+      ArrowUp: markRaw(ArrowUp),
+      ArrowDown: markRaw(ArrowDown),
+
+      // 统计数据
+      statsLoading: true,
+      streakDays: 0,
+      totalRecognitions: 0,
+      challengeAccuracy: 0,
+      bestScore: 0,
+      recognitionTrend: null,
+      accuracyTrend: null,
+
+      // 挑战记录
+      challengeLoading: true,
+      recentChallenges: [],
+
+      // 热力图
+      heatmapLoading: true,
+      heatmapYear: now.getFullYear(),
+      heatmapMonth: now.getMonth() + 1,
+      activeDates: [] // 活跃日期字符串数组
+    };
+  },
+  computed: {
+    userName() {
+      const userStore = useUserStore();
+      return userStore.name;
+    },
+    userId() {
+      const userStore = useUserStore();
+      return userStore.userId;
+    },
+    /** 四个统计卡片 */
+    statsCards() {
+      return [
         {
-          label: '累计识别时长',
-          value: '128.5h',
-          icon: markRaw(Timer),
-          trend: 12.5,
-          color: '#6366f1'
-        },
-        {
-          label: '今日练习',
-          value: '45次',
-          icon: markRaw(DataBoard),
-          trend: 8.3,
-          color: '#8b5cf6'
-        },
-        {
-          label: '平均准确率',
-          value: '92.8%',
-          icon: markRaw(PieChart),
-          trend: 5.2,
-          color: '#ec4899'
+          label: '连续学习',
+          value: this.streakDays + '天',
+          emoji: '🔥',
+          trend: null, // 连续天数不需要趋势
+          color: '#f59e0b'
         },
         {
           label: '总识别次数',
-          value: '1,234',
-          icon: markRaw(VideoCamera),
-          trend: 15.6,
+          value: this.formatNumber(this.totalRecognitions),
+          emoji: '📝',
+          trend: this.recognitionTrend,
+          color: '#6366f1'
+        },
+        {
+          label: '挑战准确率',
+          value: this.challengeAccuracy + '%',
+          emoji: '🎯',
+          trend: this.accuracyTrend,
+          color: '#ec4899'
+        },
+        {
+          label: '最高分',
+          value: this.formatNumber(this.bestScore),
+          emoji: '🏆',
+          trend: null, // 最高分只有新纪录才变，不做趋势
           color: '#06b6d4'
         }
-      ],
-      ArrowUp: markRaw(ArrowUp),
-      ArrowDown: markRaw(ArrowDown),
-      ClockIcon: markRaw(Clock),
-      ReadingIcon: markRaw(Reading),
-      Document: markRaw(Document),
-      VideoCamera: markRaw(VideoCamera),
-      TrophyIcon: markRaw(Trophy),
-      // 最近挑战记录（Mock数据，实际应从API获取）
-      recentChallenges: [
-        { id: 1, mode: '题库挑战', score: 630, accuracy: '100%', status: '已完成', time: '2025-11-29 21:22' },
-        { id: 2, mode: '随机挑战', score: 300, accuracy: '33%', status: '已完成', time: '2025-11-29 21:25' },
-        { id: 3, mode: '随机挑战', score: 100, accuracy: '25%', status: '已放弃', time: '2025-11-29 21:16' },
-        { id: 4, mode: '随机挑战', score: 20, accuracy: '8%', status: '已放弃', time: '2025-11-29 21:14' },
-        { id: 5, mode: '随机挑战', score: 0, accuracy: '0%', status: '已放弃', time: '2025-11-29 21:10' }
-      ],
-      dailyVocabulary: [
-        {
-          word: '你好',
-          meaning: 'Hello',
-          category: '问候'
-        },
-        {
-          word: '谢谢',
-          meaning: 'Thank you',
-          category: '礼貌'
-        },
-        {
-          word: '再见',
-          meaning: 'Goodbye',
-          category: '告别'
-        },
-        {
-          word: '请',
-          meaning: 'Please',
-          category: '礼貌'
-        },
-        {
-          word: '对不起',
-          meaning: 'Sorry',
-          category: '道歉'
-        }
-      ]
-    };
+      ];
+    },
+    /** 活跃日期 Set（用于快速查找） */
+    activeDatesSet() {
+      return new Set(this.activeDates);
+    },
+    /** 当前月的天数 */
+    daysInMonth() {
+      return new Date(this.heatmapYear, this.heatmapMonth, 0).getDate();
+    },
+    /** 当前月第一天是星期几 (0=日, 1=一, ...) */
+    firstDayOfWeek() {
+      return new Date(this.heatmapYear, this.heatmapMonth - 1, 1).getDay();
+    },
+    /** 是否是当前月 */
+    isCurrentMonth() {
+      const now = new Date();
+      return this.heatmapYear === now.getFullYear() && this.heatmapMonth === now.getMonth() + 1;
+    },
+    /** 活跃率 */
+    activityRate() {
+      if (this.daysInMonth === 0) return 0;
+      return Math.round((this.activeDates.length / this.daysInMonth) * 100);
+    }
+  },
+  created() {
+    this.fetchAllData();
   },
   methods: {
-    goToRecognition() {
-      this.$router.push('/recognition');
+    /** 获取所有数据 */
+    async fetchAllData() {
+      await Promise.all([
+        this.fetchStats(),
+        this.fetchChallenges(),
+        this.fetchHeatmap()
+      ]);
     },
-    goToSignDebug() {
-      this.$router.push('/sign-debug');
+
+    /** 获取统计数据（P1 接口） */
+    async fetchStats() {
+      this.statsLoading = true;
+      try {
+        const res = await getDashboardStats();
+        if (res.data) {
+          const d = res.data;
+          this.streakDays = d.streakDays || 0;
+          this.totalRecognitions = d.totalRecognitions || 0;
+          this.challengeAccuracy = d.challengeAccuracy || 0;
+          this.bestScore = d.bestScore || 0;
+          this.recognitionTrend = d.recognitionTrend;
+          this.accuracyTrend = d.accuracyTrend;
+        }
+      } catch (e) {
+        console.error('获取仪表盘统计失败:', e);
+      } finally {
+        this.statsLoading = false;
+      }
+    },
+
+    /** 获取挑战记录（P0，已有接口） */
+    async fetchChallenges() {
+      this.challengeLoading = true;
+      try {
+        const res = await getChallengeHistory({ pageNo: 1, pageSize: 5 });
+        if (res.data && res.data.rows) {
+          // 将后端字段映射为 ChallengeTimeline 组件所需格式
+          this.recentChallenges = res.data.rows.map(row => ({
+            id: row.id,
+            mode: row.mode === 'random' ? '随机挑战' : '题库挑战',
+            score: row.score || 0,
+            accuracy: row.totalCount > 0
+              ? Math.round((row.completedCount / row.totalCount) * 100) + '%'
+              : '0%',
+            status: row.status === 1 ? '已完成' : row.status === 2 ? '已放弃' : '进行中',
+            time: row.createTime
+          }));
+        }
+      } catch (e) {
+        console.error('获取挑战记录失败:', e);
+        this.recentChallenges = [];
+      } finally {
+        this.challengeLoading = false;
+      }
+    },
+
+    /** 获取热力图数据（P0，已有接口） */
+    async fetchHeatmap() {
+      if (!this.userId) return;
+      this.heatmapLoading = true;
+      try {
+        const res = await getActivityDates({
+          userId: this.userId,
+          year: this.heatmapYear,
+          month: this.heatmapMonth
+        });
+        this.activeDates = res.data || [];
+      } catch (e) {
+        console.error('获取活跃日期失败:', e);
+        this.activeDates = [];
+      } finally {
+        this.heatmapLoading = false;
+      }
+    },
+
+    /** 上一月 */
+    prevMonth() {
+      if (this.heatmapMonth === 1) {
+        this.heatmapYear--;
+        this.heatmapMonth = 12;
+      } else {
+        this.heatmapMonth--;
+      }
+      this.fetchHeatmap();
+    },
+    /** 下一月 */
+    nextMonth() {
+      if (this.isCurrentMonth) return;
+      if (this.heatmapMonth === 12) {
+        this.heatmapYear++;
+        this.heatmapMonth = 1;
+      } else {
+        this.heatmapMonth++;
+      }
+      this.fetchHeatmap();
+    },
+
+    /** 格式化日期字符串 */
+    formatDateStr(day) {
+      const m = String(this.heatmapMonth).padStart(2, '0');
+      const d = String(day).padStart(2, '0');
+      return `${this.heatmapYear}-${m}-${d}`;
+    },
+    /** 是否是今天 */
+    isToday(day) {
+      const now = new Date();
+      return this.heatmapYear === now.getFullYear()
+        && this.heatmapMonth === now.getMonth() + 1
+        && day === now.getDate();
+    },
+    /** 数字格式化（千分位） */
+    formatNumber(num) {
+      if (num === null || num === undefined) return '0';
+      return num.toLocaleString();
     }
   }
 });
@@ -258,185 +379,78 @@ export default defineComponent({
   position: relative;
   min-height: calc(100vh - 84px);
 
-
-  .recognition-card {
-    margin-bottom: 32px;
-    border: none;
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 8px 32px rgba(79, 70, 229, 0.25);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 欢迎区 */
+  .welcome-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28px 32px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+    color: #fff;
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.25);
     position: relative;
-    background: transparent;
-    
-    &:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 48px rgba(79, 70, 229, 0.35);
-    }
-    
-    :deep(.el-card__body) {
-      padding: 0;
-      border: none;
-      position: relative;
-      z-index: 1;
-    }
+    overflow: hidden;
 
-    :deep(.el-card__header) {
-      border: none;
-      padding: 0;
-    }
-
-    .mesh-background {
+    &::before {
+      content: '';
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: 
-        radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.8) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.8) 0%, transparent 50%),
-        radial-gradient(circle at 40% 20%, rgba(79, 70, 229, 0.6) 0%, transparent 50%),
-        linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6366f1 100%);
-      background-size: 200% 200%;
-      animation: meshMove 15s ease infinite;
-      z-index: 0;
+      right: -60px;
+      top: -60px;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    &::after {
+      content: '';
+      position: absolute;
+      right: 60px;
+      bottom: -40px;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
     }
 
-    @keyframes meshMove {
-      0%, 100% {
-        background-position: 0% 50%;
-      }
-      50% {
-        background-position: 100% 50%;
-      }
-    }
-
-    .recognition-content {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 50px 60px;
-      color: #fff;
-      gap: 40px;
+    .welcome-text {
       position: relative;
       z-index: 1;
-      min-height: 200px;
 
-      .recognition-left {
-        flex: 1;
-        max-width: 500px;
-
-        .recognition-title {
-          margin: 0 0 16px 0;
-          font-size: 36px;
-          font-weight: 700;
-          color: #fff;
-          text-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
-          line-height: 1.3;
-        }
-
-        .recognition-desc {
-          margin: 0;
-          font-size: 18px;
-          color: rgba(255, 255, 255, 0.95);
-          line-height: 1.8;
-        }
+      .welcome-title {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
       }
 
-      .recognition-right {
-        display: flex;
-        align-items: center;
-        gap: 30px;
-        flex-shrink: 0;
+      .welcome-desc {
+        margin: 8px 0 0;
+        font-size: 14px;
+        opacity: 0.85;
+      }
+    }
 
-        .glass-button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          padding: 16px 32px;
-          font-size: 18px;
-          font-weight: 600;
-          color: #fff;
-          background: rgba(255, 255, 255, 0.15);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          border-radius: 12px;
-          cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-          white-space: nowrap;
+    .go-workspace-btn {
+      position: relative;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      font-weight: 600;
+      font-size: 15px;
+      padding: 12px 24px;
+      transition: all 0.3s ease;
 
-          &:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-            border-color: rgba(255, 255, 255, 0.5);
-          }
-
-          &:active {
-            transform: translateY(0);
-          }
-
-          .el-icon {
-            font-size: 20px;
-          }
-        }
-
-        .hand-illustration {
-          width: 200px;
-          height: 240px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.3));
-          animation: float 5s ease-in-out infinite;
-          transform-style: preserve-3d;
-          perspective: 1000px;
-
-          svg {
-            width: 100%;
-            height: 100%;
-            transform: rotateY(-5deg) rotateX(5deg);
-            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-            
-            /* 全息光效呼吸 */
-            animation: holo-pulse 4s ease-in-out infinite;
-          }
-
-          .energy-core {
-            animation: core-pulse 3s ease-in-out infinite;
-          }
-
-          &:hover svg {
-            transform: rotateY(0deg) rotateX(0deg) scale(1.02);
-            filter: drop-shadow(0 0 30px rgba(99, 102, 241, 0.6));
-          }
-        }
-
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0px) rotateZ(0deg);
-          }
-          50% {
-            transform: translateY(-12px) rotateZ(1deg);
-          }
-        }
-
-        @keyframes holo-pulse {
-          0%, 100% { opacity: 0.8; filter: brightness(1); }
-          50% { opacity: 1; filter: brightness(1.2); }
-        }
-
-        @keyframes core-pulse {
-          0%, 100% { r: 15; opacity: 0.2; }
-          50% { r: 20; opacity: 0.4; }
-        }
+      &:hover {
+        background: rgba(255, 255, 255, 0.35);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
       }
     }
   }
 
+  /* 统计卡片 */
   .stat-card {
     position: relative;
     border: none;
@@ -444,10 +458,11 @@ export default defineComponent({
     background: #ffffff;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     padding: 24px;
-    cursor: pointer;
+    cursor: default;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
     height: 100%;
+    animation: fadeInUp 0.5s ease both;
 
     &::before {
       content: '';
@@ -456,7 +471,6 @@ export default defineComponent({
       left: 0;
       right: 0;
       height: 4px;
-      background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899, #06b6d4);
       transform: scaleX(0);
       transform-origin: left;
       transition: transform 0.3s ease;
@@ -471,43 +485,50 @@ export default defineComponent({
       }
 
       .stat-icon {
-        transform: scale(1.1) rotate(5deg);
+        transform: scale(1.15);
       }
     }
 
     .stat-icon {
       width: 56px;
       height: 56px;
-      border-radius: 12px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
       margin-bottom: 16px;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-      z-index: 1;
 
-      :deep(.el-icon) {
-        color: #fff;
+      .stat-emoji {
+        font-size: 28px;
+        line-height: 1;
       }
     }
 
     .stat-content {
-      position: relative;
-      z-index: 1;
-
       .stat-value {
         font-size: 32px;
         font-weight: 700;
         color: #1f2937;
         margin-bottom: 8px;
         line-height: 1.2;
+        min-height: 38px;
       }
 
       .stat-label {
-    font-size: 14px;
+        font-size: 14px;
         color: #6b7280;
         font-weight: 500;
+      }
+
+      .stat-skeleton {
+        display: inline-block;
+        width: 80px;
+        height: 32px;
+        border-radius: 6px;
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
       }
     }
 
@@ -525,37 +546,26 @@ export default defineComponent({
       background: rgba(16, 185, 129, 0.1);
       color: #10b981;
 
-      .trend-up {
-        color: #10b981;
-      }
-
-      .trend-down {
-        color: #ef4444;
-      }
-
       &.negative {
         background: rgba(239, 68, 68, 0.1);
         color: #ef4444;
       }
     }
 
-    &.stat-card-0 .stat-icon {
-      background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
-    }
+    /* 不同卡片的顶部彩条颜色 */
+    &.stat-card-0::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    &.stat-card-1::before { background: linear-gradient(90deg, #6366f1, #818cf8); }
+    &.stat-card-2::before { background: linear-gradient(90deg, #ec4899, #f472b6); }
+    &.stat-card-3::before { background: linear-gradient(90deg, #06b6d4, #22d3ee); }
 
-    &.stat-card-1 .stat-icon {
-      background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
-    }
-
-    &.stat-card-2 .stat-icon {
-      background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%);
-    }
-
-    &.stat-card-3 .stat-icon {
-      background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
-    }
+    /* 不同卡片的图标背景 */
+    &.stat-card-0 .stat-icon { background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(251, 191, 36, 0.08) 100%); }
+    &.stat-card-1 .stat-icon { background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(129, 140, 248, 0.08) 100%); }
+    &.stat-card-2 .stat-icon { background: linear-gradient(135deg, rgba(236, 72, 153, 0.12) 0%, rgba(244, 114, 182, 0.08) 100%); }
+    &.stat-card-3 .stat-icon { background: linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(34, 211, 238, 0.08) 100%); }
   }
 
+  /* 面板卡片 */
   .panel-card {
     border: none;
     border-radius: 16px;
@@ -588,11 +598,11 @@ export default defineComponent({
         font-size: 16px;
         color: #303133;
 
-        .title-icon {
-          color: #6366f1;
+        .title-emoji {
+          font-size: 20px;
         }
+      }
     }
-  }
 
     .panel-content {
       flex: 1;
@@ -600,26 +610,16 @@ export default defineComponent({
       overflow-y: auto;
       max-height: 400px;
 
-      &::-webkit-scrollbar {
-        width: 6px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 3px;
-      }
-
+      &::-webkit-scrollbar { width: 6px; }
+      &::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
       &::-webkit-scrollbar-thumb {
         background: #c1c1c1;
         border-radius: 3px;
-
-        &:hover {
-          background: #a8a8a8;
-        }
+        &:hover { background: #a8a8a8; }
       }
     }
 
-    .empty-state {
+    .loading-state {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -628,7 +628,7 @@ export default defineComponent({
       color: #9ca3af;
 
       p {
-        margin-top: 16px;
+        margin-top: 12px;
         font-size: 14px;
       }
     }
@@ -637,93 +637,149 @@ export default defineComponent({
   .challenge-timeline-card {
     .timeline-content {
       padding: 0;
-      // 去除默认padding，让列表撑满
     }
   }
 
-  .daily-vocabulary {
-    .vocab-item {
-      padding: 16px;
-      border-radius: 12px;
-      margin-bottom: 12px;
-      background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
-      border: 1px solid rgba(99, 102, 241, 0.1);
+  /* 热力图 */
+  .heatmap-card {
+    .heatmap-month-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .month-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #4b5563;
+        min-width: 80px;
+        text-align: center;
+      }
+    }
+
+    .heatmap-content {
+      padding: 16px 24px 20px;
+    }
+
+    .heatmap-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-bottom: 8px;
+
+      .weekday-label {
+        text-align: center;
+        font-size: 11px;
+        font-weight: 600;
+        color: #9ca3af;
+        padding: 4px 0;
+      }
+    }
+
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+
+    .heatmap-cell {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      background: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       transition: all 0.2s ease;
-      cursor: pointer;
+      cursor: default;
 
-      &:hover {
-        border-color: rgba(99, 102, 241, 0.3);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
-      }
-
-      &:last-child {
-        margin-bottom: 0;
-      }
-
-      .vocab-word {
-        font-size: 20px;
-        font-weight: 700;
-        color: #1f2937;
-        margin-bottom: 8px;
-      }
-
-      .vocab-meaning {
-        font-size: 14px;
-        color: #6b7280;
-        margin-bottom: 6px;
-      }
-
-      .vocab-category {
-        display: inline-block;
-        padding: 4px 10px;
-        background: rgba(99, 102, 241, 0.1);
-        color: #6366f1;
-        border-radius: 6px;
-        font-size: 12px;
+      .day-num {
+        font-size: 11px;
         font-weight: 500;
+        color: #6b7280;
+      }
+
+      &.empty {
+        background: transparent;
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+
+        .day-num {
+          color: #fff;
+          font-weight: 700;
+        }
+      }
+
+      &.today {
+        border: 2px solid #6366f1;
+      }
+
+      &.today.active {
+        border-color: #fff;
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25), 0 0 0 2px #6366f1;
+      }
+    }
+
+    .heatmap-summary {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+
+      .summary-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+
+        .summary-value {
+          font-size: 22px;
+          font-weight: 700;
+          color: #1f2937;
+        }
+
+        .summary-label {
+          font-size: 12px;
+          color: #9ca3af;
+          font-weight: 500;
+        }
       }
     }
   }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 @media (max-width: 768px) {
   .dashboard-container {
     padding: 20px;
 
-    .recognition-card {
-      border-radius: 16px;
-      
-      .recognition-content {
-        flex-direction: column;
-        text-align: center;
-        padding: 40px 30px;
-        gap: 30px;
+    .welcome-section {
+      flex-direction: column;
+      text-align: center;
+      gap: 16px;
 
-        .recognition-left {
-          max-width: 100%;
-
-          .recognition-title {
-            font-size: 24px;
-            margin-bottom: 12px;
-          }
-
-          .recognition-desc {
-            font-size: 16px;
-          }
-        }
-
-        .recognition-right {
-          flex-direction: column;
-          gap: 20px;
-
-          .hand-illustration {
-            width: 140px;
-            height: 140px;
-          }
-        }
+      .welcome-title {
+        font-size: 20px;
       }
     }
+
     .stat-card {
       margin-bottom: 20px;
     }
@@ -738,4 +794,3 @@ export default defineComponent({
   }
 }
 </style>
-
