@@ -220,7 +220,9 @@ defineEmits(['copy', 'clear', 'speak'])
   flex-direction: column;
   justify-content: center;
   gap: 10px;
-  min-height: 52px;
+  /* 固定高度：配候词和预览文字同时存在时不会政大布局 */
+  height: 96px;
+  overflow-y: auto;
 }
 
 .candidate-preview {
@@ -295,7 +297,9 @@ defineEmits(['copy', 'clear', 'speak'])
   color: #17312b;
   font-size: 18px;
   font-weight: 700;
-  min-height: 52px;
+  /* 固定高度，内容多时滚动而不是撑大卡片 */
+  height: 52px;
+  overflow-y: auto;
   display: flex;
   align-items: center;
   flex-wrap: wrap;

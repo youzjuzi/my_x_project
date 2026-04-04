@@ -37,7 +37,7 @@ export const constantRoutes: RouteRecordRaw[] = [
       hidden: true // 关键：设为 true，这样它就不会出现在后台侧边栏菜单里
     }
   },
-  {
+    {
     path: '/sign-debug',
     name: 'SignDebug',
     component: () => import('@/views/ddbug/SignDebug.vue'),
@@ -47,6 +47,14 @@ export const constantRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/workspace',
+    name: 'Workspace',
+    component: () => import('@/views/workspace/index.vue'),
+    meta: {
+      title: '手语工作台',
+      hidden: true
+    }
+  },  {
     path: '/login',
     component: () => import('@/views/login/index.vue'),
     meta: { hidden: true }
@@ -428,3 +436,5 @@ export function resetRouter() {
 }
 
 export default router;
+
+

@@ -156,6 +156,21 @@
             </div>
           </div>
         </div>
+
+        <!-- 摄像头激活时，右下角显示「关闭识别」浮层按钮 -->
+        <transition name="stop-btn">
+          <button
+            v-if="isCameraActive"
+            class="stop-camera-btn"
+            type="button"
+            aria-label="关闭摄像头"
+            @click="$emit('stop')"
+          >
+            <el-icon><CircleClose /></el-icon>
+            <span>关闭识别</span>
+          </button>
+        </transition>
+
       </div>
     </div>
 
@@ -165,7 +180,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { VideoCameraFilled } from '@element-plus/icons-vue'
+import { VideoCameraFilled, CircleClose } from '@element-plus/icons-vue'
 
 const GESTURE_CONFIG = {
   CONFIRM: { label: '确认', hint: '保持手势', color: '#25a165', symbol: '✓' },
@@ -1374,5 +1389,60 @@ onBeforeUnmount(() => {
     opacity: 0;
     color: #4a1e1e;
   }
+}
+
+/* ── 关闭识别浮层按钮 ───────────────────────────────── */
+.stop-camera-btn {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 999px;
+  /* 深色半透明背景，与视频画面融合 */
+  background: rgba(24, 10, 10, 0.55);
+  backdrop-filter: blur(10px);
+  color: #fca5a5;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 120, 120, 0.22);
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  .el-icon {
+    font-size: 15px;
+  }
+
+  &:hover {
+    background: rgba(180, 30, 30, 0.72);
+    box-shadow: 0 6px 22px rgba(180, 30, 30, 0.36);
+    color: #fff;
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+/* 渐入渐出过渡 */
+.stop-btn-enter-active,
+.stop-btn-leave-active {
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+.stop-btn-enter-from,
+.stop-btn-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 </style>
