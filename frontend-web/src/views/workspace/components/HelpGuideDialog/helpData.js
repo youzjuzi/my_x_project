@@ -40,11 +40,13 @@ export const QUICK_START_STEPS = [
 export const LETTER_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((c) => ({
   char: c,
   label: c,
+  image: `https://avatar.youzilite.us.kg/letter/${c}.png`,
 }))
 
 export const DIGIT_ALPHABET = '0123456789'.split('').map((c) => ({
   char: c,
   label: c,
+  image: `https://avatar.youzilite.us.kg/number/${c}.png`,
 }))
 
 /* Tab 3: 指令手势 */

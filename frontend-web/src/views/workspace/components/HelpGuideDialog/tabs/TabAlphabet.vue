@@ -25,14 +25,31 @@
         :key="item.char"
         class="alpha-card"
       >
-        <div class="alpha-visual">{{ item.char }}</div>
+        <div class="alpha-visual">
+          <el-image
+            :src="item.image"
+            :preview-src-list="[item.image]"
+            preview-teleported
+            hide-on-click-modal
+            fit="contain"
+            class="gesture-img"
+          >
+            <!-- 占位与加载失败时显示原本的文本区块 -->
+            <template #placeholder>
+              <div class="img-fallback">{{ item.char }}</div>
+            </template>
+            <template #error>
+              <div class="img-fallback">{{ item.char }}</div>
+            </template>
+          </el-image>
+        </div>
         <div class="alpha-label">{{ item.label }}</div>
       </div>
     </div>
 
     <div class="tip-banner">
       <span class="tip-icon">📸</span>
-      <span>面对摄像头，用右手比划上方手势即可被识别（手势图片后续上线）。</span>
+      <span>面对摄像头，用右手比划上方手势即可被识别。点击手势小图可以放大预览。</span>
     </div>
   </div>
 </template>
@@ -104,9 +121,26 @@ const currentAlphabet = computed(() =>
 }
 
 .alpha-visual {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(33, 109, 75, 0.08); /* 柔和内边距 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.gesture-img {
+  width: 100%;
+  height: 100%;
+  cursor: zoom-in;
+}
+
+.img-fallback {
+  width: 100%;
+  height: 100%;
   background: linear-gradient(135deg, #216d4b 0%, #1a8a5f 100%);
   color: #fff;
   font-size: 18px;
