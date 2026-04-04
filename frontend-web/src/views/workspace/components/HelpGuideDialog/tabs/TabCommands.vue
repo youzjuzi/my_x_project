@@ -15,6 +15,10 @@
         <div class="cmd-info">
           <div class="cmd-name">{{ cmd.label }}</div>
           <div class="cmd-desc">{{ cmd.desc }}</div>
+          <div class="cmd-action">
+            <span class="action-label">怎么比：</span>
+            <span>{{ cmd.action }}</span>
+          </div>
         </div>
         <div class="cmd-hint-badge">{{ cmd.hint }}</div>
       </div>
@@ -100,6 +104,24 @@ const commands = COMMAND_GESTURES
   font-size: 12.5px;
   color: #5a7a6f;
   line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.cmd-action {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--cmd-color) 90%, #000);
+  background: rgba(255, 255, 255, 0.65);
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px dashed color-mix(in srgb, var(--cmd-color) 30%, transparent);
+
+  .action-label {
+    font-weight: 700;
+    margin-right: 4px;
+    color: var(--cmd-color);
+  }
 }
 
 .cmd-hint-badge {

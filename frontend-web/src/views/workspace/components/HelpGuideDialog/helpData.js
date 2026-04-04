@@ -59,6 +59,7 @@ export const COMMAND_GESTURES = [
     color: '#25a165',
     bg: 'rgba(37, 161, 101, 0.08)',
     desc: '确认当前候选词，将词语加入暂存等待区。',
+    action: '双手竖起大拇指 (点赞) 👍',
   },
   {
     key: 'delete',
@@ -68,6 +69,7 @@ export const COMMAND_GESTURES = [
     color: '#d74a4a',
     bg: 'rgba(215, 74, 74, 0.08)',
     desc: '删除拼音缓冲区最后一个字符，支持逐字回退。',
+    action: '双手食指交叉 (比大X型) ❌',
   },
   {
     key: 'clear',
@@ -77,6 +79,7 @@ export const COMMAND_GESTURES = [
     color: '#f0822b',
     bg: 'rgba(240, 130, 43, 0.08)',
     desc: '清空当前所有拼写内容，重新开始输入。',
+    action: '双手掌心向前，左右摆动 👋',
   },
   {
     key: 'next',
@@ -86,6 +89,7 @@ export const COMMAND_GESTURES = [
     color: '#4a8fd7',
     bg: 'rgba(74, 143, 215, 0.08)',
     desc: '切换到下一个候选词，在多个候选间循环选择。',
+    action: '双手指尖向右平移 👉',
   },
   {
     key: 'submit',
@@ -95,6 +99,7 @@ export const COMMAND_GESTURES = [
     color: '#8b5cf6',
     bg: 'rgba(139, 92, 246, 0.08)',
     desc: '将暂存区的所有词语提交至 AI 进行润色生成句子。',
+    action: '双手掌心向上托举 👐',
   },
 ]
 
