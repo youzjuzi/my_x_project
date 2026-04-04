@@ -1,187 +1,122 @@
 <template>
-  <div class="page-container">
-    <div class="sidebar">
-      <div class="calendar-wrapper">
-        <h3 class="calendar-title">📅 练习日历</h3>
-        <el-calendar v-model="currentDate" class="custom-calendar">
-          <template #date-cell="{ data }">
-            <div 
-              class="date-cell" 
-              :class="{ 'is-active': isActivityDate(data.day) }"
-              @click="handleDateClick(data.day)"
-            >
-              <span>{{ data.day.split('-').slice(2).join('') }}</span>
-              <div v-if="isActivityDate(data.day)" class="activity-dot"></div>
-            </div>
-          </template>
-        </el-calendar>
-      </div>
-    </div>
+  <div class="history-page">
+    <HistoryHeader
+      v-model:dateRange="dateRange"
+      v-model:keyword="keyword"
+      :loading="loading"
+      :total="total"
+      @search="handleSearch"
+    />
 
-    <div class="main-content">
-      <h2 class="page-title">👋 我的手语练习日记</h2>
-      
-      <!-- 简约搜索栏 -->
-      <div class="search-bar">
-        <el-date-picker
-          v-model="dateRange"
-          type="daterange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
-          value-format="YYYY-MM-DD"
-          @change="handleSearch"
-          class="date-picker"
+    <div class="content-body">
+      <div class="sidebar-mini">
+        <MiniCalendar
+          v-model:heatmapYear="heatmapYear"
+          v-model:heatmapMonth="heatmapMonth"
+          :activityDates="activityDates"
+          :dateRange="dateRange"
+          :isCurrentMonth="isCurrentMonth"
+          @changeMonth="fetchActivityDates"
+          @selectDate="handleCalendarClick"
         />
-        
-        <el-input
-          v-model="keyword"
-          placeholder="搜索关键词..."
-          class="keyword-input"
-          clearable
-          @clear="handleSearch"
-          @keyup.enter="handleSearch"
-        >
-          <template #append>
-            <el-button :icon="Search" @click="handleSearch" />
-          </template>
-        </el-input>
+
+        <QuickFilters
+          :activeFilter="activeFilter"
+          @filterChange="applyQuickFilter"
+        />
       </div>
 
-      <div class="timeline-wrapper">
-        <el-timeline>
-          <el-timeline-item
-            v-for="(item, index) in historyList"
-            :key="index"
-            :timestamp="item.createTime"
-            placement="top"
-            :type="item.isAiPolished ? 'success' : 'primary'"
-            :hollow="true"
-          >
-            <el-card class="history-card" shadow="hover">
-              <div class="card-content">
-                
-                <div class="left-part">
-                  <div class="label">我的手语动作</div>
-                  <div class="tags-wrapper">
-                    <el-tag 
-                      v-for="(word, i) in parseWords(item.originalWords)" 
-                      :key="i"
-                      class="sign-tag"
-                      effect="light"
-                    >
-                      {{ word }}
-                    </el-tag>
-                  </div>
-                </div>
-
-                <div class="middle-part">
-                  <el-icon :size="20" color="#909399"><Right /></el-icon>
-                  <div class="ai-badge" v-if="item.isAiPolished">
-                    <el-icon><MagicStick /></el-icon> AI
-                  </div>
-                </div>
-
-                <div class="right-part">
-                  <div class="label">翻译结果</div>
-                  <div class="result-text">{{ item.resultSentence }}</div>
-                </div>
-                
-              </div>
-            </el-card>
-          </el-timeline-item>
-        </el-timeline>
-      </div>
+      <HistoryList
+        :historyList="groupedRecords"
+        :loading="loading"
+        :total="total"
+        v-model:pageNo="pageNo"
+        :pageSize="pageSize"
+        @pageChange="handlePageChange"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { Right, MagicStick, Search } from '@element-plus/icons-vue'
+import { ref, computed, onMounted } from 'vue'
 import { getHistoryList, getActivityDates } from '@/api/translationHistory'
-import useUserStore from '@/store/modules/user' 
+import useUserStore from '@/store/modules/user'
+
+import HistoryHeader from './components/HistoryHeader.vue'
+import MiniCalendar from './components/MiniCalendar.vue'
+import QuickFilters from './components/QuickFilters.vue'
+import HistoryList from './components/HistoryList.vue'
 
 const userStore = useUserStore()
 
 interface HistoryItem {
-  createTime: string;
-  originalWords: string; // JSON string
-  resultSentence: string;
-  isAiPolished: number; // 0 or 1
+  createTime: string
+  originalWords: string
+  resultSentence: string
+  isAiPolished: number
 }
 
+// ==================== 数据 ====================
 const historyList = ref<HistoryItem[]>([])
 const loading = ref(false)
-
-// 分页参数
 const pageNo = ref(1)
 const pageSize = ref(20)
-const total = ref(0) // 虽然目前还没做分页组件，但预留着
-
-// 搜索参数
+const total = ref(0)
 const dateRange = ref<string[]>([])
 const keyword = ref('')
+const activeFilter = ref('all')
 
-// 日历相关
-const currentDate = ref(new Date())
+// 日历
+const now = new Date()
+const heatmapYear = ref(now.getFullYear())
+const heatmapMonth = ref(now.getMonth() + 1)
 const activityDates = ref<string[]>([])
 
-// 获取活动日期
-const fetchActivityDates = async () => {
-  if (!userStore.userId) return
-  try {
-    const year = currentDate.value.getFullYear()
-    const month = currentDate.value.getMonth() + 1
-    const res = await getActivityDates({ userId: userStore.userId, year, month })
-    if (res && res.data) {
-      activityDates.value = res.data
-    }
-  } catch (error) {
-    console.error('获取活动日期失败:', error)
-  }
-}
-
-// 监听月份变化
-watch(currentDate, (newVal, oldVal) => {
-  if (newVal.getMonth() !== oldVal?.getMonth() || newVal.getFullYear() !== oldVal?.getFullYear()) {
-    fetchActivityDates()
-  }
+// ==================== 计算属性 ====================
+const isCurrentMonth = computed(() => {
+  const n = new Date()
+  return heatmapYear.value === n.getFullYear() && heatmapMonth.value === n.getMonth() + 1
 })
 
-const isActivityDate = (day: string) => {
-  return activityDates.value.includes(day)
-}
+/** 按日期分组 */
+const groupedRecords = computed(() => {
+  const groups: { date: string; dateLabel: string; items: HistoryItem[] }[] = []
+  const map = new Map<string, HistoryItem[]>()
 
-const handleDateClick = (day: string) => {
-  // 只有点击有记录的日期才触发筛选? 或者不管有没有都触发?
-  // 用户需求：点击日历上的某一天 -> 右侧时间轴自动滚动到那一天，或者只显示那一天的记录。
-  // 这里实现：只显示那一天的记录
-  dateRange.value = [day, day]
-  handleSearch()
-}
+  for (const item of historyList.value) {
+    const dateStr = item.createTime ? item.createTime.substring(0, 10) : '未知日期'
+    if (!map.has(dateStr)) {
+      map.set(dateStr, [])
+    }
+    map.get(dateStr)!.push(item)
+  }
 
-const handleSearch = () => {
-  pageNo.value = 1
-  fetchHistory()
-}
+  for (const [date, items] of map) {
+    groups.push({
+      date,
+      dateLabel: formatDateLabel(date),
+      items
+    })
+  }
 
+  return groups
+})
+
+// ==================== 方法 ====================
 const fetchHistory = async () => {
   if (!userStore.userId) return
-  
   loading.value = true
   try {
     const res = await getHistoryList({
       userId: userStore.userId,
       pageNo: pageNo.value,
       pageSize: pageSize.value,
-      startDate: dateRange.value ? dateRange.value[0] : undefined,
-      endDate: dateRange.value ? dateRange.value[1] : undefined,
-      keyword: keyword.value
+      startDate: dateRange.value?.[0] || undefined,
+      endDate: dateRange.value?.[1] || undefined,
+      keyword: keyword.value || undefined
     })
-    
-    // 后端返回结构 { total: xx, rows: [...] }
-    if (res && res.data) {
+    if (res?.data) {
       historyList.value = res.data.rows || []
       total.value = res.data.total || 0
     }
@@ -192,184 +127,135 @@ const fetchHistory = async () => {
   }
 }
 
-const parseWords = (rawValue: string) => {
-  const text = String(rawValue ?? '').trim()
-  if (!text) {
-    return []
-  }
-
+const fetchActivityDates = async () => {
+  if (!userStore.userId) return
   try {
-    const parsed = JSON.parse(text)
-    if (Array.isArray(parsed)) {
-      return parsed.map(item => String(item))
-    }
-    return [String(parsed)]
+    const res = await getActivityDates({
+      userId: userStore.userId,
+      year: heatmapYear.value,
+      month: heatmapMonth.value
+    })
+    activityDates.value = res?.data || []
   } catch (error) {
-    return [text]
+    console.error('获取活动日期失败:', error)
   }
 }
 
+const handleSearch = () => {
+  pageNo.value = 1
+  activeFilter.value = 'custom'
+  fetchHistory()
+}
+
+const handlePageChange = () => {
+  fetchHistory()
+  // 滚动到顶部
+  document.querySelector('.record-list')?.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const applyQuickFilter = (f: { key: string; label: string }) => {
+  activeFilter.value = f.key
+  keyword.value = ''
+
+  const today = new Date()
+  const todayStr = today.toISOString().substring(0, 10)
+
+  if (f.key === 'all') {
+    dateRange.value = []
+  } else if (f.key === 'today') {
+    dateRange.value = [todayStr, todayStr]
+  } else if (f.key === 'week') {
+    const weekStart = new Date(today)
+    weekStart.setDate(today.getDate() - today.getDay())
+    dateRange.value = [weekStart.toISOString().substring(0, 10), todayStr]
+  } else if (f.key === 'ai') {
+    dateRange.value = []
+    // AI 筛选暂用关键词方式，后续可加 isAiPolished 参数
+  }
+
+  pageNo.value = 1
+  fetchHistory()
+}
+
+const handleCalendarClick = (day: number) => {
+  const d = `${heatmapYear.value}-${String(heatmapMonth.value).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  dateRange.value = [d, d]
+  activeFilter.value = 'custom'
+  pageNo.value = 1
+  fetchHistory()
+}
+
+/** 日期标签（今天 / 昨天 / 具体日期） */
+const formatDateLabel = (dateStr: string) => {
+  if (!dateStr || dateStr === '未知日期') return dateStr
+  const today = new Date()
+  const todayStr = today.toISOString().substring(0, 10)
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const yesterdayStr = yesterday.toISOString().substring(0, 10)
+
+  if (dateStr === todayStr) return '📍 今天'
+  if (dateStr === yesterdayStr) return '昨天'
+
+  // "4月2日 周三"
+  const d = new Date(dateStr)
+  const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${weekDays[d.getDay()]}`
+}
+
+// ==================== 生命周期 ====================
 onMounted(() => {
   fetchHistory()
   fetchActivityDates()
 })
 </script>
 
-<style scoped>
-.page-container {
+<style scoped lang="scss">
+.history-page {
+  min-height: calc(100vh - 84px);
+  padding: 24px 32px;
+  background: #f5f7fa;
+}
+
+.content-body {
   display: flex;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
   gap: 20px;
+  align-items: flex-start;
 }
 
-.sidebar {
-  width: 320px;
+.sidebar-mini {
+  width: 240px;
   flex-shrink: 0;
-}
-
-.calendar-wrapper {
-  background: white;
-  border-radius: 12px;
-  padding: 10px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-}
-
-.calendar-title {
-  text-align: center;
-  margin: 10px 0;
-  color: #303133;
-  font-size: 16px;
-}
-
-.custom-calendar :deep(.el-calendar__header) {
-  padding: 10px;
-  font-size: 14px;
-}
-
-.custom-calendar :deep(.el-calendar__body) {
-  padding: 10px;
-}
-
-.custom-calendar :deep(.el-calendar-table td) {
-  border: none;
-}
-
-.custom-calendar :deep(.el-calendar-table td.is-selected) {
-  background-color: transparent;
-}
-
-.custom-calendar :deep(.el-calendar-table .el-calendar-day) {
-  height: 40px;
-  padding: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.date-cell {
-  position: relative;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.date-cell:hover {
-  background-color: #f2f6fc;
-}
-
-.date-cell.is-active {
-  font-weight: bold;
-  color: #409eff;
-}
-
-.activity-dot {
-  position: absolute;
-  bottom: 4px;
-  width: 4px;
-  height: 4px;
-  background-color: #409eff;
-  border-radius: 50%;
-}
-
-.main-content {
-  flex: 1;
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-  min-height: 600px;
-}
-
-.timeline-wrapper {
-  padding: 0 20px;
-}
-
-/* Original styles below */
-.page-title {
-  text-align: center;
-  margin-bottom: 30px;
-  color: #303133;
-}
-.search-bar {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin-bottom: 30px;
-}
-.date-picker {
-  width: 250px !important;
-}
-.keyword-input {
-  width: 250px;
-}
-.history-card {
-  border-radius: 12px;
-}
-.card-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.left-part, .right-part {
-  flex: 1; /* 左右等宽 */
-  padding: 0 10px;
-}
-.middle-part {
-  width: 60px;
+  position: sticky;
+  top: 24px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  gap: 16px;
 }
-.label {
-  font-size: 12px;
-  color: #909399;
-  margin-bottom: 8px;
+
+@media (max-width: 992px) {
+  .content-body {
+    flex-direction: column;
+  }
+
+  .sidebar-mini {
+    width: 100%;
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    
+    :deep(.mini-calendar) { min-width: 240px; }
+    :deep(.quick-filters) { min-width: 200px; flex: 1; }
+  }
 }
-.sign-tag {
-  margin-right: 4px;
-  margin-bottom: 4px;
-}
-.result-text {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
-}
-.ai-badge {
-  font-size: 10px;
-  color: #67c23a;
-  background: #f0f9eb;
-  padding: 2px 6px;
-  border-radius: 10px;
-  margin-top: 4px;
-  display: flex;
-  align-items: center;
+
+@media (max-width: 768px) {
+  .history-page {
+    padding: 16px;
+  }
+
+  .sidebar-mini {
+    flex-direction: column;
+  }
 }
 </style>
