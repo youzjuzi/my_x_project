@@ -8,17 +8,17 @@
         <span class="label">拼音候选</span>
       </div>
       <div class="candidates-content">
-        <!-- 只有当进度完成（已重置）且缓冲有字符，才展示候选词 -->
+        <!-- 有候选词时展示（识别中也会展示上次确认后的候选词） -->
         <template v-if="shouldShowCandidates">
-          <div v-if="hanziCandidate" class="candidate-preview">
-            {{ hanziCandidate }}
+          <div v-if="displayCandidate" class="candidate-preview">
+            {{ displayCandidate }}
           </div>
           <div class="tags-wrapper">
             <el-tag
-              v-for="(word, idx) in candidates"
+              v-for="(word, idx) in displayCandidates"
               :key="idx"
               class="candidate-tag"
-              :class="{ active: idx === candidateIndex }"
+              :class="{ active: idx === displayCandidateIndex }"
               effect="plain"
               round
               size="small"
@@ -28,8 +28,8 @@
             </el-tag>
           </div>
         </template>
-        <!-- 尚未确认或进度还在进行中 -->
-        <span v-else class="no-candidate">{{ cachedBuffer ? '识别中...' : '等待输入...' }}</span>
+        <!-- 缓冲区为空时等待输入 -->
+        <span v-else class="no-candidate">等待输入...</span>
       </div>
 
       <div class="accepted-words-area">
@@ -77,7 +77,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Aim, ChatLineSquare, Microphone } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -120,13 +120,81 @@ const props = defineProps({
 defineEmits(['copy', 'clear', 'speak'])
 
 /**
- * 候选词展示条件：
- * - 进度条已完成重置（stabilityProgress < 0.05）
- * - 且缓冲区有确认字符（cachedBuffer 非空）
+ * 缓存上一次确认完成时的候选词状态
+ * 目的：识别进行中（进度条在走）时，仍然显示上次确认后的拼音候选词，
+ * 而不是显示"识别中..."。只有当新字符确认完成后，才更新候选词。
  */
-const shouldShowCandidates = computed(() =>
-  props.stabilityProgress < 0.05 && props.cachedBuffer?.length > 0
+const lastConfirmedCandidate = ref('')
+const lastConfirmedCandidates = ref([])
+const lastConfirmedIndex = ref(0)
+
+/**
+ * 监听 stabilityProgress 变化：
+ * 当进度条从有值变回零（字符确认完成），将当前候选词快照到缓存中
+ */
+let wasStabilizing = false
+watch(
+  () => props.stabilityProgress,
+  (newVal) => {
+    const isStabilizing = newVal >= 0.05
+    // 从识别中 → 归零 = 字符确认完成，此时更新缓存的候选词
+    if (wasStabilizing && !isStabilizing) {
+      lastConfirmedCandidate.value = props.hanziCandidate || ''
+      lastConfirmedCandidates.value = [...(props.candidates || [])]
+      lastConfirmedIndex.value = props.candidateIndex || 0
+    }
+    wasStabilizing = isStabilizing
+  }
 )
+
+// 当不在识别中（进度条没有走）时，也要实时同步候选词（如 NEXT 切换候选等场景）
+watch(
+  [() => props.hanziCandidate, () => props.candidates, () => props.candidateIndex],
+  ([newCandidate, newCandidates, newIndex]) => {
+    if (props.stabilityProgress < 0.05 && props.cachedBuffer?.length > 0) {
+      lastConfirmedCandidate.value = newCandidate || ''
+      lastConfirmedCandidates.value = [...(newCandidates || [])]
+      lastConfirmedIndex.value = newIndex || 0
+    }
+  }
+)
+
+/**
+ * 用于模板展示的候选词（优先使用缓存版本）
+ * 识别中时展示缓存的候选词，不在识别中时展示实时候选词
+ */
+const displayCandidate = computed(() => {
+  if (props.stabilityProgress >= 0.05) {
+    return lastConfirmedCandidate.value
+  }
+  return props.hanziCandidate || ''
+})
+
+const displayCandidates = computed(() => {
+  if (props.stabilityProgress >= 0.05) {
+    return lastConfirmedCandidates.value
+  }
+  return props.candidates || []
+})
+
+const displayCandidateIndex = computed(() => {
+  if (props.stabilityProgress >= 0.05) {
+    return lastConfirmedIndex.value
+  }
+  return props.candidateIndex || 0
+})
+
+/**
+ * 候选词展示条件（改进版）：
+ * - 缓冲区有确认字符（cachedBuffer 非空）
+ * - 且有候选词可展示（实时的或缓存的）
+ * 识别中时仍然可以展示上次确认后的候选词
+ */
+const shouldShowCandidates = computed(() => {
+  if (!props.cachedBuffer?.length) return false
+  // 有实时候选词或有缓存的候选词都可以展示
+  return displayCandidates.value.length > 0 || displayCandidate.value
+})
 </script>
 
 <style lang="scss" scoped>
