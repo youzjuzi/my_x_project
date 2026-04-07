@@ -11,6 +11,7 @@ from .ij_dz_dynamic_detector import DynamicLetterSession
 # 注意这里：根据你之前提供的代码，文件名如果是 mn_hybrid_detector.py，导入函数就是 classify_mnt_only
 from .mn_hybrid_detector import classify_mnt_only 
 from ..yolo_stage import YOLOStage, clamp_box, cv2, draw_box, select_device
+from .. import config as _cfg
 
 
 FINGER_STRAIGHT_THRESHOLD = 160
@@ -344,6 +345,17 @@ class PQHybridDetector:
                 gx1, gy1 = hx1 + dx1, hy1 + dy1
                 gx2, gy2 = hx1 + dx2, hy1 + dy2
                 letter_name = str(self.letters_stage.names[int(letter_cls)])
+                # Q 在 .pt 推理引擎下极易误报，需要更高的置信度才接受
+                if letter_name == "Q" and letter_conf < getattr(_cfg, "LETTER_Q_CONF", 0.65):
+                    # 仍然画框（方便调试），但不计入识别结果
+                    draw_box(
+                        output,
+                        (gx1, gy1, gx2, gy2),
+                        "{0} {1:.2f} [filtered]".format(letter_name, letter_conf),
+                        (128, 128, 128),
+                        thickness=1,
+                    )
+                    continue
                 detections.append(
                     {
                         "label": letter_name,

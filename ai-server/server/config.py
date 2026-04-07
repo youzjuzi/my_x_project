@@ -52,6 +52,8 @@ IMGSZ = 640
 HAND_CONF = 0.40
 DIGIT_CONF = 0.25
 LETTER_CONF = 0.40
+# Q 在 .pt 推理引擎下极易误报，给它设定更高的专属置信度门槛
+LETTER_Q_CONF = 0.65
 IOU_THRES = 0.45
 MAX_DET = 100
 MARGIN = 10
