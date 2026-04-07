@@ -26,7 +26,7 @@ class BaseSession:
         delete_hold_seconds: float = 1.5,
         clear_hold_seconds: float = 1.5,
         vote_window_frames: int = 20,
-        action_suppression_seconds: float = 1.5,
+        action_suppression_seconds: float = 2.0,
     ) -> None:
         self.pc = pc
         supported_modes = self.supported_modes()
@@ -67,6 +67,14 @@ class BaseSession:
         self.command_mode_last_seen_at: Optional[float] = None
         self.command_mode_last_command_at: Optional[float] = None
         self.command_reentry_requires_release = False
+
+        # 命令模式激活需要连续多帧看到双手
+        self._command_activate_consecutive = 0
+        self._command_activate_threshold = 3  # 15fps 下约 200ms
+
+        # reentry gate 去抖：需要连续多帧看不到双手才解锁
+        self._reentry_release_consecutive = 0
+        self._reentry_release_threshold = 5  # 15fps 下约 333ms
 
         self.confirm_ready = True
         self.delete_ready = True
@@ -217,12 +225,26 @@ class BaseSession:
             self.command_recognizer.reset()
 
     def update_command_reentry_gate(self, hand_count: int) -> None:
+        # 去抖机制：需要连续多帧看不到双手才解锁 reentry gate
         if hand_count < 2:
-            self.command_reentry_requires_release = False
+            self._reentry_release_consecutive += 1
+            if self._reentry_release_consecutive >= self._reentry_release_threshold:
+                self.command_reentry_requires_release = False
+        else:
+            self._reentry_release_consecutive = 0
 
     def can_activate_command_mode(self, hand_count: int) -> bool:
         self.update_command_reentry_gate(hand_count)
-        return hand_count >= 2 and not self.command_reentry_requires_release
+        # action_suppression 期间禁止激活命令模式
+        if self._is_in_action_suppression():
+            self._command_activate_consecutive = 0
+            return False
+        if hand_count >= 2 and not self.command_reentry_requires_release:
+            self._command_activate_consecutive += 1
+            return self._command_activate_consecutive >= self._command_activate_threshold
+        else:
+            self._command_activate_consecutive = 0
+            return False
 
     def update_command_mode(self, command_result: Dict[str, object]) -> None:
         if not self.command_mode_active:

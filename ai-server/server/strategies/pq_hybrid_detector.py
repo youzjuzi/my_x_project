@@ -17,10 +17,10 @@ FINGER_STRAIGHT_THRESHOLD = 160
 TH_P_SEG = 0.22
 TH_P_T_MIN = -0.05
 TH_P_T_MAX = 1.05
-TH_Q_OPEN = 0.38
-TH_Q_TIP_Y_DIFF = 0.55
-TH_INDEX_DOWN_RATIO = 0.60
-TH_THUMB_DOWN_RATIO = 0.35
+TH_Q_OPEN = 0.45
+TH_Q_TIP_Y_DIFF = 0.40
+TH_INDEX_DOWN_RATIO = 0.80
+TH_THUMB_DOWN_RATIO = 0.50
 VOTE_WINDOW = 5
 VOTE_MIN = 3
 
@@ -189,7 +189,7 @@ def stabilize_cls(history, vote_min=VOTE_MIN):
     top_cls, top_count = Counter(history).most_common(1)[0]
     if top_count >= vote_min:
         return top_cls
-    return history[-1]
+    return "uncertain"
 
 
 class PQHybridDetector:
@@ -337,12 +337,13 @@ class PQHybridDetector:
 
             ordered_labels = []
             detections = []
+            best_label = None
+            best_conf = 0.0
             for *letter_xyxy, letter_conf, letter_cls in letter_det.tolist():
                 dx1, dy1, dx2, dy2 = map(int, letter_xyxy)
                 gx1, gy1 = hx1 + dx1, hy1 + dy1
                 gx2, gy2 = hx1 + dx2, hy1 + dy2
                 letter_name = str(self.letters_stage.names[int(letter_cls)])
-                ordered_labels.append((gx1, letter_name))
                 detections.append(
                     {
                         "label": letter_name,
@@ -350,6 +351,10 @@ class PQHybridDetector:
                         "box": [gx1, gy1, gx2, gy2],
                     }
                 )
+                # 跟踪置信度最高的检测结果
+                if letter_conf > best_conf:
+                    best_conf = letter_conf
+                    best_label = letter_name
                 draw_box(
                     output,
                     (gx1, gy1, gx2, gy2),
@@ -359,9 +364,9 @@ class PQHybridDetector:
                 )
 
             hand_text = ""
-            if ordered_labels:
-                ordered_labels.sort(key=lambda item: item[0])
-                hand_text = "".join(item[1] for item in ordered_labels)
+            # 单手只保留最高置信度的字母，避免拼接出 "HQ" 这样的噪声
+            if best_label:
+                hand_text = best_label
                 hand_texts.append(hand_text)
                 cv2.putText(
                     output,

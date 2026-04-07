@@ -93,6 +93,11 @@ async def run_inference_loop(session: BaseSession, get_detector: Callable[[str],
                 if hand_count >= 2:
                     result["text"] = ""
 
+                # action_suppression 期间，无论 handCount 多少，都清空文本
+                # 防止命令退出后用户收手时 YOLO 识别出的字符污染显示状态
+                if session._is_in_action_suppression():
+                    result["text"] = ""
+
                 if session.allows_detector_command_mode():
                     session.update_command_reentry_gate(hand_count)
                 if session.allows_detector_command_mode() and session.can_activate_command_mode(hand_count):
