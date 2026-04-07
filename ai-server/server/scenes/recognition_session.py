@@ -173,7 +173,13 @@ class RecognitionSession(BaseSession):
             self.hanzi_candidate = ""
             self.hanzi_candidates = []
             self.candidate_index = 0
+            self._last_pinyin_input = ""
             return
+
+        # 缓存：拼音输入未变化时跳过昂贵的转换计算
+        if self.raw_pinyin_buffer == getattr(self, "_last_pinyin_input", ""):
+            return
+        self._last_pinyin_input = self.raw_pinyin_buffer
 
         if self.mode == "digits":
             candidates = digits_to_candidates(self.raw_pinyin_buffer)
