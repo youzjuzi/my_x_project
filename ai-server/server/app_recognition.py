@@ -24,8 +24,8 @@ app = create_scene_app(
     static_dir=STATIC_DIR,
 )
 
-# 单独注册润色路由，前缀与前端 URL 约定一致：/recognition/webrtc/polish
-app.include_router(polish_router, prefix="/recognition")
+# 子应用内部注册 /webrtc/polish，由统一入口挂载后对外暴露为 /recognition/webrtc/polish
+app.include_router(polish_router)
 
 
 def main() -> None:
@@ -36,3 +36,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
