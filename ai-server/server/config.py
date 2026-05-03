@@ -12,9 +12,9 @@ AI_ROOT = ROOT.parent
 load_dotenv(AI_ROOT / ".env")
 
 # 允许局域网其他设备访问（0.0.0.0 代替 127.0.0.1）
-HOST = "0.0.0.0"
-PORT = 8001
-WEBRTC_PORT = 8002
+HOST = os.environ.get("AI_SERVER_HOST", "0.0.0.0")
+PORT = int(os.environ.get("AI_SERVER_PORT", "8001"))
+WEBRTC_PORT = int(os.environ.get("AI_WEBRTC_PORT", "8080"))
 
 DEVICE = "0" if torch.cuda.is_available() else "cpu"  # 有 CUDA GPU 自动用 GPU，否则回退到 CPU
 _EXT = ".onnx" if DEVICE == "cpu" else ".pt"
