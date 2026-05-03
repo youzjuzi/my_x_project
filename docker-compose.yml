@@ -8,9 +8,14 @@ services:
             - ./backend-java/logs:/app/logs
         environment:
             SERVER_PORT: 9999
+            SPRING_PROFILES_ACTIVE: prod
             SPRING_DATASOURCE_URL: jdbc:mysql://mysql6.sqlpub.com:3311/project_xdb?useSSL=true&requireSSL=true
             SPRING_DATASOURCE_USERNAME: youzilite
             SPRING_DATASOURCE_PASSWORD: vsNDgmYmYPyDRkUM
+
+            SPRING_DATA_REDIS_HOST: redis
+            SPRING_DATA_REDIS_PORT: 6379
+            SPRING_DATA_REDIS_PASSWORD: 123456
         networks:
             - x_net
     frontend:
@@ -23,7 +28,7 @@ services:
         networks:
             - x_net
     redis:
-        image: redis:7.0
+        image: docker.1ms.run/redis:7.0
         container_name: x_redis
         ports:
             - "6379:6379" # 必须暴露，因为你的 IDE 在容器外面
@@ -36,3 +41,5 @@ services:
 networks:
     x_net:
         driver: bridge
+
+

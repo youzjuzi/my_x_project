@@ -1,5 +1,5 @@
 # 1.构建阶段（Maven编译）
-FROM maven:3.9-eclipse-temurin-17 AS build-stage
+FROM docker.1ms.run/maven:3.9-eclipse-temurin-17 AS build-stage
 WORKDIR /app
 
 # 配置阿里云 Maven 镜像 (解决国内网络问题)
@@ -25,11 +25,13 @@ COPY src ./src
 RUN mvn clean package -DskipTests -B
 
 # 2.运行阶段（使用精简的JRE镜像）
-FROM eclipse-temurin:17-jre-alpine
+FROM docker.1ms.run/eclipse-temurin:17-jre-alpine
 WORKDIR /app
 # 从构建阶段复制生成的 jar 包
 COPY --from=build-stage /app/target/*.jar app.jar
 # 自定义9999端口
 EXPOSE 9999
 ENTRYPOINT ["java", "-jar", "app.jar"]
+
+
 
