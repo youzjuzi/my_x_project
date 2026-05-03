@@ -16,6 +16,7 @@ services:
             SPRING_DATA_REDIS_HOST: redis
             SPRING_DATA_REDIS_PORT: 6379
             SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+            REDIS_PASSWORD: ${REDIS_PASSWORD}
             AI_DEEPSEEK_API_KEY: ${AI_DEEPSEEK_API_KEY}
             AI_DEEPSEEK_URL: ${AI_DEEPSEEK_URL:-https://api.deepseek.com/chat/completions}
             AI_DEEPSEEK_MODEL: ${AI_DEEPSEEK_MODEL:-deepseek-chat}
@@ -35,7 +36,11 @@ services:
         networks:
             - x_net
     frontend:
-        build: ./frontend-web
+        build:
+            context: ./frontend-web
+            args:
+                NODE_IMAGE: ${NODE_IMAGE:-docker.1ms.run/node:22-alpine}
+                NGINX_IMAGE: ${NGINX_IMAGE:-docker.1ms.run/nginx:alpine}
         container_name: web-vue3
         ports:
             - "8888:80"

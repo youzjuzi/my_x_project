@@ -31,8 +31,8 @@ spring:
   data:
     redis:
       port: 6379
-      host: redis # docker中的redis服务名称
-      password: ${REDIS_PASSWORD}
+      host: ${SPRING_DATA_REDIS_HOST:redis} # Docker 内默认用服务名，本地可通过环境变量覆盖为 localhost
+      password: ${SPRING_DATA_REDIS_PASSWORD:${REDIS_PASSWORD}}
 
 # AI Configuration
 ai:

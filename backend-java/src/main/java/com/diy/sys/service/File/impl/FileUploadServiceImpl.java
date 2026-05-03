@@ -22,7 +22,9 @@ import java.util.UUID;
 @Service
 public class FileUploadServiceImpl implements IFileUploadService {
 
-    @Autowired
+    // required = false：R2 未配置时（如本地开发）不注入，启动不报错
+    // 实际调用上传接口时若为 null 会在业务层抛出明确提示
+    @Autowired(required = false)
     private AmazonS3 amazonS3;
 
     @Autowired

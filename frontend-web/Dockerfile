@@ -1,5 +1,8 @@
 # 1.构建阶段
-FROM docker.1ms.run/node:22-alpine AS build-stage
+ARG NODE_IMAGE=node:22-alpine
+ARG NGINX_IMAGE=nginx:alpine
+
+FROM ${NODE_IMAGE} AS build-stage
 WORKDIR /app
 COPY package*.json ./
 # 设置npm镜像
@@ -10,7 +13,7 @@ COPY . .
 RUN npm run build:prod
 
 # 2.nginx部署
-FROM docker.1ms.run/nginx:alpine AS production-stage
+FROM ${NGINX_IMAGE} AS production-stage
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/nginx.conf
 EXPOSE 80

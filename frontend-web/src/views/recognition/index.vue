@@ -69,7 +69,7 @@
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getScenePolishUrl } from '@/services/webrtcClient'
+import { getScenePolishUrl, normalizeAiServiceError } from '@/services/webrtcClient'
 import RecognitionHeader from './components/RecognitionHeader.vue'
 import VideoPanel from './components/VideoPanel.vue'
 import InteractionPanel from './components/InteractionPanel.vue'
@@ -192,7 +192,8 @@ const handleSubmit = async () => {
     console.error('提交失败:', error)
     // 失败时把词语还回暂存区
     pendingWords.value = wordsToSubmit + pendingWords.value
-    ElMessage.warning('提交失败，词语已还原')
+    const reason = normalizeAiServiceError(error, '提交失败').message
+    ElMessage.warning(`提交失败，词语已还原（${reason}）`)
   } finally {
     isSubmitting.value = false
   }

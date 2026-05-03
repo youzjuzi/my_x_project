@@ -1,7 +1,7 @@
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getScenePolishUrl } from '@/services/webrtcClient'
+import { getScenePolishUrl, normalizeAiServiceError } from '@/services/webrtcClient'
 import { useRecognitionSession } from '../../recognition/composables/useRecognitionSession'
 import useUserStore from '@/store/modules/user'
 import { saveHistory } from '@/api/translationHistory'
@@ -101,8 +101,8 @@ export function useWorkspace() {
     } catch (error: any) {
       console.error('提交失败:', error)
       pendingWords.value = wordsToSubmit + pendingWords.value
-      // 展示真实错误原因，方便排查
-      const reason = error?.message || '未知错误'
+      // 展示友好的错误原因，避免直接暴露 Failed to fetch
+      const reason = normalizeAiServiceError(error, '提交失败').message
       ElMessage.warning(`提交失败，词语已还原（${reason}）`)
     } finally {
       isSubmitting.value = false

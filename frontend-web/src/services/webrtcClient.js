@@ -30,6 +30,25 @@ export function getScenePolishUrl(scene = 'recognition') {
   return `${resolveSceneBaseUrl(scene)}/webrtc/polish`
 }
 
+function isFetchNetworkError(error) {
+  const message = String(error?.message || '').toLowerCase()
+  return error instanceof TypeError
+    || message.includes('failed to fetch')
+    || message.includes('networkerror')
+    || message.includes('load failed')
+    || message.includes('network request failed')
+}
+
+export function normalizeAiServiceError(error, fallbackMessage = '识别服务连接失败') {
+  if (isFetchNetworkError(error)) {
+    return new Error('识别服务未启动或当前网络无法连接，请确认 AI 识别端已运行后再试')
+  }
+
+  return error instanceof Error
+    ? error
+    : new Error(error?.message || fallbackMessage)
+}
+
 function waitForIceGatheringComplete(pc) {
   if (pc.iceGatheringState === 'complete') {
     return Promise.resolve()
@@ -182,8 +201,9 @@ export function createRecognitionWebRtcClient(options) {
       await peerConnection.setRemoteDescription(answer)
     } catch (error) {
       disconnect()
-      if (typeof onError === 'function') onError(error)
-      throw error
+      const normalizedError = normalizeAiServiceError(error)
+      if (typeof onError === 'function') onError(normalizedError)
+      throw normalizedError
     }
   }
 
