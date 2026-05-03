@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
+ARG BACKEND_BUILD_IMAGE=docker.1ms.run/maven:3.9-eclipse-temurin-17
+ARG BACKEND_RUNTIME_IMAGE=docker.1ms.run/maven:3.9-eclipse-temurin-17
+
 # 1.构建阶段（Maven编译）
-FROM docker.1ms.run/maven:3.9-eclipse-temurin-17 AS build-stage
+FROM ${BACKEND_BUILD_IMAGE} AS build-stage
 WORKDIR /app
 
 # 配置阿里云 Maven 镜像 (解决国内网络问题)
@@ -30,8 +33,11 @@ COPY src ./src
 RUN --mount=type=cache,target=/root/.m2/repository \
     mvn clean package -DskipTests -B
 
-# 2.运行阶段（使用精简的JRE镜像）
-FROM docker.1ms.run/eclipse-temurin:17-jre-alpine
+# 2.运行阶段
+# 默认复用 Maven + Temurin 17 镜像，避免部分镜像站缺少 eclipse-temurin:17-jre-alpine。
+# 如服务器能正常拉取轻量 JRE 镜像，可设置：
+# BACKEND_RUNTIME_IMAGE=eclipse-temurin:17-jre-alpine
+FROM ${BACKEND_RUNTIME_IMAGE}
 WORKDIR /app
 # 从构建阶段复制生成的 jar 包
 COPY --from=build-stage /app/target/*.jar app.jar

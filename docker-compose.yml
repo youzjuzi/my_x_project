@@ -1,6 +1,10 @@
 services:
     backend:
-        build: ./backend-java
+        build:
+            context: ./backend-java
+            args:
+                BACKEND_BUILD_IMAGE: ${BACKEND_BUILD_IMAGE:-docker.1ms.run/maven:3.9-eclipse-temurin-17}
+                BACKEND_RUNTIME_IMAGE: ${BACKEND_RUNTIME_IMAGE:-docker.1ms.run/maven:3.9-eclipse-temurin-17}
         container_name: x-admin
         expose:
             - "9999"
