@@ -49,6 +49,47 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+ensure_path_contains_uv() {
+  export PATH="${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
+}
+
+install_uv_if_needed() {
+  ensure_path_contains_uv
+
+  if command_exists uv; then
+    log "检测到 uv：$(uv --version)"
+    return
+  fi
+
+  warn "未检测到 uv。uv 通常比 pip 更快，适合部署 Python 依赖。"
+  if ask_yes_no "是否自动安装 uv？" "y"; then
+    if command_exists curl; then
+      log "使用官方安装脚本安装 uv..."
+      curl -LsSf https://astral.sh/uv/install.sh | sh
+      ensure_path_contains_uv
+    else
+      warn "未检测到 curl，尝试使用 pip 安装 uv..."
+      python -m pip install --upgrade uv
+    fi
+  fi
+
+  if command_exists uv; then
+    log "uv 安装完成：$(uv --version)"
+    return
+  fi
+
+  warn "uv 不可用，后续自动回退 pip。"
+}
+
+install_packages() {
+  if command_exists uv; then
+    uv pip install "$@"
+    return
+  fi
+
+  pip install "$@"
+}
+
 detect_python() {
   if command_exists python3.10; then
     echo "python3.10"
@@ -142,11 +183,19 @@ ensure_venv() {
     log "检测到已有虚拟环境：${VENV_DIR}"
   else
     log "创建虚拟环境：${VENV_DIR}"
-    "${py_bin}" -m venv "${VENV_DIR}"
+    if command_exists uv; then
+      uv venv --python "${py_bin}" "${VENV_DIR}"
+    else
+      "${py_bin}" -m venv "${VENV_DIR}"
+    fi
   fi
 
   activate_venv
-  python -m pip install --upgrade pip
+  if command_exists uv; then
+    log "使用 uv 管理 Python 依赖。"
+  else
+    python -m pip install --upgrade pip
+  fi
 }
 
 torch_status() {
@@ -214,19 +263,19 @@ PY
   case "${target}" in
     cu121)
       log "安装 PyTorch CUDA 12.1 版本..."
-      pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+      install_packages torch torchvision --index-url https://download.pytorch.org/whl/cu121
       ;;
     cu124)
       log "安装 PyTorch CUDA 12.4 版本..."
-      pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+      install_packages torch torchvision --index-url https://download.pytorch.org/whl/cu124
       ;;
     cu118)
       log "安装 PyTorch CUDA 11.8 版本..."
-      pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+      install_packages torch torchvision --index-url https://download.pytorch.org/whl/cu118
       ;;
     cpu)
       log "安装 PyTorch CPU 版本..."
-      pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      install_packages torch torchvision --index-url https://download.pytorch.org/whl/cpu
       ;;
     *) fail "未知 PyTorch 目标版本：${target}" ;;
   esac
@@ -238,7 +287,7 @@ PY
 install_requirements() {
   cd "${SCRIPT_DIR}"
   log "安装/更新 ai-server Python 依赖..."
-  pip install -r requirements.txt
+  install_packages -r requirements.txt
 }
 
 check_runtime_files() {
@@ -369,6 +418,7 @@ main() {
   log "使用 Python：$(${py_bin} --version 2>&1)"
 
   detect_nvidia
+  install_uv_if_needed
   ensure_venv "${py_bin}"
   install_torch
   install_requirements
