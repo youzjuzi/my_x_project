@@ -25,6 +25,13 @@ services:
             CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
             CLOUDFLARE_R2_DOMAIN: ${CLOUDFLARE_R2_DOMAIN}
             JWT_SECRET: ${JWT_SECRET}
+            # JVM 堆内存限制（JVM 自动读取 JAVA_TOOL_OPTIONS，无需改 Dockerfile）
+            # -Xms: 初始堆, -Xmx: 最大堆, XX:+ExitOnOutOfMemoryError: OOM 时主动退出让 Docker 重启
+            JAVA_TOOL_OPTIONS: "-Xms256m -Xmx512m -XX:+ExitOnOutOfMemoryError"
+        deploy:
+            resources:
+                limits:
+                    memory: 896M  # 容器最大内存（超出会被 OOM kill）
         networks:
             - x_net
     frontend:
@@ -34,6 +41,10 @@ services:
             - "8888:80"
         volumes:
             - ./frontend-web/logs:/var/log/nginx
+        deploy:
+            resources:
+                limits:
+                    memory: 64M  # nginx 静态文件服务，64M 足够
         networks:
             - x_net
     redis:
@@ -44,6 +55,10 @@ services:
         command: redis-server --requirepass ${REDIS_PASSWORD}
         volumes:
             - ./data/redis:/data
+        deploy:
+            resources:
+                limits:
+                    memory: 256M  # Redis 缓存上限，超出按 allkeys-lru 策略淘汰
         networks:
             - x_net # 确保和你的前后端在同一个网络
 
