@@ -1,4 +1,4 @@
-# AI Server Windows 一键启动脚本。
+﻿# AI Server Windows 一键启动脚本。
 #
 # 用法：
 #   .\start-ai.ps1
