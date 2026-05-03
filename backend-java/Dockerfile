@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # 1.构建阶段（Maven编译）
 FROM docker.1ms.run/maven:3.9-eclipse-temurin-17 AS build-stage
 WORKDIR /app
@@ -18,11 +19,16 @@ RUN mkdir -p /root/.m2 && \
     </mirrors>\n\
     </settings>' > /root/.m2/settings.xml
 
-# 复制pom文件和源码
+# 先只复制 pom.xml；pom 不变时依赖层可复用
 COPY pom.xml .
+# --mount=type=cache 将宿主机的 Maven 本地仓库挂载进来，跨构建复用已下载的 jar，避免重复下载
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn dependency:go-offline -B
+
+# 再复制源码并编译打包（同样复用缓存中的依赖）
 COPY src ./src
-# 编译打包 (依赖会在此步骤自动下载)
-RUN mvn clean package -DskipTests -B
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn clean package -DskipTests -B
 
 # 2.运行阶段（使用精简的JRE镜像）
 FROM docker.1ms.run/eclipse-temurin:17-jre-alpine

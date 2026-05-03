@@ -5,6 +5,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -18,11 +19,11 @@ public class JwtUtil {
     //private static final long JWT_EXPIRE = 30*60*1000L;  //半小时
     //由于加入了redis,jwt验证设置一天时间
     private static final long JWT_EXPIRE = 1*24*60*60*1000L;  //1天
-    // 令牌秘钥
-    private static final String JWT_KEY = "YourSuperSecretKeyForHS256Algorithm123";
+    private final SecretKey secretKey;
 
-    // 将密钥字符串转换为SecretKey对象，并作为静态常量，确保全局唯一且只生成一次
-    private static final SecretKey SECRET_KEY = Keys.hmacShaKeyFor(JWT_KEY.getBytes(StandardCharsets.UTF_8));
+    public JwtUtil(@Value("${jwt.secret}") String jwtKey) {
+        this.secretKey = Keys.hmacShaKeyFor(jwtKey.getBytes(StandardCharsets.UTF_8));
+    }
 
     /**
      * 创建JWT Token
@@ -39,7 +40,7 @@ public class JwtUtil {
                 .issuer("system")
                 .issuedAt(new Date(currentTime))
                 .expiration(new Date(expTime))
-                .signWith(SECRET_KEY, SignatureAlgorithm.HS256)
+                .signWith(secretKey, SignatureAlgorithm.HS256)
                 .compact();
     }
     /**
@@ -49,7 +50,7 @@ public class JwtUtil {
      */
     public  Claims parseToken(String token){
         return Jwts.parser()
-                .verifyWith(SECRET_KEY)
+                .verifyWith(secretKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

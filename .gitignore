@@ -11,9 +11,13 @@
 .DS_Store
 
 # Environment variables - NEVER commit secrets!
-#.env
-#.env.*
-#!.env.example
+/.env
+/.env.*
+!/.env.example
+ai-server/.env
+ai-server/.env.*
+!ai-server/.env.example
+
 
 
 # ===================================================================
@@ -24,6 +28,7 @@
 # Compiled output from Maven/Gradle
 backend-java/target/
 backend-java/build/
+/.m2-cache/
 
 # Spring Boot specific
 backend-java/HELP.md
@@ -177,3 +182,4 @@ frontend-web/logs/
 # 忽略本地数据库数据
 data/
 frontend-web/components.d.ts
+.env.example

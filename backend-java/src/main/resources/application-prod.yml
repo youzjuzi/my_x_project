@@ -11,9 +11,9 @@ spring:
 #    url: jdbc:mysql://localhost/xdb?useSSL=false&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true
 #    driver-class-name: com.mysql.cj.jdbc.Driver
     #云服务器MySQL
-    username: youzilite
-    password: vsNDgmYmYPyDRkUM
-    url: jdbc:mysql://mysql6.sqlpub.com:3311/project_xdb?useSSL=true&requireSSL=true
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL}
     driver-class-name: com.mysql.cj.jdbc.Driver
     # HikariCP 连接池配置
     hikari:
@@ -32,14 +32,17 @@ spring:
     redis:
       port: 6379
       host: redis # docker中的redis服务名称
-      password: 123456
+      password: ${REDIS_PASSWORD}
 
 # AI Configuration
 ai:
   deepseek:
-    api-key: "sk-edf76fc6fed2411988d4d0ba3e1e5228"
-    url: https://api.deepseek.com/chat/completions
-    model: deepseek-chat
+    api-key: ${AI_DEEPSEEK_API_KEY}
+    url: ${AI_DEEPSEEK_URL:https://api.deepseek.com/chat/completions}
+    model: ${AI_DEEPSEEK_MODEL:deepseek-chat}
+
+jwt:
+  secret: ${JWT_SECRET}
 
 # Tianai-Captcha 验证码配置
 captcha:
@@ -73,8 +76,8 @@ mybatis-plus:
 
 cloudflare:
   r2:
-    access-key: "71b2b4aef9d416917801610b1dc33963"
-    secret-key: "7d33aa0640e631cbd49731633328c2f5c436b555989b1ac2f4002424cae492be"
-    endpoint: "https://4b9f4af50152c4c4b85005817e83e269.r2.cloudflarestorage.com"
-    bucket-name: "avatar-bucket"
-    domain: "https://avatar.youzilite.us.kg" # 你绑定的访问域名
+    access-key: ${CLOUDFLARE_R2_ACCESS_KEY}
+    secret-key: ${CLOUDFLARE_R2_SECRET_KEY}
+    endpoint: ${CLOUDFLARE_R2_ENDPOINT}
+    bucket-name: ${CLOUDFLARE_R2_BUCKET_NAME}
+    domain: ${CLOUDFLARE_R2_DOMAIN} # 你绑定的访问域名
