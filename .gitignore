@@ -182,4 +182,3 @@ frontend-web/logs/
 # 忽略本地数据库数据
 data/
 frontend-web/components.d.ts
-.env.example
