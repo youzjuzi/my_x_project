@@ -31,7 +31,7 @@ services:
         build: ./frontend-web
         container_name: web-vue3
         ports:
-            - "80:80"
+            - "8888:80"
         volumes:
             - ./frontend-web/logs:/var/log/nginx
         networks:
