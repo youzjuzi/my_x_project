@@ -164,7 +164,7 @@ function Test-PythonImports {
     param([string]$EnvName)
 
     Write-Step "检查 Python 依赖模块..."
-    $code = @"
+    $code = @'
 import importlib
 import sys
 
@@ -192,12 +192,21 @@ if missing:
     sys.exit(1)
 
 print("Python 依赖模块检查通过。")
-"@
+'@
 
-    & conda run -n $EnvName python -c $code
-    if ($LASTEXITCODE -ne 0) {
-        throw "Python 依赖检查失败。可执行：conda run -n $EnvName pip install -r requirements.txt"
+    $tempFile = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-server-check-" + [System.Guid]::NewGuid().ToString("N") + ".py")
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+
+    try {
+        [System.IO.File]::WriteAllText($tempFile, $code, $utf8NoBom)
+        & conda run -n $EnvName python $tempFile
+        if ($LASTEXITCODE -ne 0) {
+            throw "Python 依赖检查失败。可执行：conda run -n $EnvName pip install -r requirements.txt"
+        }
+    } finally {
+        Remove-Item -LiteralPath $tempFile -Force -ErrorAction SilentlyContinue
     }
+
     Write-Ok "Python 依赖模块可用。"
 }
 
