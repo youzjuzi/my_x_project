@@ -525,9 +525,10 @@ class PQHybridDetector:
             if self.expected_label in ("I", "D"):
                 cv2.putText(
                     output,
-                    "dynamic still={0} move={1} curve={2:.3f}".format(
-                        info.get("still_enough", False),
+                    "dynamic move={0} sweep={1} hold={2} curve={3:.3f}".format(
                         info.get("moved_enough", False),
+                        info.get("is_sweep", False),
+                        info.get("held_dynamic", False),
                         info.get("curve_ratio", -1.0),
                     ),
                     (20, 125),
@@ -634,6 +635,13 @@ class PQHybridDetector:
         if not self.mp_active:
             return
         now = time.monotonic()
+        compatible_labels = {
+            "I": ("I", "J"),
+            "D": ("D", "Z"),
+        }.get(self.expected_label, (self.expected_label,))
+        if stable_label in compatible_labels:
+            self.mismatch_started_at = None
+            return
         if stable_label == self.expected_label:
             self.mismatch_started_at = None
             return

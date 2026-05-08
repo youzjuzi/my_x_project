@@ -1,4 +1,5 @@
 import math
+import time
 from collections import Counter, deque
 
 # =========================
@@ -18,16 +19,18 @@ IJ_FAMILY_GRACE = 5           # [降低] 握拳后断开的延迟降低，迅速
 IJ_VOTE_WINDOW = 3            # [降低] 投票窗口缩小，极速响应
 IJ_VOTE_MIN = 2               # [降低] 2票即可确认
 
-# D/Z 动态参数 (左右晃动)
-DZ_TRAJ_WINDOW = 12           
-DZ_MIN_TRACK_FRAMES = 4       
-DZ_TH_MOVE = 0.35             
-DZ_TH_WAVE_CURVE = 1.25       
-DZ_XY_RATIO = 1.2             
+# D/Z 动态参数 (D手型横向扫动/左右晃动 -> Z)
+DZ_TRAJ_WINDOW = 14
+DZ_MIN_TRACK_FRAMES = 3
+DZ_TH_MOVE = 0.24
+DZ_TH_SWEEP = 0.18
+DZ_TH_WAVE_CURVE = 1.08
+DZ_XY_RATIO = 0.90
 DZ_NO_HAND_GRACE = 3
-DZ_FAMILY_GRACE = 5           
+DZ_FAMILY_GRACE = 5
 DZ_VOTE_WINDOW = 3
 DZ_VOTE_MIN = 2
+DZ_DYNAMIC_HOLD_SECONDS = 2.2
 
 
 def point_xy(lm):
@@ -169,6 +172,8 @@ def classify_dz_dynamic(samples):
     total_len = path_length(traj)
     end_disp = dist_xy(traj[0], traj[-1])
     curve_ratio = total_len / max(end_disp, 1e-6)
+    net_dx = abs(traj[-1][0] - traj[0][0])
+    net_dy = abs(traj[-1][1] - traj[0][1])
 
     not_enough_frames = len(traj) < DZ_MIN_TRACK_FRAMES
 
@@ -181,15 +186,29 @@ def classify_dz_dynamic(samples):
     moved_enough = total_len > DZ_TH_MOVE
     is_horizontal = sum_dx > (sum_dy * DZ_XY_RATIO)
     is_waving = curve_ratio > DZ_TH_WAVE_CURVE
+    is_sweep = net_dx > DZ_TH_SWEEP and net_dx > (net_dy * DZ_XY_RATIO)
 
     if not_enough_frames:
         cls = "D"
-    elif moved_enough and is_horizontal and is_waving:
+    elif moved_enough and is_horizontal and (is_waving or is_sweep):
         cls = "Z"
     else:
         cls = "D" 
 
-    return cls, {}
+    return cls, {
+        "num_points": len(traj),
+        "total_len": total_len,
+        "end_disp": end_disp,
+        "curve_ratio": curve_ratio,
+        "sum_dx": sum_dx,
+        "sum_dy": sum_dy,
+        "net_dx": net_dx,
+        "net_dy": net_dy,
+        "moved_enough": moved_enough,
+        "is_horizontal": is_horizontal,
+        "is_waving": is_waving,
+        "is_sweep": is_sweep,
+    }
 
 
 # =========================
@@ -224,6 +243,8 @@ class DynamicLetterSession:
             self.family_grace = DZ_FAMILY_GRACE
             self.valid_labels = ("D", "Z")
             self.vote_min = DZ_VOTE_MIN
+            self.dynamic_label = "Z"
+            self.dynamic_hold_seconds = DZ_DYNAMIC_HOLD_SECONDS
 
         self.reset()
 
@@ -235,6 +256,7 @@ class DynamicLetterSession:
         self.tracking_active = False
         self.last_raw_cls = self.base_label
         self.last_stable_cls = self.base_label
+        self.dynamic_hold_until = 0.0
 
     def update(self, hand):
         info = {}
@@ -286,6 +308,14 @@ class DynamicLetterSession:
 
         if self.tracking_active and len(self.traj_buffer) > 0:
             raw_cls, info = classifier(list(self.traj_buffer))
+            dynamic_label = getattr(self, "dynamic_label", None)
+            if dynamic_label is not None:
+                now = time.monotonic()
+                if raw_cls == dynamic_label:
+                    self.dynamic_hold_until = now + self.dynamic_hold_seconds
+                elif now < self.dynamic_hold_until:
+                    raw_cls = dynamic_label
+                    info["held_dynamic"] = True
             self.cls_history.append(raw_cls)
             stable_cls = stabilize_family(self.cls_history, self.valid_labels, self.vote_min)
             self.last_raw_cls = raw_cls
