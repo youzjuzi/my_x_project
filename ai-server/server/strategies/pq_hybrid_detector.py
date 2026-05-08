@@ -24,6 +24,7 @@ TH_INDEX_DOWN_RATIO = 0.80
 TH_THUMB_DOWN_RATIO = 0.50
 VOTE_WINDOW = 5
 VOTE_MIN = 3
+MNT_VOTE_MIN = 2
 
 
 def point_xy(lm):
@@ -442,7 +443,7 @@ class PQHybridDetector:
             elif self.expected_label in ("M", "N", "T"):
                 raw_cls, info = classify_mnt_only(hand)
                 self.cls_history.append(raw_cls)
-                stable_cls = stabilize_cls(self.cls_history, vote_min=VOTE_MIN)
+                stable_cls = stabilize_cls(self.cls_history, vote_min=MNT_VOTE_MIN)
             elif self.expected_label == "F":
                 raw_cls, info = classify_f_only(hand)
                 self.cls_history.append(raw_cls)
@@ -638,6 +639,9 @@ class PQHybridDetector:
         compatible_labels = {
             "I": ("I", "J"),
             "D": ("D", "Z"),
+            "M": ("M", "N", "T"),
+            "N": ("M", "N", "T"),
+            "T": ("M", "N", "T"),
         }.get(self.expected_label, (self.expected_label,))
         if stable_label in compatible_labels:
             self.mismatch_started_at = None

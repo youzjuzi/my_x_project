@@ -5,6 +5,12 @@ TH_GAP = 0.60
 TH_E = 0.45
 TH_SEG = 0.20
 TH_Z = 0.15
+TH_M_ZONE_MARGIN = 0.08
+TH_T_ZONE_MARGIN = 0.02
+TH_SEG_MT = 0.24
+TH_SEG_N = 0.16
+TH_Z_MT = 0.20
+TH_Z_N = 0.12
 
 
 def point_xy(lm):
@@ -146,21 +152,6 @@ def classify_mnt_robust(hand, fist_family, th_gap=TH_GAP, th_e=TH_E, th_seg=TH_S
         "seg_top": None, "seg_bottom": None
     }
 
-    # --- 核心优化 1：三区域硬边界防线 ---
-    if t_thumb > t_ring - 0.02:
-        # 越过无名指，是 M
-        best_name = "M"
-    elif t_thumb > t_middle - 0.05:
-        # 在中指和无名指之间，是 N
-        best_name = "N"
-    elif t_thumb > -0.15:
-        # 在食指（投影起点为0）和中指之间，预留 -0.15 容差，是 T
-        best_name = "T"
-    else:
-        # 放在了食指外围太远的地方，直接拦截
-        base_info["best"] = "Out_of_bounds"
-        return "not_mnt", base_info
-
     # 获取缝隙坐标，用于后续深度校验
     gap_t = gap_center(hand, 5, 9, 6, 10)
     gap_n = gap_center(hand, 9, 13, 10, 14)
@@ -172,6 +163,29 @@ def classify_mnt_robust(hand, fist_family, th_gap=TH_GAP, th_e=TH_E, th_seg=TH_S
     d_t_raw = dist_xy(thumb_tip, gap_t) / scale
     d_n_raw = dist_xy(thumb_tip, gap_n) / scale
     d_m_raw = dist_xy(thumb_tip, gap_m) / scale
+
+    # --- 核心优化 1：收窄 N 的中间带，给 M/T 更多容错 ---
+    m_boundary = t_ring - TH_M_ZONE_MARGIN
+    t_boundary = t_middle + TH_T_ZONE_MARGIN
+    base_info["m_boundary"] = m_boundary
+    base_info["t_boundary"] = t_boundary
+
+    if t_thumb >= m_boundary:
+        best_name = "M"
+    elif t_thumb > t_boundary:
+        best_name = "N"
+    elif t_thumb > -0.15:
+        best_name = "T"
+    else:
+        base_info["best"] = "Out_of_bounds"
+        return "not_mnt", base_info
+
+    # N 以前太容易“吃掉”临界的 M/T：若实际缝隙距离明显更像 M/T，就允许抢回。
+    if best_name == "N":
+        raw_distances = {"T": d_t_raw, "N": d_n_raw, "M": d_m_raw}
+        closest_name = min(raw_distances, key=raw_distances.get)
+        if closest_name in ("M", "T") and raw_distances[closest_name] + 0.08 < d_n_raw:
+            best_name = closest_name
 
     if best_name == "M":
         raw_best_d = d_m_raw
@@ -194,7 +208,8 @@ def classify_mnt_robust(hand, fist_family, th_gap=TH_GAP, th_e=TH_E, th_seg=TH_S
     if d_e < th_e:
         return "not_mnt", base_info
 
-    if raw_best_d > th_gap * 1.2:
+    raw_gap_limit = th_gap * (1.35 if best_name in ("M", "T") else 1.05)
+    if raw_best_d > raw_gap_limit:
         return "uncertain", base_info
 
     # --- 核心优化 2：深度锁死 ---
@@ -213,13 +228,15 @@ def classify_mnt_robust(hand, fist_family, th_gap=TH_GAP, th_e=TH_E, th_seg=TH_S
     if best_name == "N":
         t_max = 0.45  # N 的 y 轴投影容差收紧，拇指不能搭在指头尖端附近
 
-    inserted_xy = (seg_dist_norm < th_seg) and (t_min <= t <= t_max)
+    seg_limit = TH_SEG_N if best_name == "N" else max(th_seg, TH_SEG_MT)
+    inserted_xy = (seg_dist_norm < seg_limit) and (t_min <= t <= t_max)
 
     gap_ids = get_gap_ids(best_name)
     gap_z = avg_z(hand, gap_ids)
     thumb_z = hand[4].z
     z_diff = abs(thumb_z - gap_z)
-    inserted_z = (z_diff < th_z)
+    z_limit = TH_Z_N if best_name == "N" else max(th_z, TH_Z_MT)
+    inserted_z = (z_diff < z_limit)
     
     inserted = inserted_xy and inserted_z
     cls = best_name if inserted else "not_mnt"
@@ -231,6 +248,9 @@ def classify_mnt_robust(hand, fist_family, th_gap=TH_GAP, th_e=TH_E, th_seg=TH_S
         "thumb_z": thumb_z,
         "gap_z": gap_z,
         "z_diff": z_diff,
+        "seg_limit": seg_limit,
+        "z_limit": z_limit,
+        "raw_gap_limit": raw_gap_limit,
         "inserted_xy": inserted_xy,
         "inserted_z": inserted_z,
         "seg_top": seg_top,
