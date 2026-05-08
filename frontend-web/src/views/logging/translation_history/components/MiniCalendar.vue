@@ -31,13 +31,16 @@
     <div class="cal-legend">
       <span class="legend-dot active-dot"></span>
       <span class="legend-text">有记录</span>
+      <template v-if="localRange.length === 2 && localRange[0] && localRange[1]">
+        <span class="legend-clear" @click="clearSelection">清除</span>
+      </template>
       <span class="legend-count">{{ activityDates.length }} 天活跃</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 
 const props = defineProps<{
@@ -52,12 +55,22 @@ const emit = defineEmits<{
   (e: 'update:heatmapYear', val: number): void
   (e: 'update:heatmapMonth', val: number): void
   (e: 'changeMonth'): void
-  (e: 'selectDate', day: number): void
+  (e: 'update:dateRange', val: string[]): void
 }>()
 
 const activitySet = computed(() => new Set(props.activityDates))
 const daysInMonth = computed(() => new Date(props.heatmapYear, props.heatmapMonth, 0).getDate())
 const firstDayOfWeek = computed(() => new Date(props.heatmapYear, props.heatmapMonth - 1, 1).getDay())
+
+const rangeStart = ref<string | null>(null)
+const localRange = computed<string[]>(() => props.dateRange || [])
+
+// 外部（QuickFilters）改变 dateRange 时重置内部选择状态
+watch(() => props.dateRange, ([s, e]) => {
+  if (rangeStart.value && (!s || !e || rangeStart.value < s || rangeStart.value > e)) {
+    rangeStart.value = null
+  }
+})
 
 const prevMonth = () => {
   if (props.heatmapMonth === 1) { 
@@ -96,7 +109,40 @@ const isSelectedDay = (day: number) => {
 }
 
 const handleCalendarClick = (day: number) => {
-  emit('selectDate', day)
+  const dayStr = fmtDate(day)
+  const [s, e] = localRange.value
+
+  if (!s && !e) {
+    // 无选中 → 选中该天
+    rangeStart.value = dayStr
+    emit('update:dateRange', [dayStr, dayStr])
+    return
+  }
+
+  // 有选中
+  if (dayStr === s || dayStr === e) {
+    // 点击边界 → 清除
+    clearSelection()
+    return
+  }
+
+  if (dayStr > s && dayStr < e) {
+    // 点击范围内非边界 → 重新开始
+    rangeStart.value = dayStr
+    emit('update:dateRange', [dayStr, dayStr])
+    return
+  }
+
+  // 点击范围外 → 扩展
+  const anchor = rangeStart.value || s
+  const sorted = [anchor, dayStr].sort()
+  rangeStart.value = anchor
+  emit('update:dateRange', sorted)
+}
+
+const clearSelection = () => {
+  rangeStart.value = null
+  emit('update:dateRange', [])
 }
 </script>
 
@@ -221,6 +267,16 @@ const handleCalendarClick = (day: number) => {
     margin-left: auto;
     font-weight: 600;
     color: #6b7280;
+  }
+
+  .legend-clear {
+    margin-left: auto;
+    font-size: 11px;
+    color: #6366f1;
+    cursor: pointer;
+    font-weight: 600;
+
+    &:hover { text-decoration: underline; }
   }
 }
 </style>

@@ -1,7 +1,6 @@
 <template>
   <div class="history-page">
     <HistoryHeader
-      v-model:dateRange="dateRange"
       v-model:keyword="keyword"
       :loading="loading"
       :total="total"
@@ -13,11 +12,11 @@
         <MiniCalendar
           v-model:heatmapYear="heatmapYear"
           v-model:heatmapMonth="heatmapMonth"
+          v-model:dateRange="dateRange"
           :activityDates="activityDates"
-          :dateRange="dateRange"
           :isCurrentMonth="isCurrentMonth"
           @changeMonth="fetchActivityDates"
-          @selectDate="handleCalendarClick"
+          @update:dateRange="onCalendarRangeChange"
         />
 
         <QuickFilters
@@ -147,6 +146,12 @@ const handleSearch = () => {
   fetchHistory()
 }
 
+const onCalendarRangeChange = () => {
+  activeFilter.value = 'custom'
+  pageNo.value = 1
+  fetchHistory()
+}
+
 const handlePageChange = () => {
   fetchHistory()
   // 滚动到顶部
@@ -173,14 +178,6 @@ const applyQuickFilter = (f: { key: string; label: string }) => {
     // AI 筛选暂用关键词方式，后续可加 isAiPolished 参数
   }
 
-  pageNo.value = 1
-  fetchHistory()
-}
-
-const handleCalendarClick = (day: number) => {
-  const d = `${heatmapYear.value}-${String(heatmapMonth.value).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-  dateRange.value = [d, d]
-  activeFilter.value = 'custom'
   pageNo.value = 1
   fetchHistory()
 }

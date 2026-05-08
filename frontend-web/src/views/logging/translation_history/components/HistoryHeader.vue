@@ -5,18 +5,6 @@
       <span class="record-count" v-if="!loading">共 {{ total }} 条记录</span>
     </div>
     <div class="header-actions">
-      <el-date-picker
-        v-model="internalDateRange"
-        type="daterange"
-        range-separator="—"
-        start-placeholder="开始日期"
-        end-placeholder="结束日期"
-        value-format="YYYY-MM-DD"
-        :shortcuts="dateShortcuts"
-        @change="handleSearch"
-        class="date-picker"
-        size="default"
-      />
       <el-input
         v-model="internalKeyword"
         placeholder="搜索识别内容..."
@@ -36,33 +24,20 @@ import { computed } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 
 const props = defineProps<{
-  dateRange: string[]
   keyword: string
   loading: boolean
   total: number
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:dateRange', val: string[]): void
   (e: 'update:keyword', val: string): void
   (e: 'search'): void
 }>()
-
-const internalDateRange = computed({
-  get: () => props.dateRange,
-  set: (val) => emit('update:dateRange', val)
-})
 
 const internalKeyword = computed({
   get: () => props.keyword,
   set: (val) => emit('update:keyword', val)
 })
-
-const dateShortcuts = [
-  { text: '今天', value: () => { const d = new Date(); return [d, d] } },
-  { text: '最近7天', value: () => { const e = new Date(); const s = new Date(); s.setDate(s.getDate() - 6); return [s, e] } },
-  { text: '最近30天', value: () => { const e = new Date(); const s = new Date(); s.setDate(s.getDate() - 29); return [s, e] } },
-]
 
 const handleSearch = () => {
   emit('search')
@@ -103,10 +78,6 @@ const handleSearch = () => {
   gap: 12px;
   align-items: center;
 
-  .date-picker {
-    width: 280px;
-  }
-
   .keyword-input {
     width: 220px;
   }
@@ -122,7 +93,7 @@ const handleSearch = () => {
     width: 100%;
     flex-direction: column;
 
-    .date-picker, .keyword-input { width: 100%; }
+    .keyword-input { width: 100%; }
   }
 }
 </style>

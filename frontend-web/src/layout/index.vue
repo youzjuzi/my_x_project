@@ -4,20 +4,16 @@
     <sidebar class="sidebar-container" />
     <div :class="{ hasTagsView: needTagsView }" class="main-container">
       <div :class="{ 'fixed-header': fixedHeader }">
-        <navbar @open-settings="openSettingsPanel" />
+        <navbar />
         <tags-view v-if="needTagsView" />
       </div>
       <app-main />
-      <right-panel v-if="showSettings" ref="rightPanel" :show-button="false">
-        <settings />
-      </right-panel>
     </div>
   </div>
 </template>
 
 <script>
-import RightPanel from '@/components/RightPanel';
-import { AppMain, Navbar, Settings, Sidebar, TagsView } from './components';
+import { AppMain, Navbar, Sidebar, TagsView } from './components';
 import ResizeMixin from './mixin/ResizeHandler';
 import { mapState } from 'pinia';
 import store from '@/store';
@@ -28,8 +24,6 @@ export default defineComponent({
   components: {
     AppMain,
     Navbar,
-    RightPanel,
-    Settings,
     Sidebar,
     TagsView
   },
@@ -37,7 +31,6 @@ export default defineComponent({
   computed: {
     ...mapState(store.app, ['sidebar', 'device']),
     ...mapState(store.settings, {
-      showSettings: 'showSettings',
       needTagsView: 'tagsView',
       fixedHeader: 'fixedHeader'
     }),
@@ -53,9 +46,6 @@ export default defineComponent({
   methods: {
     handleClickOutside() {
       store.app().closeSidebar({ withoutAnimation: false });
-    },
-    openSettingsPanel() {
-      this.$refs.rightPanel?.openPanel?.();
     }
   }
 });

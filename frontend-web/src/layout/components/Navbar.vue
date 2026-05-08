@@ -14,8 +14,6 @@
           </el-button>
         </div>
 
-        <search id="header-search" class="right-menu-item" />
-
         <error-log class="errLog-container right-menu-item hover-effect" />
 
         <screenfull id="screenfull" class="right-menu-item hover-effect" />
@@ -37,9 +35,6 @@
             <router-link to="/">
               <el-dropdown-item>首页</el-dropdown-item>
             </router-link>
-            <el-dropdown-item @click="openSettings">
-              <span style="display:block;">设置</span>
-            </el-dropdown-item>
             <el-dropdown-item divided @click="logout">
               <span style="display:block;">退出登录</span>
             </el-dropdown-item>
@@ -58,20 +53,17 @@ import Hamburger from '@/components/Hamburger';
 import ErrorLog from '@/components/ErrorLog';
 import Screenfull from '@/components/Screenfull';
 import SizeSelect from '@/components/SizeSelect';
-import Search from '@/components/HeaderSearch';
 import { defineComponent } from 'vue';
 import { CaretBottom } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 
 export default defineComponent({
-  emits: ['open-settings'],
   components: {
     Breadcrumb,
     Hamburger,
     ErrorLog,
     Screenfull,
     SizeSelect,
-    Search,
     CaretBottom
   },
   computed: {
@@ -86,9 +78,6 @@ export default defineComponent({
   methods: {
     toggleSidebar() {
       store.app().toggleSidebar();
-    },
-    openSettings() {
-      this.$emit('open-settings');
     },
     async logout() {
       try {
@@ -178,16 +167,6 @@ export default defineComponent({
           :deep(svg.svg-icon) {
             fill: #5340E8 !important;
           }
-        }
-      }
-    }
-
-    #header-search {
-      &.hover-effect:hover {
-        :deep(.search-icon),
-        :deep(.svg-icon) {
-          color: #5340E8 !important;
-          fill: #5340E8 !important;
         }
       }
     }
