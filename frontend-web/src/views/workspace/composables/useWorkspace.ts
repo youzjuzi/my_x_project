@@ -123,10 +123,6 @@ export function useWorkspace() {
     ElMessage.success('已复制')
   }
 
-  const speakResult = () => {
-    ElMessage.info('语音播报暂未实现')
-  }
-
   onBeforeUnmount(() => {
     recognitionState.clearActionToast()
     recognitionState.stopCamera()
@@ -142,7 +138,6 @@ export function useWorkspace() {
     polishedResult,
     isSubmitting,
     clearAll,
-    copyResult,
-    speakResult
+    copyResult
   }
 }

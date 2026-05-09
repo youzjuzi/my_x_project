@@ -56,7 +56,6 @@
             :cached-buffer="cachedBuffer"
             @copy="copyResult"
             @clear="clearAll"
-            @speak="speakResult"
           />
         </div>
       </div>
@@ -109,8 +108,7 @@ const {
   pendingWords,
   finalSentence,
   clearAll,
-  copyResult,
-  speakResult
+  copyResult
 } = useWorkspace()
 </script>
 

@@ -65,12 +65,6 @@
           </div>
         </div>
 
-        <div class="result-toolbar">
-          <el-button type="primary" plain size="small" round @click="$emit('speak')" :disabled="!finalSentence">
-            <el-icon><Microphone /></el-icon>
-            播报
-          </el-button>
-        </div>
       </div>
     </div>
   </div>
@@ -78,7 +72,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { Aim, ChatLineSquare, Microphone } from '@element-plus/icons-vue'
+import { ChatLineSquare } from '@element-plus/icons-vue'
 
 const props = defineProps({
   gestureStream: {
@@ -117,7 +111,7 @@ const props = defineProps({
   },
 })
 
-defineEmits(['copy', 'clear', 'speak'])
+defineEmits(['copy', 'clear'])
 
 /**
  * 缓存上一次确认完成时的候选词状态
@@ -449,12 +443,6 @@ const shouldShowCandidates = computed(() => {
   }
 }
 
-.result-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 12px;
-}
-
 .list-enter-active,
 .list-leave-active {
   transition: all 0.2s ease;
@@ -507,12 +495,5 @@ const shouldShowCandidates = computed(() => {
     align-items: flex-start;
   }
 
-  .result-toolbar {
-    justify-content: stretch;
-  }
-
-  .result-toolbar :deep(.el-button) {
-    width: 100%;
-  }
 }
 </style>

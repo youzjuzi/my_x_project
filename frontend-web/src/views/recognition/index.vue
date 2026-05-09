@@ -51,7 +51,6 @@
             :final-sentence="finalSentence"
             @copy="copyResult"
             @clear="clearAll"
-            @speak="speakResult"
           />
         </el-col>
       </el-row>
@@ -235,10 +234,6 @@ const copyResult = async () => {
 
   await navigator.clipboard.writeText(finalSentence.value)
   ElMessage.success('已复制')
-}
-
-const speakResult = () => {
-  ElMessage.info('语音播报暂未实现')
 }
 
 onBeforeUnmount(() => {
