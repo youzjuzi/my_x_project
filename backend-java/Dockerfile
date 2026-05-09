@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
-ARG BACKEND_BUILD_IMAGE=docker.1ms.run/maven:3.9-eclipse-temurin-17
-ARG BACKEND_RUNTIME_IMAGE=docker.1ms.run/maven:3.9-eclipse-temurin-17
+ARG BACKEND_BUILD_IMAGE=maven:3.9-eclipse-temurin-17
+ARG BACKEND_RUNTIME_IMAGE=maven:3.9-eclipse-temurin-17
 
 # 1.构建阶段（Maven编译）
 FROM ${BACKEND_BUILD_IMAGE} AS build-stage
