@@ -9,6 +9,7 @@
 *.swp
 *~
 .DS_Store
+.m2
 
 # Environment variables - NEVER commit secrets!
 /.env
